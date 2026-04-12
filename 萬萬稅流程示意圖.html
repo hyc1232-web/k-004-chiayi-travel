@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>台灣萬萬稅流程圖</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f8f7f4;color:#1a1a18;font-size:14px;line-height:1.6}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:17px;font-weight:500;margin-bottom:3px}
+.sub{font-size:12px;color:#888780;margin-bottom:18px}
+.prod-bar{display:flex;gap:0;border:1px solid #d3d1c7;border-radius:8px;overflow:hidden;margin-bottom:16px;width:fit-content}
+.pb{padding:7px 16px;font-size:12px;cursor:pointer;background:transparent;border:none;color:#5f5e5a;white-space:nowrap}
+.pb.on{background:#f1efe8;font-weight:500;color:#1a1a18}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.leg{display:flex;align-items:center;gap:4px;font-size:11px;color:#5f5e5a}
+.lbadge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:500}
+.b-h{background:#faeeda;color:#633806}
+.b-v{background:#fcebeb;color:#791f1f}
+.b-s{background:#eeedfe;color:#3c3489}
+
+/* flow */
+.flow{display:flex;flex-direction:column;position:relative}
+.flow::before{content:'';position:absolute;left:128px;top:32px;bottom:32px;width:2px;background:#d3d1c7;z-index:0}
+.stage{display:grid;grid-template-columns:126px 1fr;gap:0;position:relative;z-index:1}
+.slabel{display:flex;flex-direction:column;align-items:flex-end;padding-right:16px;padding-top:14px}
+.snum{font-size:10px;font-weight:500;color:#888780;letter-spacing:.04em}
+.sname{font-size:12px;font-weight:500;color:#1a1a18;text-align:right;line-height:1.35;margin-top:1px}
+.sbody{padding-left:22px;padding-bottom:16px;position:relative}
+.dot{position:absolute;left:-6px;top:17px;width:12px;height:12px;border-radius:50%;border:2px solid;z-index:2;background:#f8f7f4}
+.box{border-radius:10px;padding:11px 13px;margin-top:5px;border:1px solid}
+.btitle{font-size:13px;font-weight:500;margin-bottom:4px}
+.bsub{font-size:11px;color:#5f5e5a;line-height:1.6;margin-bottom:8px}
+.taxes{display:flex;flex-wrap:wrap;gap:5px}
+.tp{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:16px;font-size:11px;font-weight:500}
+.badge{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:500;margin-left:1px}
+.arrow{height:14px;padding-left:22px;color:#b4b2a9;font-size:12px;display:flex;align-items:center;position:relative;z-index:1}
+
+/* colors */
+.s1 .dot{border-color:#1D9E75;background:#e1f5ee}.s1 .box{border-color:#9FE1CB;background:#e1f5ee}.s1 .btitle{color:#085041}
+.s2 .dot{border-color:#7F77DD;background:#eeedfe}.s2 .box{border-color:#AFA9EC;background:#eeedfe}.s2 .btitle{color:#3C3489}
+.s3 .dot{border-color:#EF9F27;background:#faeeda}.s3 .box{border-color:#FAC775;background:#faeeda}.s3 .btitle{color:#633806}
+.s4 .dot{border-color:#D85A30;background:#faece7}.s4 .box{border-color:#F0997B;background:#faece7}.s4 .btitle{color:#712B13}
+.s5 .dot{border-color:#E24B4A;background:#fcebeb}.s5 .box{border-color:#F09595;background:#fcebeb}.s5 .btitle{color:#791F1F}
+.s6 .dot{border-color:#888780;background:#f1efe8}.s6 .box{border-color:#B4B2A9;background:#f1efe8}.s6 .btitle{color:#444441}
+.tp-red{background:#fcebeb;color:#791f1f}
+.tp-amber{background:#faeeda;color:#633806}
+.tp-purple{background:#eeedfe;color:#3c3489}
+.tp-blue{background:#e6f1fb;color:#0c447c}
+.tp-gray{background:#f1efe8;color:#444441}
+.tp-coral{background:#faece7;color:#712b13}
+
+/* summary */
+.summary{margin-top:20px;background:#fff;border:1px solid #e0ddd5;border-radius:12px;padding:16px}
+.stitle{font-size:11px;font-weight:500;color:#888780;letter-spacing:.04em;margin-bottom:12px}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.sc{background:#f1efe8;border-radius:8px;padding:10px}
+.sc-l{font-size:10px;color:#5f5e5a;margin-bottom:2px}
+.sc-v{font-size:20px;font-weight:500}
+.sc-s{font-size:10px;color:#888780}
+.callout{background:#f8f7f4;border-radius:8px;padding:12px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.cnum{font-size:28px;font-weight:500;color:#E24B4A;flex-shrink:0;line-height:1.1}
+.cdesc{font-size:12px;color:#5f5e5a;line-height:1.7;flex:1;min-width:180px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>台灣萬萬稅 ── 一個產品從生產到消費者手上的完整課稅流程</h1>
+<div class="sub">政府在每個流通環節都設有課稅節點，且大多數稅已隱藏在售價內，消費者渾然不覺</div>
+
+<div class="prod-bar" id="pbar">
+  <button class="pb on">一般商品（家電）</button>
+  <button class="pb">汽車</button>
+  <button class="pb">菸酒</button>
+  <button class="pb">進口商品</button>
+</div>
+
+<div class="legend">
+  <div class="leg"><span class="lbadge b-h">隱</span>消費者看不見（已轉嫁進售價）</div>
+  <div class="leg"><span class="lbadge b-v">顯</span>消費者直接感受到</div>
+  <div class="leg"><span class="lbadge b-s">特</span>特定商品才有的額外稅</div>
+</div>
+
+<div class="flow" id="flow"></div>
+
+<div class="summary">
+  <div class="stitle">本產品課稅統計</div>
+  <div class="sgrid">
+    <div class="sc"><div class="sc-l">課稅節點總數</div><div class="sc-v" id="s1">—</div><div class="sc-s">政府抽稅次數</div></div>
+    <div class="sc"><div class="sc-l">隱藏稅（看不見）</div><div class="sc-v" id="s2">—</div><div class="sc-s">已轉嫁進售價</div></div>
+    <div class="sc"><div class="sc-l">顯性稅（看得見）</div><div class="sc-v" id="s3">—</div><div class="sc-s">發票或明示標示</div></div>
+    <div class="sc"><div class="sc-l">特種稅</div><div class="sc-v" id="s4">—</div><div class="sc-s">特定品目限定</div></div>
+  </div>
+  <div class="callout">
+    <div>
+      <div style="font-size:10px;color:#888780;margin-bottom:2px">稅負佔消費者售價估計</div>
+      <div class="cnum" id="spct">—</div>
+    </div>
+    <div class="cdesc" id="sdesc">—</div>
+  </div>
+</div>
+</div>
+
+<script>
+var DATA=[
+{key:'general',label:'一般商品（家電）',nodes:8,hidden:5,vis:2,special:1,pct:'25～35%',
+desc:'每100元售價中約25～35元是各種稅。家電的貨物稅（冷氣10%、彩電13%）在出廠時就已扣除，消費者標價裡看不到這塊，但確實付了。',
+stages:[
+  {c:'s1',n:'01',name:'原料供應商',t:'土地持有 ＋ 銷售課稅',s:'供應商持有廠房土地，每年繳房屋稅（3%）和地價稅（10‰起）。銷售給製造商時開立發票，含5%營業稅轉嫁給製造商。',
+   taxes:[{l:'房屋稅 3%（持有）',c:'tp-gray',h:true},{l:'地價稅 10‰起（持有）',c:'tp-gray',h:true},{l:'營業稅 5%（銷售）',c:'tp-amber',h:true}]},
+  {c:'s2',n:'02',name:'製造商（工廠）',t:'生產 ＋ 貨物稅出廠',s:'家電出廠時一次課貨物稅（冷氣10%、彩電13%、除濕機15%），已內含在出廠價。廠房繳持有稅，公司利潤年底繳20%營所稅，薪資扣繳員工所得稅。',
+   taxes:[{l:'貨物稅 10~25%（出廠）',c:'tp-red',h:true},{l:'廠房房屋稅 3%',c:'tp-gray',h:true},{l:'地價稅',c:'tp-gray',h:true},{l:'營所稅 20%（利潤）',c:'tp-purple',h:true},{l:'員工薪資扣繳',c:'tp-purple',h:true}]},
+  {c:'s3',n:'03',name:'批發商',t:'每次交易再加5%',s:'批發商每次進出貨以「銷項稅額－進項稅額」繳差額給國稅局。差額全部轉嫁到下游售價。合約需貼印花稅0.1%。',
+   taxes:[{l:'營業稅差額 5%',c:'tp-amber',h:true},{l:'印花稅 0.1%',c:'tp-gray',h:true}]},
+  {c:'s4',n:'04',name:'零售商',t:'開發票 ＋ 利潤再課',s:'零售商開統一發票，消費者付5%營業稅。零售商年底利潤再繳20%營所稅。老闆薪資和股利再繳個人所得稅。',
+   taxes:[{l:'營業稅 5%（消費者付）',c:'tp-red',h:false},{l:'零售商營所稅 20%',c:'tp-purple',h:true}]},
+  {c:'s5',n:'05',name:'消費者（付款瞬間）',t:'你看到的只是最後一刀',s:'你付的標價已包含所有前層隱藏稅。發票上5%是你唯一看得見的，但前面的貨物稅10%、各層5%早已壓在標價裡了。',
+   taxes:[{l:'內含營業稅 5%（顯）',c:'tp-red',h:false},{l:'內含貨物稅 10%（隱）',c:'tp-red',h:true},{l:'各層轉嫁稅負',c:'tp-gray',h:true}]},
+  {c:'s6',n:'06',name:'業者盈餘分配',t:'同一塊錢的第三輪課稅',s:'零售商賺錢，老闆發薪資繳5%～40%個人綜所稅。發股利再扣2.11%補充健保費。同一筆利潤被課了三輪：公司層→個人薪資層→股利層。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-purple',h:true},{l:'股利補充健保 2.11%',c:'tp-blue',h:true}]}
+]},
+
+{key:'car',label:'汽車',nodes:12,hidden:7,vis:4,special:5,pct:'40～55%',
+desc:'汽車是台灣終身課稅最重的商品。出廠貨物稅25%～35%只是開始，每年還要繳牌照稅和燃料費，加油的油品裡含貨物稅，一輛車從買到廢只要還在使用就一直被課。',
+stages:[
+  {c:'s1',n:'01',name:'零件進口',t:'入境關稅',s:'進口汽車零件課進口關稅（依品項0%～30%），再疊計5%營業稅。',
+   taxes:[{l:'進口關稅 0~30%',c:'tp-red',h:false},{l:'零件貨物稅',c:'tp-red',h:true,s:true},{l:'營業稅 5%',c:'tp-amber',h:true}]},
+  {c:'s2',n:'02',name:'組裝工廠',t:'整車出廠貨物稅（大刀）',s:'整車出廠課貨物稅：2000cc以下25%，超過35%。這是最大的一刀，全部藏在標價裡。廠房持有稅、利潤營所稅另計。',
+   taxes:[{l:'貨物稅 25%或35%（出廠）',c:'tp-red',h:true,s:true},{l:'廠房持有稅',c:'tp-gray',h:true},{l:'營所稅 20%',c:'tp-purple',h:true}]},
+  {c:'s3',n:'03',name:'代理商/經銷商',t:'豪華車再加特種稅',s:'售價超過300萬的車輛，在關稅+營業稅+貨物稅加總後再課10%特種貨物及勞務稅。普通車不適用。',
+   taxes:[{l:'特種貨物稅 10%（逾300萬）',c:'tp-purple',h:true,s:true},{l:'營業稅 5%',c:'tp-amber',h:true}]},
+  {c:'s4',n:'04',name:'消費者（購車）',t:'感受最貴，但大頭是隱藏的',s:'消費者感受到的5%是最小的一刀。貨物稅25%～35%才是最大稅，但已隱在標價內，買車時完全感覺不到。',
+   taxes:[{l:'內含貨物稅 25~35%（隱）',c:'tp-red',h:true,s:true},{l:'特種稅（豪車，隱）',c:'tp-purple',h:true,s:true},{l:'營業稅 5%（顯）',c:'tp-red',h:false}]},
+  {c:'s5',n:'05',name:'每年持有',t:'年年繳，直到報廢',s:'使用牌照稅（依排氣量約1,620元～117,100元/年）＋燃料費每年必繳。加油時油品每公升含貨物稅6.83元，開越多繳越多。',
+   taxes:[{l:'使用牌照稅（年）',c:'tp-red',h:false,s:true},{l:'燃料費（年）',c:'tp-amber',h:false,s:true},{l:'油品貨物稅 6.83元/公升',c:'tp-red',h:true,s:true}]},
+  {c:'s6',n:'06',name:'業者所得',t:'利潤再課兩層',s:'代理商老闆薪資繳個人所得稅，股利繳補充健保費。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-purple',h:true},{l:'股利補充健保 2.11%',c:'tp-blue',h:true}]}
+]},
+
+{key:'cigarette',label:'菸酒',nodes:11,hidden:6,vis:4,special:5,pct:'55～70%',
+desc:'一包菸160元，菸酒稅約12元＋健康福利捐約20元＋各層5%營業稅＋貨物稅，真正的菸草包裝成本不到50元。政府用菸稅同時達到財政目的和健康政策目的。',
+stages:[
+  {c:'s1',n:'01',name:'進口菸草原料',t:'關稅入境',s:'進口菸葉等原料課進口關稅（10%～20%），再疊5%營業稅。這層成本轉嫁給製造商，最終進入售價。',
+   taxes:[{l:'進口關稅 10~20%',c:'tp-red',h:false},{l:'營業稅 5%',c:'tp-amber',h:true}]},
+  {c:'s2',n:'02',name:'菸廠生產出廠',t:'三刀齊下（最密集）',s:'菸品出廠同時被課三種稅：①菸酒稅（每千支約590元）②菸品健康福利捐（每千支約1,000元）③貨物稅。後面的稅以前面稅後金額為計算基礎，層層疊加。',
+   taxes:[{l:'菸酒稅（從量）',c:'tp-coral',h:true,s:true},{l:'菸品健康福利捐（從量）',c:'tp-coral',h:true,s:true},{l:'廠房持有稅',c:'tp-gray',h:true},{l:'營所稅 20%',c:'tp-purple',h:true}]},
+  {c:'s3',n:'03',name:'批發→零售',t:'每層再加5%',s:'批發一層5%，零售一層5%，全部轉嫁消費者。菸品通路每次流通都再加一刀。',
+   taxes:[{l:'批發營業稅 5%',c:'tp-amber',h:true},{l:'零售營業稅 5%',c:'tp-red',h:false}]},
+  {c:'s4',n:'04',name:'消費者（購買）',t:'一包菸的稅金解剖',s:'一包160元：菸酒稅約12元、健康捐約20元、各層稅費加總超過一半，菸草+包裝實際成本不到1/3。政府是最大受益人。',
+   taxes:[{l:'菸酒稅（隱含）',c:'tp-coral',h:true,s:true},{l:'健康福利捐（隱含）',c:'tp-coral',h:true,s:true},{l:'營業稅 5%（顯）',c:'tp-red',h:false}]}
+]},
+
+{key:'import',label:'進口商品',nodes:9,hidden:4,vis:4,special:2,pct:'30～50%',
+desc:'進口商品最密集的課稅點在海關：關稅先算，貨物稅以（完稅價格+關稅）為基礎再算，營業稅再以前兩者加總計算。三稅疊加，每一層的稅基越來越大。此外出口國生產稅也間接轉嫁入售價。',
+stages:[
+  {c:'s1',n:'01',name:'出口國（境外）',t:'境外稅負隱藏轉嫁',s:'出口國廠商已繳當地生產稅、所得稅、社會保險等。這些成本全部轉嫁進出口報價，台灣消費者間接支付了外國政府的稅。',
+   taxes:[{l:'出口國生產稅（隱）',c:'tp-gray',h:true},{l:'出口國所得稅（隱）',c:'tp-gray',h:true}]},
+  {c:'s2',n:'02',name:'海關（入境台灣）',t:'一站被課 3～4 種稅',s:'最密集的課稅節點。計算公式：①進口關稅（完稅價格×稅率）→ ②貨物稅（完稅價格+關稅）×稅率 → ③營業稅（完稅+關稅+貨物稅）×5%。後面的稅以前面稅後金額為基礎，疊加放大。',
+   taxes:[{l:'進口關稅 0~30%（顯）',c:'tp-red',h:false},{l:'貨物稅（適用品，顯）',c:'tp-red',h:false,s:true},{l:'菸酒稅（若適用，顯）',c:'tp-coral',h:false,s:true},{l:'營業稅 5%（代徵，顯）',c:'tp-amber',h:false}]},
+  {c:'s3',n:'03',name:'進口商/代理商',t:'境內流通再課',s:'每次批發交易再繳5%營業稅差額，利潤年底繳20%營所稅。',
+   taxes:[{l:'批發營業稅差額 5%',c:'tp-amber',h:true},{l:'進口商營所稅 20%',c:'tp-purple',h:true}]},
+  {c:'s4',n:'04',name:'零售商',t:'最後一層顯性稅',s:'零售商開統一發票，消費者付5%。這是整條鏈上消費者唯一看得到的稅。',
+   taxes:[{l:'零售營業稅 5%（顯）',c:'tp-red',h:false},{l:'零售商營所稅 20%',c:'tp-purple',h:true}]},
+  {c:'s5',n:'05',name:'業者盈餘分配',t:'利潤第三輪課稅',s:'代理商、零售商老闆薪資和股利再繳個人所得稅和補充健保費。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-purple',h:true},{l:'股利補充健保 2.11%',c:'tp-blue',h:true}]}
+]}
+];
+
+var cur=0;
+function render(idx){
+  var P=DATA[idx];
+  var html='';
+  P.stages.forEach(function(st,i){
+    if(i>0) html+='<div class="arrow">▼</div>';
+    var tx=st.taxes.map(function(t){
+      var hb='<span class="badge '+(t.h?'b-h':'b-v')+'">'+(t.h?'隱':'顯')+'</span>';
+      var sb=t.s?'<span class="badge b-s">特</span>':'';
+      return '<span class="tp '+t.c+'">'+t.l+hb+sb+'</span>';
+    }).join('');
+    html+='<div class="stage '+st.c+'"><div class="slabel"><span class="snum">STAGE '+st.n+'</span><span class="sname">'+st.name+'</span></div>'
+      +'<div class="sbody"><div class="dot"></div><div class="box"><div class="btitle">'+st.t+'</div><div class="bsub">'+st.s+'</div><div class="taxes">'+tx+'</div></div></div></div>';
+  });
+  document.getElementById('flow').innerHTML=html;
+  document.getElementById('s1').textContent=P.nodes;
+  document.getElementById('s2').textContent=P.hidden;
+  document.getElementById('s3').textContent=P.vis;
+  document.getElementById('s4').textContent=P.special;
+  document.getElementById('spct').textContent=P.pct;
+  document.getElementById('sdesc').textContent=P.desc;
+}
+
+document.getElementById('pbar').querySelectorAll('.pb').forEach(function(b,i){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.pb').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    cur=i;
+    render(i);
+  });
+});
+
+render(0);
+</script>
+</body>
+</html>
