@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>台灣萬萬稅流程圖</title>
+<style>
+/* 最外層只需把 custom element 撐開 */
+body{margin:0;background:#f8f7f4;font-family:system-ui,-apple-system,sans-serif}
+tax-flow-chart{display:block}
+/* 嵌入說明區 */
+.embed-section{max-width:860px;margin:0 auto;padding:8px 16px 32px;font-size:12px;color:#888780}
+.embed-section summary{cursor:pointer;user-select:none}
+.embed-section textarea{display:block;width:100%;margin-top:8px;padding:8px;font-size:11px;font-family:monospace;border:1px solid #d3d1c7;border-radius:6px;background:#f8f7f4;resize:none;color:#1a1a18}
+</style>
+</head>
+<body>
+<tax-flow-chart></tax-flow-chart>
+
+<div class="embed-section">
+  <details>
+    <summary>▶ 嵌入此工具到其他網頁（複製 iframe 代碼）</summary>
+    <textarea id="embed-code" rows="4" readonly></textarea>
+  </details>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   台灣萬萬稅 v6  ─  tax_flow.html
+   此檔案為完整 HTML 文件，無法用 <script src> 引入。
+   嵌入其他頁面請使用 <iframe>（見頁面底部嵌入碼）。
+   若需獨立 Web Component，請將 IIFE 內容另存 .js 檔。
+═══════════════════════════════════════════════════ */
+(function(){
+
+/* ── 資料 ────────────────────────────────────────── */
+const DATA=[
+/* 0 一般商品 */
+{calcType:'general',pct:'25～35%',
+desc:'每100元售價中約25～35元是各種稅。家電的貨物稅（冷氣10%、彩電13%）在出廠時就已內含在標價，消費者不會在發票上看到，但確實已支付。',
+stages:[
+  {c:'s1',n:'01',name:'原料供應商',t:'土地持有 ＋ 銷售課稅',foreign:false,
+   s:'持有廠房每年繳房屋稅（商業用3%~5%；自住1%~1.2%，依用途與地方公告而異）和地價稅（一般10‰起；自住2‰）。銷售開立發票含5%營業稅。',
+   taxes:[{l:'房屋稅（商業3~5%／自住1~1.2%，依地方公告）',c:'tp-gry',h:1},{l:'地價稅（一般10‰+）',c:'tp-gry',h:1},{l:'營業稅 5%',c:'tp-amb',h:1}]},
+  {c:'s2',n:'02',name:'製造商（工廠）',t:'生產 ＋ 貨物稅出廠',foreign:false,
+   s:'家電出廠課貨物稅（冷氣10%、彩電13%、除濕機15%），以出廠價為稅基，已內含出廠價。廠房繳持有稅，利潤繳20%營所稅，薪資代扣所得稅。',
+   taxes:[{l:'貨物稅 10~25%（出廠價計）',c:'tp-red',h:1,s:1},{l:'廠房房屋稅',c:'tp-gry',h:1},{l:'地價稅',c:'tp-gry',h:1},{l:'營所稅 20%',c:'tp-pur',h:1},{l:'薪資扣繳',c:'tp-pur',h:1}]},
+  {c:'s3',n:'03',name:'批發商',t:'加值型營業稅（非逐層疊加）',foreign:false,
+   s:'台灣採加值型營業稅（VAT）：批發商以「銷項稅額－進項稅額」繳差額，不是完整5%再疊一個5%。最終全部稅負由終端消費者承擔，金額等於零售含稅價中的5%。合約需貼印花稅0.1%。',
+   taxes:[{l:'營業稅差額（加值型，非累積疊加）',c:'tp-amb',h:1},{l:'印花稅 0.1%',c:'tp-gry',h:1}]},
+  {c:'s4',n:'04',name:'零售商',t:'開發票 ＋ 利潤再課',foreign:false,
+   s:'開統一發票，消費者付5%營業稅。利潤年底繳20%營所稅。',
+   taxes:[{l:'營業稅 5%（消費者付）',c:'tp-red',h:0},{l:'零售商營所稅 20%',c:'tp-pur',h:1}]},
+  {c:'s5',n:'05',name:'消費者（付款）',t:'你看到的只是最後一刀',foreign:false,
+   s:'你付的標價已包含所有前層隱藏稅。貨物稅10%+早已壓在標價裡；營業稅為加值型，消費者實際負擔為零售含稅價的5%，非各層累積。',
+   taxes:[{l:'內含營業稅 5%（顯）',c:'tp-red',h:0},{l:'內含貨物稅 10%+（隱）',c:'tp-red',h:1},{l:'各層轉嫁稅負（隱）',c:'tp-gry',h:1}]},
+  {c:'s6',n:'06',name:'業者盈餘分配',t:'同一塊錢的第三輪課稅',foreign:false,
+   s:'老闆薪資繳5%～40%個人綜所稅；股利可能涉及2.11%補充保險費（有2萬元門檻、投保身分差異與可扣除部分，非每筆固定扣）。同一筆利潤課了三輪。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-pur',h:1},{l:'補充保險費（可能2.11%，視金額與投保身分）',c:'tp-blu',h:1}]}
+]},
+/* 1 汽車 */
+{calcType:'car',pct:'35～50%',
+desc:'汽車是台灣終身課稅最重的商品。出廠貨物稅25%～30%（2000cc為界）是最大一刀，每年使用牌照稅持續課稅直到報廢。2016年奢侈稅已廢止。⚠ 2025年新政策：2000cc以下新車最高可減徵貨物稅10萬元；電動小客車完稅價格140萬元以下免徵貨物稅，超過部分減半徵收（至2030年）。',
+stages:[
+  {c:'s1',n:'01',name:'零件進口',t:'入境關稅',foreign:false,
+   s:'進口零件課進口關稅（依品項0%～30%），再疊5%營業稅。',
+   taxes:[{l:'進口關稅 0~30%',c:'tp-red',h:1},{l:'零件貨物稅（部分品）',c:'tp-red',h:1,s:1},{l:'營業稅 5%',c:'tp-amb',h:1}]},
+  {c:'s2',n:'02',name:'組裝工廠',t:'整車出廠：貨物稅（最大一刀）',foreign:false,
+   s:'整車出廠課貨物稅：2000cc以下25%，2000cc以上30%（貨物稅條例第12條），以出廠價為稅基。\n⚠ 2025年：電動小客車完稅價格140萬元以下免徵貨物稅；超過部分減半徵收（第12條之3，至2030年）。',
+   taxes:[{l:'貨物稅 25%（≤2000cc）',c:'tp-red',h:1,s:1},{l:'貨物稅 30%（>2000cc）',c:'tp-red',h:1,s:1},{l:'電動小客車免貨物稅（≤140萬元）',c:'tp-tel',h:1,s:1},{l:'廠房持有稅',c:'tp-gry',h:1},{l:'營所稅 20%',c:'tp-pur',h:1}]},
+  {c:'s3',n:'03',name:'代理商/經銷商',t:'流通課稅（無奢侈稅）',foreign:false,
+   s:'每次銷售開統一發票，5%營業稅由買家付。2016年奢侈稅已廢止，無豪車額外加稅。',
+   taxes:[{l:'營業稅 5%',c:'tp-amb',h:1}]},
+  {c:'s4',n:'04',name:'消費者（購車）',t:'大頭是隱藏的貨物稅',foreign:false,
+   s:'消費者感受到5%最明顯，但貨物稅25%～30%才是大頭，早已隱在標價內。\n⚠ 2025年減免：2000cc以下新購車可減徵5萬元，加汰舊換新再減5萬，合計最高減10萬（第12條之5）。',
+   taxes:[{l:'內含貨物稅 25~30%（隱）',c:'tp-red',h:1,s:1},{l:'新車減徵最高10萬（2000cc以下）',c:'tp-tel',h:1,s:1},{l:'營業稅 5%（顯）',c:'tp-red',h:0}]},
+  {c:'s5',n:'05',name:'每年持有',t:'年年繳，直到報廢',foreign:false,
+   s:'使用牌照稅（依排氣量約1,620元～117,100元/年）每年必繳。加油時油品每公升含貨物稅6.83元。\n⚠ 「燃料費」於2026年起正式更名為「公路使用養護安全管理費」，屬另行課徵之管理費，與使用牌照稅為不同制度。電動車目前亦在免徵名單內。',
+   taxes:[{l:'使用牌照稅（年）',c:'tp-red',h:0,s:1},{l:'公路使用養護安全管理費（2026年起，非牌照稅）',c:'tp-gry',h:0,s:1},{l:'油品貨物稅 6.83元/公升',c:'tp-red',h:1,s:1}]},
+  {c:'s6',n:'06',name:'業者所得',t:'利潤再課兩層',foreign:false,
+   s:'代理商老闆薪資繳個人所得稅；股利可能涉及2.11%補充保險費（有2萬元門檻與投保身分條件）。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-pur',h:1},{l:'補充保險費（可能2.11%，視金額與投保身分）',c:'tp-blu',h:1}]}
+]},
+/* 2 菸酒 */
+{calcType:'cigarette',pct:'55～70%',
+desc:'一包菸約160元：菸酒稅≈31.8元（1,590÷50）、健康福利捐≈20元（1,000÷50），加5%營業稅（加值型，非逐層疊加），真正菸草成本不到售價1/3。菸品依「菸酒稅法」課菸酒稅，不課「貨物稅」。',
+stages:[
+  {c:'s1',n:'01',name:'進口菸草原料',t:'關稅入境',foreign:false,
+   s:'進口菸葉課進口關稅（10%～20%），再疊5%營業稅，轉嫁給製造商。',
+   taxes:[{l:'進口關稅 10~20%',c:'tp-red',h:1},{l:'營業稅 5%',c:'tp-amb',h:1}]},
+  {c:'s2',n:'02',name:'菸廠生產出廠',t:'菸酒稅 ＋ 健康福利捐（雙重課稅）',foreign:false,
+   s:'菸品出廠課：①菸酒稅（≈1,590元/千支，菸酒稅法）②菸品健康福利捐（≈1,000元/千支，菸害防制法）。注意：菸品不課貨物稅。',
+   taxes:[{l:'菸酒稅（≈1,590元/千支）',c:'tp-tel',h:1,s:1},{l:'健康福利捐（≈1,000元/千支）',c:'tp-tel',h:1,s:1},{l:'廠房持有稅',c:'tp-gry',h:1},{l:'營所稅 20%',c:'tp-pur',h:1}]},
+  {c:'s3',n:'03',name:'批發→零售',t:'營業稅差額（加值型，非逐層疊加）',foreign:false,
+   s:'台灣採「加值型營業稅」：每個環節以「銷項稅額－進項稅額」繳差額，非完整5%逐層累積。最終消費者負擔零售含稅價中的5%，不是5%×層數。',
+   taxes:[{l:'批發環節：繳銷項與進項差額',c:'tp-amb',h:1},{l:'零售環節：消費者付零售價5%',c:'tp-red',h:0}]},
+  {c:'s4',n:'04',name:'消費者（購買）',t:'一包菸的稅金解剖',foreign:false,
+   s:'一包菸160元：菸酒稅≈31.8元（1,590÷50）、健康捐≈20元（1,000÷50）、加5%營業稅（加值型）。真正菸草成本不到50元。',
+   taxes:[{l:'菸酒稅（隱含，≈32元/包）',c:'tp-tel',h:1,s:1},{l:'健康福利捐（隱含，≈20元/包）',c:'tp-tel',h:1,s:1},{l:'營業稅 5%（顯）',c:'tp-red',h:0}]}
+]},
+/* 3 進口商品 */
+{calcType:'import',pct:'30～50%',
+desc:'進口商品在海關一站被課3～4種稅，且疊加計算：先算關稅→再算貨物稅→再算5%營業稅，每層稅基越算越大。境外生產稅以虛線框視覺區隔，非台灣政府課稅。',
+stages:[
+  {c:'s1',n:'01',name:'出口國（境外）',t:'境外稅負轉嫁（非台灣政府課稅）',foreign:true,
+   s:'出口國廠商已繳當地生產稅、所得稅、社保等，成本轉嫁進出口報價。台灣消費者間接支付，但屬境外稅負，以虛線框區隔。',
+   taxes:[{l:'出口國生產稅（境外，隱）',c:'tp-ext',h:1},{l:'出口國所得稅（境外，隱）',c:'tp-ext',h:1}]},
+  {c:'s2',n:'02',name:'海關（入境台灣）',t:'一站課 3～4 種稅（疊加計算）',foreign:false,
+   s:'計算順序：①進口關稅（完稅×稅率）→②貨物稅（完稅+關稅）×稅率→③營業稅（完稅+關稅+貨物稅）×5%。後面的稅基越來越大。對終端消費者均為隱藏稅。',
+   taxes:[{l:'進口關稅 0~30%',c:'tp-red',h:1},{l:'貨物稅（適用品，隱）',c:'tp-red',h:1,s:1},{l:'菸酒稅（適用品，隱）',c:'tp-tel',h:1,s:1},{l:'營業稅 5%（代徵）',c:'tp-amb',h:1}]},
+  {c:'s3',n:'03',name:'進口商/代理商',t:'境內流通再課',foreign:false,
+   s:'每次批發交易再繳5%營業稅差額，利潤年底繳20%營所稅。',
+   taxes:[{l:'批發營業稅差額 5%',c:'tp-amb',h:1},{l:'進口商營所稅 20%',c:'tp-pur',h:1}]},
+  {c:'s4',n:'04',name:'零售商',t:'消費者唯一看得見的稅',foreign:false,
+   s:'零售商開統一發票，消費者付5%。這是整條鏈上終端消費者唯一直接感受到的稅。',
+   taxes:[{l:'零售營業稅 5%（顯）',c:'tp-red',h:0},{l:'零售商營所稅 20%（隱）',c:'tp-pur',h:1}]},
+  {c:'s5',n:'05',name:'業者盈餘分配',t:'利潤第三輪課稅',foreign:false,
+   s:'代理商、零售商老闆薪資繳個人所得稅；股利可能涉及2.11%補充保險費（有2萬元門檻與投保身分條件）。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-pur',h:1},{l:'補充保險費（可能2.11%，視金額與投保身分）',c:'tp-blu',h:1}]}
+]},
+/* 4 電動車 */
+{calcType:'ev',pct:'10～20%',
+desc:'電動車在2025年政策後稅負大幅降低。完稅價格140萬以下免徵貨物稅；超過部分減半徵收（延長至2030年底）。此外，完全以電能為動力之車輛免徵使用牌照稅至2030年12月31日。140萬以下主要稅負為5%營業稅；超過部分另有減半徵收之貨物稅。整體仍是所有品類中稅負最低的。未來可能另議「道路使用費」或其他新費制（與現行公路使用養護安全管理費為不同概念）。',
+stages:[
+  {c:'s1',n:'01',name:'電池/零件進口',t:'入境關稅（電芯多已降稅）',foreign:false,
+   s:'電動車電池電芯關稅已部分降至0%（鼓勵轉型政策），其他零件0%～10%。整體進口稅負低於燃油車引擎零件。',
+   taxes:[{l:'電芯/電池關稅（部分0%）',c:'tp-gry',h:1},{l:'其他零件關稅 0~10%',c:'tp-gry',h:1},{l:'營業稅 5%',c:'tp-amb',h:1}]},
+  {c:'s2',n:'02',name:'組裝工廠',t:'出廠：電動小客車≤140萬元免貨物稅（至2030）',foreign:false,
+   s:'電動小客車完稅價格140萬元以下免徵貨物稅，超過部分減半徵收，優惠至2030年底（貨物稅條例第12條之3）。相比同價位燃油車少繳大量貨物稅。廠房持有稅和營所稅照常。',
+   taxes:[{l:'電動小客車≤140萬元免貨物稅（至2030年）',c:'tp-tel',h:1,s:1},{l:'廠房持有稅',c:'tp-gry',h:1},{l:'營所稅 20%',c:'tp-pur',h:1}]},
+  {c:'s3',n:'03',name:'代理商/經銷商',t:'流通課稅（與燃油車相同）',foreign:false,
+   s:'每次銷售開統一發票，5%營業稅由買家付，與燃油車相同。',
+   taxes:[{l:'營業稅 5%',c:'tp-amb',h:1}]},
+  {c:'s4',n:'04',name:'消費者（購車）',t:'貨物稅大幅降低（140萬以下全免，超過減半）',foreign:false,
+   s:'完稅價格140萬以下：貨物稅全免，只付5%營業稅。超過140萬：超出部分減半徵收貨物稅。相比同價位燃油車仍可省下大量稅負。',
+   taxes:[{l:'營業稅 5%（顯）',c:'tp-red',h:0}]},
+  {c:'s5',n:'05',name:'每年持有',t:'使用牌照稅免徵（至2030年）',foreign:false,
+   s:'電動車使用牌照稅目前免徵至2030年底（使用牌照稅法第5條修正）。無油品貨物稅支出（不加油）。\n⚠ 未來另議的「道路使用費」為全新費制，與現行「公路使用養護安全管理費」不同概念，目前仍在規劃中，尚未立法。',
+   taxes:[{l:'免使用牌照稅（至2030年）',c:'tp-tel',h:0,s:1},{l:'未來另議新費制（非現行公路使用養護安全管理費）',c:'tp-gry',h:0,s:1}]},
+  {c:'s6',n:'06',name:'業者所得',t:'利潤再課兩層',foreign:false,
+   s:'代理商老闆薪資繳個人所得稅；股利可能涉及2.11%補充保險費（有2萬元門檻與投保身分條件），與其他行業相同。',
+   taxes:[{l:'個人綜所稅 5~40%',c:'tp-pur',h:1},{l:'補充保險費（可能2.11%，視金額與投保身分）',c:'tp-blu',h:1}]}
+]}
+];
+
+const LABELS=['一般商品（家電）','汽車','菸品','進口商品','電動車'];
+
+/* ── CSS（整個放進 shadow DOM）── */
+const CSS=`
+:host{display:block;font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.6;color:#1a1a18}
+:host *{box-sizing:border-box;margin:0;padding:0}
+/* tokens */
+:host{
+  --label-width:126px;--line-offset:calc(var(--label-width) + 2px);
+  --color-bg:#f8f7f4;--color-surface:#fff;--color-border:#d3d1c7;--color-border-lt:#e0ddd5;
+  --color-text:#1a1a18;--color-muted:#5f5e5a;--color-hint:#888780;
+  --stage1-color:#1D9E75;--stage1-bg:#e1f5ee;--stage1-bd:#9FE1CB;
+  --stage2-color:#534AB7;--stage2-bg:#eeedfe;--stage2-bd:#AFA9EC;
+  --stage3-color:#BA7517;--stage3-bg:#faeeda;--stage3-bd:#FAC775;
+  --stage4-color:#993C1D;--stage4-bg:#faece7;--stage4-bd:#F0997B;
+  --stage5-color:#A32D2D;--stage5-bg:#fcebeb;--stage5-bd:#F09595;
+  --stage6-color:#5F5E5A;--stage6-bg:#f1efe8;--stage6-bd:#B4B2A9;
+  --badge-hidden-bg:#faeeda;--badge-hidden-txt:#633806;--badge-visible-bg:#CECBF6;--badge-visible-txt:#26215C;--badge-special-bg:#9FE1CB;--badge-special-txt:#04342C;
+  --pill-red-bg:#fcebeb;--pill-red-txt:#791f1f;--pill-amb-bg:#faeeda;--pill-amb-txt:#633806;--pill-pur-bg:#eeedfe;--pill-pur-txt:#3c3489;
+  --pill-blu-bg:#e6f1fb;--pill-blu-txt:#0c447c;--pill-gry-bg:#f1efe8;--pill-gry-txt:#444441;--pill-tel-bg:#e1f5ee;--pill-tel-txt:#085041;
+  --pill-ext-bg:#f1efe8;--pill-ext-txt:#888780;
+}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px 32px;background:var(--color-bg)}
+h1{font-size:17px;font-weight:500;margin-bottom:3px}
+.page-sub{font-size:12px;color:var(--color-hint);margin-bottom:18px}
+/* tabs */
+.prod-bar{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.pb{padding:7px 14px;font-size:12px;cursor:pointer;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-muted)}
+.pb:hover{background:var(--stage6-bg);color:var(--color-text)}
+.pb:focus-visible{outline:2px solid var(--stage2-color);outline-offset:2px}
+.pb[aria-selected=true]{background:var(--stage6-bg);color:var(--color-text);font-weight:500;border-color:var(--color-hint)}
+/* legend */
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-muted)}
+.lbadge{font-size:11px;padding:2px 7px;border-radius:3px;font-weight:500;line-height:1.5}
+.b-h{background:var(--badge-hidden-bg);color:var(--badge-hidden-txt)}.b-v{background:var(--badge-visible-bg);color:var(--badge-visible-txt)}.b-s{background:var(--badge-special-bg);color:var(--badge-special-txt)}
+/* flow */
+.flow{display:flex;flex-direction:column;position:relative}
+.flow::before{content:'';position:absolute;left:var(--line-offset);top:32px;bottom:32px;width:2px;background:var(--color-border-lt);z-index:0}
+.stage{display:grid;grid-template-columns:var(--label-width) 1fr;position:relative;z-index:1}
+.slabel{display:flex;flex-direction:column;align-items:flex-end;padding-right:16px;padding-top:14px}
+.snum{font-size:11px;font-weight:500;color:var(--color-hint);letter-spacing:.04em;line-height:1.5}
+.sname{font-size:12px;font-weight:500;text-align:right;line-height:1.35;margin-top:1px}
+.sbody{padding-left:22px;padding-bottom:16px;position:relative}
+.dot{position:absolute;left:-6px;top:17px;width:12px;height:12px;border-radius:50%;border:2px solid;z-index:2;background:var(--color-bg)}
+.box{border-radius:10px;padding:11px 13px;margin-top:5px;border:1px solid}
+.box.foreign{border-style:dashed;opacity:.82}
+.btitle{font-size:13px;font-weight:500;margin-bottom:4px}
+.bsub{font-size:12px;color:var(--color-muted);line-height:1.6;margin-bottom:8px}
+.taxes{display:flex;flex-wrap:wrap;gap:5px}
+.tp{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:16px;font-size:12px;font-weight:500}
+.badge{font-size:11px;padding:1px 5px;border-radius:3px;font-weight:500;margin-left:2px;line-height:1.5}
+.arrow{height:14px;padding-left:22px;color:var(--color-hint);font-size:12px;display:flex;align-items:center;position:relative;z-index:1}
+.s1 .dot{border-color:var(--stage1-color)}.s1 .box{border-color:var(--stage1-bd);background:var(--stage1-bg)}.s1 .btitle{color:var(--stage1-color)}
+.s2 .dot{border-color:var(--stage2-color)}.s2 .box{border-color:var(--stage2-bd);background:var(--stage2-bg)}.s2 .btitle{color:var(--stage2-color)}
+.s3 .dot{border-color:var(--stage3-color)}.s3 .box{border-color:var(--stage3-bd);background:var(--stage3-bg)}.s3 .btitle{color:var(--stage3-color)}
+.s4 .dot{border-color:var(--stage4-color)}.s4 .box{border-color:var(--stage4-bd);background:var(--stage4-bg)}.s4 .btitle{color:var(--stage4-color)}
+.s5 .dot{border-color:var(--stage5-color)}.s5 .box{border-color:var(--stage5-bd);background:var(--stage5-bg)}.s5 .btitle{color:var(--stage5-color)}
+.s6 .dot{border-color:var(--stage6-color)}.s6 .box{border-color:var(--stage6-bd);background:var(--stage6-bg)}.s6 .btitle{color:var(--stage6-color)}
+.tp-red{background:var(--pill-red-bg);color:var(--pill-red-txt)}.tp-amb{background:var(--pill-amb-bg);color:var(--pill-amb-txt)}
+.tp-pur{background:var(--pill-pur-bg);color:var(--pill-pur-txt)}.tp-blu{background:var(--pill-blu-bg);color:var(--pill-blu-txt)}
+.tp-gry{background:var(--pill-gry-bg);color:var(--pill-gry-txt)}.tp-tel{background:var(--pill-tel-bg);color:var(--pill-tel-txt)}
+.tp-ext{background:var(--pill-ext-bg);color:var(--pill-ext-txt);border:1px dashed var(--color-border)}
+/* summary */
+.summary{margin-top:20px;background:var(--color-surface);border:1px solid var(--color-border-lt);border-radius:12px;padding:16px}
+.stitle{font-size:12px;font-weight:500;color:var(--color-hint);letter-spacing:.04em;margin-bottom:12px}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.sc{background:var(--stage6-bg);border-radius:8px;padding:10px}
+.sc-l{font-size:11px;color:var(--color-muted);margin-bottom:2px;line-height:1.5}
+.sc-v{font-size:20px;font-weight:500}
+.sc-s{font-size:11px;color:var(--color-hint);line-height:1.5}
+.callout{background:var(--color-bg);border-radius:8px;padding:12px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.cnum{font-size:28px;font-weight:500;color:var(--pill-red-txt);flex-shrink:0;line-height:1.1}
+.cdesc{font-size:12px;color:var(--color-muted);line-height:1.7;flex:1;min-width:180px}
+/* calculator */
+.calc-wrap{margin-top:16px;background:var(--color-surface);border:1px solid var(--color-border-lt);border-radius:12px;padding:16px}
+.calc-title{font-size:12px;font-weight:500;color:var(--color-hint);letter-spacing:.04em;margin-bottom:12px}
+.c-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.c-row label{font-size:12px;color:var(--color-muted);width:170px;flex-shrink:0;padding-top:7px;line-height:1.4}
+.c-row label small{display:block;font-size:10px;color:var(--color-hint)}
+.c-row input[type=number]{flex:1;min-width:110px;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;font-size:13px;background:var(--color-surface);color:var(--color-text)}
+.c-row input[type=number]:focus{outline:2px solid var(--stage2-color);outline-offset:1px}
+.c-row input[type=range]{flex:1;min-width:100px;margin-top:9px}
+.c-row .rval{font-size:12px;font-weight:500;min-width:40px;text-align:right;padding-top:9px}
+.c-btn{padding:6px 16px;border:1px solid var(--color-border);border-radius:6px;background:var(--stage6-bg);cursor:pointer;font-size:12px;color:var(--color-text)}
+.c-btn:hover{background:var(--color-border-lt)}
+.c-btn:focus-visible{outline:2px solid var(--stage2-color);outline-offset:2px}
+.calc-out{display:none;border-top:1px solid var(--color-border-lt);padding-top:12px;margin-top:10px}
+.calc-out.show{display:block}
+.cot{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--stage6-bg)}
+.cot:last-of-type{border:none}
+.cot span:first-child{color:var(--color-muted)}
+.cot.total span{font-size:13px;font-weight:500}
+.cot.total span:last-child{color:var(--pill-red-txt)}
+.cot.saving span:last-child{color:var(--stage1-color);font-weight:500}
+.cot.cascade{padding-left:14px;border-left:2px solid var(--color-border-lt);margin-left:4px}
+.calc-note{font-size:11px;color:var(--color-hint);margin-top:8px;line-height:1.6;padding:8px 10px;background:var(--stage6-bg);border-radius:6px}
+/* source */
+.src-note{margin-top:14px;font-size:11px;color:var(--color-hint);border-top:1px solid var(--color-border-lt);padding-top:10px;line-height:1.7}
+/* print section */
+.print-section{display:none}
+/* RWD */
+@media(max-width:600px){
+  :host{--label-width:88px}
+  .prod-bar{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .sgrid{grid-template-columns:repeat(2,1fr)}
+  .c-row label{width:100%}
+}
+@media print{
+  .prod-bar,.legend,.calc-wrap,.src-note,.summary{display:none!important}
+  .flow{display:none!important}
+  .print-section{display:block!important}
+  .print-block{margin-bottom:32px;page-break-inside:avoid}
+  .print-block h2{font-size:13px;font-weight:500;margin-bottom:8px;color:var(--color-muted)}
+}
+`;
+
+/* ── HTML 模板 ── */
+const TEMPLATE=`
+<div class="wrap">
+  <h1>台灣萬萬稅 ── 產品從生產到消費者手上的完整課稅流程</h1>
+  <div class="page-sub">政府在每個流通環節都設有課稅節點，且多數稅已隱藏在售價內，消費者渾然不覺</div>
+  <div class="prod-bar" role="tablist" aria-label="選擇產品類型" id="pbar">
+    <button class="pb" role="tab" aria-selected="true"  tabindex="0"  id="tab-0">一般商品（家電）</button>
+    <button class="pb" role="tab" aria-selected="false" tabindex="-1" id="tab-1">汽車</button>
+    <button class="pb" role="tab" aria-selected="false" tabindex="-1" id="tab-2">菸品</button>
+    <button class="pb" role="tab" aria-selected="false" tabindex="-1" id="tab-3">進口商品</button>
+    <button class="pb" role="tab" aria-selected="false" tabindex="-1" id="tab-4">⚡ 電動車</button>
+  </div>
+  <div class="legend" aria-label="圖例說明">
+    <div class="leg"><span class="lbadge b-h">▲ 隱</span>消費者看不見（已轉嫁進售價）</div>
+    <div class="leg"><span class="lbadge b-v">■ 顯</span>消費者直接感受到</div>
+    <div class="leg"><span class="lbadge b-s">◆ 特</span>特定商品才有的額外稅</div>
+  </div>
+  <div class="flow" role="tabpanel" id="flow" aria-live="off" aria-label="課稅流程圖"></div>
+  <div class="summary">
+    <div class="stitle">本產品課稅統計（自動計算自資料標籤）</div>
+    <div class="sgrid">
+      <div class="sc"><div class="sc-l">課稅 pill 總數</div><div class="sc-v" id="s1">—</div><div class="sc-s">各 stage 稅項合計</div></div>
+      <div class="sc"><div class="sc-l">▲ 隱藏稅</div><div class="sc-v" id="s2">—</div><div class="sc-s">消費者感受不到</div></div>
+      <div class="sc"><div class="sc-l">■ 顯性稅</div><div class="sc-v" id="s3">—</div><div class="sc-s">消費者看得到</div></div>
+      <div class="sc"><div class="sc-l">◆ 特種稅</div><div class="sc-v" id="s4">—</div><div class="sc-s">特定品目限定</div></div>
+    </div>
+    <div class="callout">
+      <div>
+        <div style="font-size:11px;color:var(--color-hint);margin-bottom:2px">估計稅負佔終端售價</div>
+        <div class="cnum" id="spct">—</div>
+      </div>
+      <div class="cdesc" id="sdesc">—</div>
+    </div>
+  </div>
+  <div class="calc-wrap" id="calc-area"></div>
+  <div class="print-section" id="print-section"></div>
+  <div class="src-note">
+    資料來源：財政部稅務入口網、貨物稅條例、菸酒稅法、菸害防制法、全民健康保險法（2026年現行法規）。<br>
+    ▸ 汽車貨物稅依「貨物稅條例第12條」；2016年特種貨物及勞務稅（奢侈稅）已廢止。<br>
+    ▸ <strong>2025年9月起</strong>：2,000cc以下新購車減徵最高10萬（第12條之5）；電動車免稅延長至2030年底（第12條之3），電動小客車完稅價格140萬元以下免徵貨物稅，超過部分減半徵收。<br>
+    ▸ 菸品依「菸酒稅法」課菸酒稅（≈1,590元/千支），另依「菸害防制法」課健康福利捐（≈1,000元/千支），菸品不課貨物稅。<br>
+    ▸ 汽車「公路使用養護安全管理費」（原稱汽車燃料使用費）與使用牌照稅為不同制度，電動車目前亦在免徵名單內。
+  </div>
+</div>
+`;
+
+/* ── 工具 ── */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmt(n){return '約 '+Math.round(n).toLocaleString()+' 元';}
+
+/* ── buildFlow ── */
+function buildFlow(P){
+  let hn=0,vn=0,sn=0,html='';
+  P.stages.forEach((st,i)=>{
+    st.taxes.forEach(t=>{if(t.h)hn++;else vn++;if(t.s)sn++;});
+    if(i>0) html+='<div class="arrow" aria-hidden="true">▼</div>';
+    const tx=st.taxes.map(t=>{
+      const marker=t.s?'◆':(t.h?'▲':'■');
+      const typeLabel=(t.s?'特種':'')+(t.h?'隱藏':'顯性')+'稅';
+      const hb=`<span class="badge ${t.h?'b-h':'b-v'}">${t.h?'▲ 隱':'■ 顯'}</span>`;
+      const sb=t.s?'<span class="badge b-s">◆ 特</span>':'';
+      return `<span class="tp ${esc(t.c)}" title="${marker} ${esc(typeLabel)}">${esc(t.l)}${hb}${sb}</span>`;
+    }).join('');
+    const bCls='box'+(st.foreign?' foreign':'');
+    html+=`<div class="stage ${esc(st.c)}">
+      <div class="slabel"><span class="snum">STAGE ${esc(st.n)}</span><span class="sname">${esc(st.name)}</span></div>
+      <div class="sbody"><div class="dot" aria-hidden="true"></div>
+      <div class="${bCls}"><div class="btitle">${esc(st.t)}</div>
+      <div class="bsub">${esc(st.s).replace(/\n/g,'<br>')}</div>
+      <div class="taxes">${tx}</div></div></div></div>`;
+  });
+  return {html,hn,vn,sn};
+}
+
+/* ── buildCalc：各 tab 專屬計算器 ── */
+function buildCalcHTML(type){
+  if(type==='general') return `
+    <div class="calc-title">稅金試算器 ── 一般家電</div>
+    <div class="c-row"><label>商品含稅售價（元）</label><input type="number" id="g-price" min="1" placeholder="例如 30000"><button class="c-btn" id="g-btn">試算</button></div>
+    <div class="c-row"><label>出廠價估零售價比例<small>貨物稅以出廠價計，家電約40%～60%</small></label><input type="range" id="g-fr" min="20" max="80" step="5" value="50"><span class="rval" id="g-fr-v">50%</span></div>
+    <div class="c-row"><label>前層轉嫁稅負（假設值）<small>各行業差異大，可自行調整</small></label><input type="range" id="g-hr" min="0" max="20" step="1" value="5"><span class="rval" id="g-hr-v">5%</span></div>
+    <div class="calc-out" id="g-out">
+      <div class="cot"><span>含稅售價</span><span id="g-total">—</span></div>
+      <div class="cot"><span>■ 內含營業稅（售價÷1.05×5%）</span><span id="g-vat">—</span></div>
+      <div class="cot"><span id="g-exc-l">▲ 貨物稅（出廠估50%×10%）</span><span id="g-exc">—</span></div>
+      <div class="cot"><span id="g-hid-l">▲ 前層轉嫁稅負（5%）</span><span id="g-hid">—</span></div>
+      <div class="cot total"><span>合計稅負（估）</span><span id="g-sum">—</span></div>
+      <div class="cot total"><span>稅負佔售價比例</span><span id="g-pct">—</span></div>
+      <div class="calc-note">貨物稅以「出廠價」為稅基，非零售價。前層轉嫁稅為假設值，僅供參考。</div>
+    </div>`;
+
+  if(type==='cigarette') return `
+    <div class="calc-title">稅金試算器 ── 菸品（每包20支）</div>
+    <div class="c-row"><label>每包售價（元）</label><input type="number" id="c-price" min="1" placeholder="例如 160"></div>
+    <div class="c-row"><label>購買包數</label><input type="number" id="c-packs" min="1" value="1" placeholder="1"><button class="c-btn" id="c-btn">試算</button></div>
+    <div class="calc-out" id="c-out">
+      <div class="cot"><span>每包售價</span><span id="c-retail">—</span></div>
+      <div class="cot cascade"><span>▲ 菸酒稅（1,590元/千支 × 20支）</span><span id="c-cig">≈ 31.8 元/包</span></div>
+      <div class="cot cascade"><span>▲ 健康福利捐（1,000元/千支 × 20支）</span><span id="c-hlt">≈ 20.0 元/包</span></div>
+      <div class="cot cascade"><span>■ 營業稅（售價÷1.05×5%）</span><span id="c-vat">—</span></div>
+      <div class="cot total"><span>每包稅金合計</span><span id="c-ptax">—</span></div>
+      <div class="cot total"><span>稅負佔每包售價</span><span id="c-ppct">—</span></div>
+      <div class="cot" style="margin-top:8px"><span id="c-n-label">購買 1 包，總稅金</span><span id="c-total">—</span></div>
+      <div class="calc-note">菸酒稅和健康福利捐為從量稅（固定金額/千支），不隨售價變動。一包20支為標準計算，實際每包支數依產品而異。</div>
+    </div>`;
+
+  if(type==='import') return `
+    <div class="calc-title">稅金試算器 ── 進口商品（疊加計算）</div>
+    <div class="c-row"><label>CIF完稅價格（元）<small>商品購買價+運費+保險</small></label><input type="number" id="i-cif" min="1" placeholder="例如 10000"></div>
+    <div class="c-row"><label>關稅率（%）<small>查詢：關務署進口稅則</small></label><input type="number" id="i-tar" min="0" max="100" step="0.1" value="6.6" placeholder="例如 6.6"></div>
+    <div class="c-row"><label>貨物稅率（%）<small>非應稅品填 0</small></label><input type="number" id="i-exc" min="0" max="100" step="0.1" value="0" placeholder="例如 0 或 10"><button class="c-btn" id="i-btn">試算</button></div>
+    <div class="calc-out" id="i-out">
+      <div class="cot"><span>CIF 完稅價格</span><span id="i-cif-v">—</span></div>
+      <div class="cot cascade"><span>① 關稅（CIF × 關稅率）</span><span id="i-t1">—</span></div>
+      <div class="cot cascade"><span>② 貨物稅基（CIF + 關稅）</span><span id="i-base2">—</span></div>
+      <div class="cot cascade"><span>③ 貨物稅（稅基 × 貨物稅率）</span><span id="i-t2">—</span></div>
+      <div class="cot cascade"><span>④ 營業稅基（CIF+關稅+貨物稅）</span><span id="i-base3">—</span></div>
+      <div class="cot cascade"><span>⑤ 營業稅（稅基 × 5%）</span><span id="i-t3">—</span></div>
+      <div class="cot total"><span>總稅金合計（關稅+貨物稅+營業稅）</span><span id="i-sum">—</span></div>
+      <div class="cot total"><span>到岸總成本（CIF + 所有稅金）</span><span id="i-land">—</span></div>
+      <div class="cot total"><span>稅負佔到岸成本</span><span id="i-pct">—</span></div>
+      <div class="calc-note">疊加計算是進口稅的核心特性：每一層的稅基都包含前一層的稅，所以實際稅率比單看關稅率高得多。</div>
+    </div>`;
+
+  if(type==='car') return `
+    <div class="calc-title">稅金試算器 ── 汽車（含2025年減免）</div>
+    <div class="c-row"><label>含稅售價（元）</label><input type="number" id="car-price" min="1" placeholder="例如 800000"></div>
+    <div class="c-row"><label>排氣量</label>
+      <select id="car-cc" style="flex:1;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;font-size:13px;background:var(--color-surface);color:var(--color-text)">
+        <option value="25">2000cc 以下（稅率 25%）</option>
+        <option value="30">2000cc 以上（稅率 30%）</option>
+      </select>
+    </div>
+    <div class="c-row"><label>是否符合2025年減免<small>2000cc以下，購買全新車</small></label>
+      <select id="car-exempt" style="flex:1;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;font-size:13px;background:var(--color-surface);color:var(--color-text)">
+        <option value="5">減徵5萬（新購）</option>
+        <option value="10">減徵10萬（換新+新購）</option>
+        <option value="0">不適用</option>
+      </select>
+      <button class="c-btn" id="car-btn">試算</button>
+    </div>
+    <div class="c-row"><label>出廠價估零售比例<small>燃油車約50%</small></label><input type="range" id="car-fr" min="30" max="70" step="5" value="50"><span class="rval" id="car-fr-v">50%</span></div>
+    <div class="calc-out" id="car-out">
+      <div class="cot"><span>含稅售價</span><span id="car-retail">—</span></div>
+      <div class="cot"><span>估算出廠價</span><span id="car-factory">—</span></div>
+      <div class="cot cascade"><span id="car-exc-l">▲ 貨物稅（出廠價 × 25%）</span><span id="car-exc">—</span></div>
+      <div class="cot cascade"><span id="car-exm-l">◆ 減徵優惠（2025年新政）</span><span id="car-exm">—</span></div>
+      <div class="cot cascade"><span>■ 營業稅（售價÷1.05×5%）</span><span id="car-vat">—</span></div>
+      <div class="cot total"><span>消費者負擔稅金合計</span><span id="car-sum">—</span></div>
+      <div class="cot total"><span>稅負佔售價</span><span id="car-pct">—</span></div>
+      <div class="calc-note">貨物稅以「出廠價」為稅基，非售價。出廠比例為假設值，請依實際車款調整。</div>
+    </div>`;
+
+  if(type==='ev') return `
+    <div class="calc-title">稅金試算器 ── 電動車（對比燃油車）</div>
+    <div class="c-row"><label>含稅售價（元）<small>電動小客車≤140萬元完稅價格免貨物稅</small></label><input type="number" id="ev-price" min="1" placeholder="例如 1200000"><button class="c-btn" id="ev-btn">試算</button></div>
+    <div class="c-row"><label>對比燃油車排氣量</label>
+      <select id="ev-cc" style="flex:1;padding:6px 10px;border:1px solid var(--color-border);border-radius:6px;font-size:13px;background:var(--color-surface);color:var(--color-text)">
+        <option value="25">2000cc 以下（貨物稅25%）</option>
+        <option value="30">2000cc 以上（貨物稅30%）</option>
+      </select>
+    </div>
+    <div class="c-row"><label>出廠估零售比例<small>約50%</small></label><input type="range" id="ev-fr" min="30" max="70" step="5" value="50"><span class="rval" id="ev-fr-v">50%</span></div>
+    <div class="calc-out" id="ev-out">
+      <div style="font-size:12px;font-weight:500;color:var(--stage1-color);margin-bottom:6px">⚡ 電動車</div>
+      <div class="cot"><span>含稅售價</span><span id="ev-retail">—</span></div>
+      <div class="cot cascade"><span>貨物稅（140萬以下全免，超過部分減半徵收）</span><span id="ev-excise">—</span></div>
+      <div class="cot cascade"><span>■ 營業稅（售價÷1.05×5%）</span><span id="ev-vat">—</span></div>
+      <div class="cot total"><span>電動車稅金合計</span><span id="ev-sum">—</span></div>
+      <div style="font-size:12px;font-weight:500;color:var(--pill-red-txt);margin:10px 0 6px">🚗 同價位燃油車（試算對比）</div>
+      <div class="cot cascade"><span id="ev-ice-exc-l">▲ 貨物稅（出廠估50%×25%）</span><span id="ev-ice-exc">—</span></div>
+      <div class="cot cascade"><span>■ 營業稅 5%</span><span id="ev-ice-vat">—</span></div>
+      <div class="cot total"><span>燃油車稅金合計</span><span id="ev-ice-sum">—</span></div>
+      <div class="cot saving"><span>⚡ 電動車節省稅負</span><span id="ev-saving">—</span></div>
+      <div class="calc-note">電動車完稅價格140萬以下全額免貨物稅；超過部分「減半」徵收（非全額課稅）。出廠比例為假設值，請依實際車款調整。售價超過140萬時建議諮詢專業，此試算為簡化估算。</div>
+    </div>`;
+
+  return '';
+}
+
+/* ── Web Component Class ── */
+class TaxFlowChart extends HTMLElement {
+  connectedCallback(){
+    this._root=this.attachShadow({mode:'open'});
+    this._root.innerHTML=`<style>${CSS}</style>${TEMPLATE}`;
+    this._setupTabs();
+    this._setupPrint();
+    this._render(0);
+  }
+
+  _q(sel){return this._root.querySelector(sel);}
+  _qa(sel){return this._root.querySelectorAll(sel);}
+
+  _setupTabs(){
+    const tabs=this._qa('.pb');
+    tabs.forEach((b,i)=>{
+      b.addEventListener('click',()=>{
+        tabs.forEach(x=>{x.setAttribute('aria-selected','false');x.setAttribute('tabindex','-1');});
+        b.setAttribute('aria-selected','true');
+        b.setAttribute('tabindex','0');
+        this._render(i);
+      });
+      b.addEventListener('keydown',e=>{
+        let next=-1;
+        if(e.key==='ArrowRight') next=(i+1)%tabs.length;
+        if(e.key==='ArrowLeft')  next=(i+tabs.length-1)%tabs.length;
+        if(next>=0){e.preventDefault();tabs[next].click();tabs[next].focus();}
+      });
+    });
+  }
+
+  _render(idx){
+    const P=DATA[idx];
+    const r=buildFlow(P);
+    this._q('#flow').innerHTML=r.html;
+    this._q('#s1').textContent=r.hn+r.vn;
+    this._q('#s2').textContent=r.hn;
+    this._q('#s3').textContent=r.vn;
+    this._q('#s4').textContent=r.sn;
+    this._q('#spct').textContent=P.pct;
+    this._q('#sdesc').textContent=P.desc;
+    // 動態計算器
+    this._q('#calc-area').innerHTML=buildCalcHTML(P.calcType);
+    this._bindCalc(P.calcType);
+  }
+
+  _bindCalc(type){
+    const root=this._root;
+    const liveSlider=(id,outId,suffix)=>{
+      const el=root.querySelector(id);
+      if(!el) return;
+      el.addEventListener('input',()=>{root.querySelector(outId).textContent=el.value+suffix;});
+    };
+    const onEnter=(id,fn)=>{
+      const el=root.querySelector(id);
+      if(el) el.addEventListener('keydown',e=>{if(e.key==='Enter')fn();});
+    };
+
+    if(type==='general'){
+      liveSlider('#g-fr','#g-fr-v','%');
+      liveSlider('#g-hr','#g-hr-v','%');
+      const fn=()=>this._calcGeneral();
+      root.querySelector('#g-btn').addEventListener('click',fn);
+      onEnter('#g-price',fn);
+    } else if(type==='cigarette'){
+      const fn=()=>this._calcCigarette();
+      root.querySelector('#c-btn').addEventListener('click',fn);
+      onEnter('#c-price',fn);
+      onEnter('#c-packs',fn);
+    } else if(type==='import'){
+      const fn=()=>this._calcImport();
+      root.querySelector('#i-btn').addEventListener('click',fn);
+      onEnter('#i-cif',fn);
+    } else if(type==='car'){
+      liveSlider('#car-fr','#car-fr-v','%');
+      const fn=()=>this._calcCar();
+      root.querySelector('#car-btn').addEventListener('click',fn);
+      onEnter('#car-price',fn);
+      /* P1修正：>2000cc 時自動把減免設為「不適用」 */
+      const ccSel=root.querySelector('#car-cc');
+      const exSel=root.querySelector('#car-exempt');
+      if(ccSel&&exSel){
+        ccSel.addEventListener('change',()=>{
+          if(parseInt(ccSel.value)>25) exSel.value='0';
+        });
+      }
+    } else if(type==='ev'){
+      liveSlider('#ev-fr','#ev-fr-v','%');
+      const fn=()=>this._calcEV();
+      root.querySelector('#ev-btn').addEventListener('click',fn);
+      onEnter('#ev-price',fn);
+    }
+  }
+
+  _calcGeneral(){
+    const price=parseFloat(this._q('#g-price').value);
+    if(!price||price<=0){return;}
+    const fr=parseFloat(this._q('#g-fr').value)/100;
+    const hr=parseFloat(this._q('#g-hr').value)/100;
+    const exVat=price/1.05;
+    const vat=exVat*0.05;
+    const exc=exVat*fr*0.10;
+    const hid=price*hr;
+    const sum=vat+exc+hid;
+    this._q('#g-total').textContent=price.toLocaleString()+' 元';
+    this._q('#g-exc-l').textContent=`▲ 貨物稅（出廠估${Math.round(fr*100)}% × 10%，出廠≈${Math.round(exVat*fr).toLocaleString()}元）`;
+    this._q('#g-exc').textContent=fmt(exc);
+    this._q('#g-vat').textContent=fmt(vat);
+    this._q('#g-hid-l').textContent=`▲ 前層轉嫁稅負（假設值 ${Math.round(hr*100)}%）`;
+    this._q('#g-hid').textContent=fmt(hid);
+    this._q('#g-sum').textContent=fmt(sum);
+    this._q('#g-pct').textContent=(sum/price*100).toFixed(1)+'%';
+    this._q('#g-out').classList.add('show');
+  }
+
+  _calcCigarette(){
+    const price=parseFloat(this._q('#c-price').value);
+    const packs=parseInt(this._q('#c-packs').value)||1;
+    if(!price||price<=0) return;
+    const CIG=31.8, HLT=20;
+    const vat=price/1.05*0.05;
+    const ptax=CIG+HLT+vat;
+    this._q('#c-retail').textContent=price.toLocaleString()+' 元/包';
+    this._q('#c-vat').textContent=`約 ${vat.toFixed(1)} 元/包`;
+    this._q('#c-ptax').textContent=`約 ${ptax.toFixed(1)} 元/包`;
+    this._q('#c-ppct').textContent=(ptax/price*100).toFixed(1)+'%';
+    this._q('#c-n-label').textContent=`購買 ${packs} 包，總稅金`;
+    this._q('#c-total').textContent=`約 ${Math.round(ptax*packs).toLocaleString()} 元`;
+    this._q('#c-out').classList.add('show');
+  }
+
+  _calcImport(){
+    const cif=parseFloat(this._q('#i-cif').value);
+    const tarR=parseFloat(this._q('#i-tar').value)/100||0;
+    const excR=parseFloat(this._q('#i-exc').value)/100||0;
+    if(!cif||cif<=0) return;
+    const t1=cif*tarR;
+    const base2=cif+t1;
+    const t2=base2*excR;
+    const base3=base2+t2;
+    const t3=base3*0.05;
+    const sum=t1+t2+t3;
+    const land=cif+sum;
+    this._q('#i-cif-v').textContent=cif.toLocaleString()+' 元';
+    this._q('#i-t1').textContent=fmt(t1);
+    this._q('#i-base2').textContent=Math.round(base2).toLocaleString()+' 元';
+    this._q('#i-t2').textContent=excR>0?fmt(t2):'0 元（未適用）';
+    this._q('#i-base3').textContent=Math.round(base3).toLocaleString()+' 元';
+    this._q('#i-t3').textContent=fmt(t3);
+    this._q('#i-sum').textContent=fmt(sum);
+    this._q('#i-land').textContent=Math.round(land).toLocaleString()+' 元';
+    this._q('#i-pct').textContent=(sum/land*100).toFixed(1)+'%';
+    this._q('#i-out').classList.add('show');
+  }
+
+  _calcCar(){
+    const price=parseFloat(this._q('#car-price').value);
+    if(!price||price<=0) return;
+    const ccRate=parseFloat(this._q('#car-cc').value)/100;
+    const exempt=parseFloat(this._q('#car-exempt').value)*10000;
+    const fr=parseFloat(this._q('#car-fr').value)/100;
+    const exVat=price/1.05;
+    const factory=exVat*fr;
+    const excFull=factory*ccRate;
+    const excNet=Math.max(0,excFull-exempt);
+    const vat=exVat*0.05;
+    const sum=excNet+vat;
+    this._q('#car-retail').textContent=price.toLocaleString()+' 元';
+    this._q('#car-factory').textContent=Math.round(factory).toLocaleString()+' 元（估）';
+    this._q('#car-exc-l').textContent=`▲ 貨物稅（出廠×${Math.round(ccRate*100)}%）`;
+    this._q('#car-exc').textContent=Math.round(excFull).toLocaleString()+' 元';
+    this._q('#car-exm-l').textContent=`◆ 2025年減徵優惠（${exempt>0?'-'+Math.round(exempt/10000)+'萬':'不適用'}）`;
+    this._q('#car-exm').textContent=exempt>0?`-${Math.round(exempt).toLocaleString()} 元`:'0 元';
+    this._q('#car-vat').textContent=fmt(vat);
+    this._q('#car-sum').textContent=fmt(sum);
+    this._q('#car-pct').textContent=(sum/price*100).toFixed(1)+'%';
+    this._q('#car-out').classList.add('show');
+  }
+
+  _calcEV(){
+    const price=parseFloat(this._q('#ev-price').value);
+    if(!price||price<=0) return;
+    const iceR=parseFloat(this._q('#ev-cc').value)/100;
+    const fr=parseFloat(this._q('#ev-fr').value)/100;
+    const exVat=price/1.05;
+    const vat=exVat*0.05;
+    /* 正確政策：完稅價格140萬以下全免；超過部分「減半」徵收貨物稅 */
+    const taxableVal=exVat*fr;   // 出廠價估算 ≈ 完稅價格
+    const exemptCap=1400000;
+    const evExcise=taxableVal>exemptCap ? (taxableVal-exemptCap)*iceR*0.5 : 0;
+    const evSum=vat+evExcise;
+    /* ICE comparison */
+    const iceExc=taxableVal*iceR;
+    const iceSum=iceExc+vat;
+    const saving=iceSum-evSum;
+    const savingPct=iceSum>0 ? ((saving/iceSum)*100).toFixed(0)+'%' : '0%';
+    this._q('#ev-retail').textContent=price.toLocaleString()+' 元';
+    this._q('#ev-excise').textContent=evExcise>0
+      ? `約 ${Math.round(evExcise).toLocaleString()} 元（超過140萬部分「減半」課稅）`
+      : '0 元 ✓（完稅價格估算≤140萬，全額免稅）';
+    this._q('#ev-excise').style.color=evExcise>0?'var(--pill-red-txt)':'var(--stage1-color)';
+    this._q('#ev-vat').textContent=fmt(vat);
+    this._q('#ev-sum').textContent=fmt(evSum);
+    this._q('#ev-ice-exc-l').textContent=`▲ 貨物稅（出廠估${Math.round(fr*100)}%×${Math.round(iceR*100)}%）`;
+    this._q('#ev-ice-exc').textContent=fmt(iceExc);
+    this._q('#ev-ice-vat').textContent=fmt(vat);
+    this._q('#ev-ice-sum').textContent=fmt(iceSum);
+    this._q('#ev-saving').textContent=fmt(saving)+`（省 ${savingPct}）`;
+    this._q('#ev-out').classList.add('show');
+  }
+
+  _setupPrint(){
+    const cleanup=()=>{if(this._q('#print-section'))this._q('#print-section').innerHTML='';};
+    window.addEventListener('beforeprint',()=>{
+      let html='';
+      DATA.forEach((P,i)=>{
+        const r=buildFlow(P);
+        html+=`<div class="print-block"><h2>${esc(LABELS[i])}（估計稅負 ${esc(P.pct)}）</h2>${r.html}</div>`;
+      });
+      this._q('#print-section').innerHTML=html;
+      setTimeout(cleanup,1000);
+    });
+    window.addEventListener('afterprint',cleanup);
+  }
+}
+
+if(!customElements.get('tax-flow-chart')){
+  customElements.define('tax-flow-chart',TaxFlowChart);
+}
+
+})(); /* end IIFE */
+
+/* ── 嵌入代碼生成 ── */
+(function(){
+  const ta=document.getElementById('embed-code');
+  if(!ta) return;
+  const src=window.location.href.replace(/[?#].*/,'');
+  ta.value=
+`<!-- iframe 嵌入（任何平台皆適用，複製後貼到 HTML 即可）-->
+<iframe src="${src}"
+  width="100%" height="920"
+  style="border:none;border-radius:12px;display:block">
+</iframe>
+
+<!-- 注意：此檔案是完整 HTML 文件，無法用 <script src> 直接載入。
+     若需 Web Component 獨立使用，請將 IIFE 內的 JS 單獨存為 .js 檔。 -->`;
+  ta.rows=8;
+})();
+</script>
+</body>
+</html>
