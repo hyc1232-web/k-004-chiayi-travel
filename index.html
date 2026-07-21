@@ -80,6 +80,17 @@
   .reco ol{margin:.2rem 0 0;padding-left:1.4em}
   .reco a{color:var(--sign-green);font-weight:800;text-decoration:none}
   nav{display:flex;gap:.5rem;padding:.8rem 1rem .2rem;overflow-x:auto}
+  /* 手機退回修正3:精簡多選列 */
+  .msRow{display:flex;gap:.6rem;align-items:center;padding:.5rem .8rem;margin:.35rem 0;
+    border:2px solid var(--line);border-radius:.7rem;background:var(--paper);cursor:pointer;min-height:3.2rem}
+  .msRow.msOn{background:#EAF6EF;border-color:var(--sign-green)}
+  .msRow .msBox{font-size:1.25em;width:1.5rem;text-align:center;flex:0 0 auto}
+  .msRow .msIdx{font-weight:900;color:var(--sign-green);width:1.4rem;text-align:center;flex:0 0 auto}
+  .msRow .msMain{flex:1;min-width:0}
+  .msRow .msMain b{font-size:1.02em}
+  .msRow .msMeta{font-size:.8em;color:var(--ink-soft);margin-top:.1rem}
+  .msRow.msNoCoord{opacity:.7;cursor:not-allowed}
+
   nav button{flex:0 0 auto;min-height:3.1rem;padding:0 1.1rem;font:inherit;font-size:.95em;
     font-weight:800;border:2px solid var(--line);border-radius:2rem;background:var(--card);
     color:var(--ink-soft);cursor:pointer}
@@ -178,6 +189,8 @@
   #tripBar .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;max-width:64rem;margin:0 auto}
   #tripBar b{font-size:1.05em}
   #tripBar .btn{min-height:2.8rem;font-size:.9em}
+  /* 手機退回修正4:收合單列約 60–72px;展開才見完整控制 */
+  #tripCtl{display:contents}
   .btn-nav{background:var(--sign-green);color:#fff;text-decoration:none;
     display:inline-flex;align-items:center;border-radius:.7rem;padding:0 1rem;font-weight:800;min-height:2.8rem}
   .btn-lock{background:#3A4642;color:#B8C4BF;border:1px dashed #7a8781}
@@ -230,6 +243,17 @@
   footer .btn{margin:.15rem .2rem .15rem 0}
   #ioBox{width:100%;min-height:8rem;font-size:.85em;margin-top:.5rem;display:none;
     font-family:ui-monospace,monospace}
+  /* ═══ 手機縮減統一塊(群組修正:CSS 順序)——必須位於所有一般規則之後,才能正確覆蓋 ═══
+     最終計算值:nav button 2.6rem/0 .8rem/.82em;.card padding .7rem .8rem;.name 1.12em;觸控≥44px(2.75rem) */
+  @media (max-width:759px){
+    nav{flex-wrap:wrap;gap:.4rem;padding:.65rem 1rem .15rem;overflow-x:visible}
+    nav button{flex:0 0 auto;min-height:2.6rem;padding:0 .8rem;font-size:.82em}
+    .card{padding:.7rem .8rem}
+    .card .name{font-size:1.12em}
+    .card .addr,.card .note{margin:.15rem 0}
+    .btn-nav,.card .btn{min-height:2.75rem}
+    .visitBtn{min-height:2.75rem}
+  }
 </style>
 </head>
 <body>
@@ -271,6 +295,7 @@
   <div class="frow">
     <label for="selHere">我現在在:</label>
     <select id="selHere"><option value="">(手動選所在景點)</option></select>
+    <button class="btn btn-ghost" id="btnBackGps" hidden></button>
     <button class="btn btn-ghost" id="btnManage">🗂 景點管理</button>
   </div>
   <button class="btn" id="btnDone" hidden></button>
@@ -341,11 +366,14 @@
 <div id="tripBar">
   <div class="row">
     <b id="tripSum">今日行程 0 站</b>
+    <button class="btn btn-dark" id="btnTripExpand">查看行程 ▾</button>
+    <div id="tripCtl">
     <button class="btn btn-dark" id="btnList">展開清單 ▾</button>
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
     <button class="btn btn-dark" id="btnFarNear">先遠後近</button>
     <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 開始新行程</button>
     <div id="tripWarn"></div>
+    </div>
   </div>
   <div id="tripGo"></div>
   <div id="tripList" hidden></div>
@@ -994,7 +1022,21 @@ function nearestOf(pos){
   }
   return{p:best,d:bd};
 }
+let lastGpsRef=null;                /* 手機退回修正2:最後一次 GPS(手動選點不覆蓋) */
+let mobileMultiSelectMode=false;    /* 手機退回修正3:精簡多選(純介面狀態,不入 localStorage) */
+let tripPanelExpanded=false;        /* 手機退回修正4:行程面板預設收合 */
 function setRef(r){ref=r;renderAll()}
+/* 手機退回修正2:清除手動選點——有 GPS 回 GPS,無 GPS 回未定位;不清 lastGpsRef、不觸發重新定位 */
+function clearManualHereSelection(){
+  pendingUid=null;
+  document.getElementById("selHere").value="";
+  if(lastGpsRef){ref={...lastGpsRef}}
+  else{
+    ref=null;
+    $st.innerHTML="尚未定位——按左鍵取得位置,卡片才會顯示距離、抵達狀態與推薦。";
+  }
+  renderAll();
+}
 function locate(){
   if(!("geolocation"in navigator)){
     $st.innerHTML=`<span class="locfail">此瀏覽器不支援定位。</span>改用「我現在在」手動選點即可。`;return;
@@ -1011,6 +1053,7 @@ function locate(){
       else r.label=`${n.p.name} 約${n.d.toFixed(1)}km 處`;
     }else r.label="已定位";
     document.getElementById("btnRelo").hidden=false;
+    lastGpsRef={...r};                               /* 手機退回修正2 */
     setRef(r);
   },err=>{
     $st.innerHTML=`<span class="locfail">定位失敗(${err.code===1?"未授權":"無法取得"})。</span>`
@@ -1020,6 +1063,7 @@ function locate(){
 }
 document.getElementById("btnLoc").addEventListener("click",locate);
 document.getElementById("btnRelo").addEventListener("click",locate);
+document.getElementById("btnBackGps").addEventListener("click",clearManualHereSelection);
 function renderSelect(){
   const $sel=document.getElementById("selHere");
   const cur=$sel.value;
@@ -1054,6 +1098,10 @@ function renderLocExtras(){
     };
     document.getElementById("pcNo").onclick=()=>{pendingUid=null;renderAll()};
   }else{$c.hidden=true;$c.innerHTML=""}
+  const $bg=document.getElementById("btnBackGps"); /* 手機退回修正2:僅手動選點時顯示 */
+  const isManual=!!(ref&&ref.manual);
+  $bg.hidden=!isManual;
+  if(isManual)$bg.textContent=lastGpsRef?"↩ 返回 GPS 位置":"✕ 取消手動選點";
   const $done=document.getElementById("btnDone");
   const uid=ref&&ref.uid;
   if(uid&&byUid[uid]&&!completedToday.has(uid)){
@@ -1155,7 +1203,8 @@ function renderFilters(){
     `<button data-f="reset" aria-pressed="${!f.customOnly&&!f.hideDone&&!f.showExcluded}">顯示全部</button>`
     +`<button data-f="customOnly" aria-pressed="${f.customOnly}">只顯示自訂</button>`
     +`<button data-f="hideDone" aria-pressed="${f.hideDone}">隱藏已完成</button>`
-    +`<button data-f="showExcluded" aria-pressed="${f.showExcluded}">顯示暫時隱藏</button>`;
+    +`<button data-f="showExcluded" aria-pressed="${f.showExcluded}">顯示暫時隱藏</button>`
+    +`<button data-f="multiSel" aria-pressed="${mobileMultiSelectMode}">${mobileMultiSelectMode?"✓ 多選模式":"☑ 多選景點"}</button>`;
 }
 
 /* ═══ 10. 卡片 ═══ */
@@ -1167,7 +1216,33 @@ function cardList(){
   if(filters.hideDone)pts=pts.filter(p=>!completedToday.has(p.uid));
   return pts;
 }
+/* 手機退回修正3:精簡多選清單——同篩選/排序,一列=勾選框+編號+名稱+分類|狀態|距離;整列可點(沿用 .pick 交易) */
+function renderMultiSelectList(now){
+  let pts=cardList();
+  const meta={};
+  if(ref){
+    pts.filter(p=>p.hasCoord).forEach(p=>{meta[p.uid]={km:distKm(ref,p)}});
+  }
+  if(sortMode==="near"&&ref)
+    pts=[...pts].sort((a,b)=>(meta[a.uid]?.km??1e9)-(meta[b.uid]?.km??1e9));
+  if(sortMode==="closing")pts=[...pts].sort((a,b)=>minToClose(a,now)-minToClose(b,now));
+  renderedPts=pts;
+  document.getElementById("main").innerHTML=
+    `<div class="meta" style="margin:.4rem 0">✓ 多選模式:點整列即可加入/取消行程;再按上方「✓ 多選模式」回完整卡片。</div>`
+    +pts.map(p=>{
+      const st=stateOf(p,now),inTrip=trip.includes(p.uid),exc=excluded.has(p.uid);
+      const km=meta[p.uid]?`約 ${meta[p.uid].km.toFixed(1)} km`:(p.hasCoord?"":"⚠ 無座標");
+      const canPick=!exc&&p.hasCoord;
+      return `<div class="msRow${inTrip?" msOn":""}${canPick?" pick":" msNoCoord"}" ${canPick?`data-k="${p.uid}"`:""} role="button" aria-pressed="${inTrip}">
+        <span class="msBox">${inTrip?"☑":"□"}</span>
+        <span class="msIdx">${inTrip?trip.indexOf(p.uid)+1:""}</span>
+        <div class="msMain"><b>${esc(p.name)}</b>
+          <div class="msMeta">${esc(p.cat||p.mainCat)}｜${st.badge}${km?"｜"+km:""}${exc?"｜已隱藏":""}</div>
+        </div></div>`;
+    }).join("");
+}
 function renderCards(now){
+  if(mobileMultiSelectMode){renderMultiSelectList(now);return} /* 手機退回修正3 */
   let pts=cardList();
   const meta={};
   if(ref){
@@ -1295,10 +1370,16 @@ function renderTripBar(now){
   if(!trip.length){bar.style.display="none";return}
   bar.style.display="block";
   updateTripSummary(now);
+  /* 手機退回修正4:預設收合單列;展開才見完整控制與清單 */
+  document.getElementById("btnTripExpand").textContent=tripPanelExpanded?"▴ 收合行程":"查看行程 ▾";
+  document.getElementById("tripCtl").hidden=!tripPanelExpanded;
   lastGos=segURLs();
   const firstLock=lastGos.find(g=>g.si>segClicked+1);
   document.getElementById("tripGo").innerHTML=
-    lastGos.map(g=>{
+    (!tripPanelExpanded
+      ?(()=>{const g=lastGos.find(x=>x.si<=segClicked+1)||lastGos[0];
+        return g?`<a class="btn-nav" data-seg="${g.si}" href="${g.url}" target="_blank" rel="noopener">🧭 ${esc(g.label)}</a>`:""})()
+      :lastGos.map(g=>{
       const locked=g.si>segClicked+1;
       return locked
         ?`<button class="btn btn-lock" data-lockseg="${g.si}">🔒 ${esc(g.label)}(開啟前一段後解鎖)</button>`
@@ -1306,9 +1387,9 @@ function renderTripBar(now){
     }).join("")
     +(lastGos.length>1?`<div class="segNote">每段起點=按下當下的位置。`
       +(firstLock?`第 ${firstLock.si+1} 段請在<b>完成第 ${firstLock.si*SEG_MAX} 站後</b>再開啟;`:"")
-      +`鎖住的段連按兩次可強制開啟(會從現處直接拉過去)。</div>`:"");
+      +`鎖住的段連按兩次可強制開啟(會從現處直接拉過去)。</div>`:""));
   const list=document.getElementById("tripList");
-  list.hidden=!tripListOpen;
+  list.hidden=!tripPanelExpanded||!tripListOpen;      /* 手機退回修正4:收合時清單一律藏 */
   document.getElementById("btnList").textContent=tripListOpen?"收合清單 ▴":"展開清單 ▾";
   if(!tripListOpen){list.innerHTML="";return}
   const{legs}=tripTotal();
@@ -1337,6 +1418,8 @@ function updateTripSummary(now){
   document.getElementById("tripWarn").textContent=
     warn.length?`⚠️ 今日公休仍在行程中:${warn.join("、")}`:"";
 }
+document.getElementById("btnTripExpand").addEventListener("click",()=>{
+  tripPanelExpanded=!tripPanelExpanded;renderTripBar(new Date());}); /* 手機退回修正4 */
 document.getElementById("btnList").addEventListener("click",()=>{tripListOpen=!tripListOpen;renderTripBar(new Date())});
 function confirmSortOverride(){                    /* 工單I:手調過才問,答否=不排 */
   return !(tripManual&&trip.length>1)||confirm("目前是你手動調整過的順序,重新排序會蓋掉手調結果,確定?");
@@ -1898,6 +1981,7 @@ document.getElementById("sorts").addEventListener("click",e=>{
 document.getElementById("filters").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   const f=b.dataset.f;
+  if(f==="multiSel"){mobileMultiSelectMode=!mobileMultiSelectMode;renderAll();return} /* 手機退回修正3:介面狀態,不進 filters */
   if(f==="reset")filters={customOnly:false,hideDone:false,showExcluded:false};
   else filters[f]=!filters[f];
   renderAll();
