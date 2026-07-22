@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22A 多區域)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22B 實用小改版)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
- 版本狀態:實機驗收候選(v22A 多區域;交 ChatGPT 靜態審查後才部署)
+版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
+ v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
+   複製今日行程文字、無座標卡片「📌 補座標」快捷、未分類顯示筆數;
+   不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -54,6 +57,16 @@
     border-radius:.6rem;cursor:pointer}
   .hReload:active{background:rgba(255,255,255,.34)}
   @media(max-width:480px){ .hReload .hRlIcon{display:none} }  /* 手機窄螢幕只留「更新」文字,不擠標題;不只圖示 */
+  /* v22B:搜尋列(觸控 ≥44px,不擠區域/分類)+ 補座標按鈕 */
+  .searchBar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.4rem 1rem 0}
+  #qInput{flex:1;min-width:0;min-height:44px;font-size:1.05rem;padding:.4rem .7rem;
+    border:2px solid var(--line);border-radius:.6rem;background:var(--card);color:var(--ink)}
+  #qClear{min-height:44px;flex-shrink:0}
+  .searchStat{font-size:.92rem;color:var(--ink-soft);flex-basis:100%;margin-top:.05rem}
+  .noCoord{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}
+  .fixCoordBtn{display:inline-flex;align-items:center;min-height:2.75rem;padding:0 .8rem;
+    font-size:.9rem;font-weight:800;background:var(--closed);color:#fff;border:none;
+    border-radius:.5rem;cursor:pointer}
   .hSub{font-size:.72em;opacity:.95;line-height:1.6;font-variant-numeric:tabular-nums}
   .panel{margin:.8rem 1rem 0;background:var(--card);border:2px solid var(--line);
     border-radius:1rem;padding:.8rem 1rem;font-size:.88em;line-height:1.7}
@@ -384,6 +397,11 @@
 <div class="reco" id="reco" hidden></div>
 
 <div class="regionBar" id="regionBar"></div>
+<div class="searchBar" id="searchBar">
+  <input type="search" id="qInput" placeholder="🔍 搜尋景點、地址或備註" aria-label="搜尋景點、地址或備註">
+  <button class="btn btn-ghost" id="qClear">清除</button>
+  <span class="searchStat" id="qStat"></span>
+</div>
 <nav id="tabs" aria-label="主分類"></nav>
 <div class="sorts" id="sorts"></div>
 <div class="sorts" id="filters"></div>
@@ -398,6 +416,7 @@
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
     <button class="btn btn-dark" id="btnFarNear">先遠後近</button>
     <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 開始新行程</button>
+    <button class="btn btn-dark" id="btnCopyTrip">📋 複製今日行程</button>
     <div id="tripWarn"></div>
     </div>
   </div>
@@ -643,36 +662,98 @@ function normalizeOverride(raw){
 
 /* ═══ 1. 內建景點單一主資料 PLACES(群組修正:童樂室資料只此一份) ═══ */
 /*__PLACES_START__*/
-/* 資料發布:20260722 14:53｜正式 24 筆 */
 const PLACES=[
-{"uid":"hotel-tiancheng","name":"天成文旅－繪日之丘","mainCat":"住宿","cat":"住宿","schedType":"hotel","lat":23.4875,"lng":120.475,"addr":"嘉義市東區盧厝里大雅路一段888號","nav":"天成文旅 繪日之丘 嘉義市東區大雅路一段888號","hours":"童樂室 09:00–12:00/15:00–22:00","open":null,"tags":[],"note":"童樂室、免費零食","city":"嘉義市","area":"東區","type":"hotel","facilityName":"童樂室","facilityHours":[["09:00","12:00"],["15:00","22:00"]]},
-{"uid":"snack-baoshi","name":"南門包氏炭燒杏仁茶","mainCat":"點心","cat":"早餐","schedType":"hours","lat":23.4744,"lng":120.4536,"addr":"嘉義市東區朝陽里民族路191號","nav":"南門包氏炭燒杏仁茶 嘉義市東區民族路191號","hours":"06:00–10:00","open":{"ranges":[["06:00","10:00"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"snack-ae","name":"阿娥豆漿豆花","mainCat":"點心","cat":"甜點","schedType":"hours","lat":23.4767,"lng":120.4498,"addr":"嘉義市東區過溝里延平街233號","nav":"阿娥豆漿豆花 嘉義市東區延平街233號","hours":"14:00–23:00","open":{"ranges":[["14:00","23:00"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"snack-suji","name":"蘇記傳統紅豆餅","mainCat":"點心","cat":"紅豆餅","schedType":"hours","lat":23.4767,"lng":120.449,"addr":"嘉義市東區文化里延平街268號","nav":"蘇記傳統紅豆餅 嘉義市東區延平街268號","hours":"12:30–18:30","open":{"ranges":[["12:30","18:30"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"snack-apo","name":"阿婆炸麻糬","mainCat":"點心","cat":"炸麻糬","schedType":"hours","lat":23.4757,"lng":120.4443,"addr":"嘉義市西區導明里民生南路54號","nav":"阿婆炸麻糬 嘉義市西區民生南路54號","hours":"13:00–17:00","open":{"ranges":[["13:00","17:00"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"西區"},
-{"uid":"snack-liji","name":"李記麵粉煎","mainCat":"點心","cat":"麵粉煎","schedType":"hours","lat":23.4805,"lng":120.4468,"addr":"嘉義市東區中央里中正路379號","nav":"李記麵粉煎 嘉義市東區中正路379號","hours":"15:30–22:00","open":{"ranges":[["15:30","22:00"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"snack-chenmama","name":"陳媽媽紅豆餅","mainCat":"點心","cat":"紅豆餅","schedType":"hours","lat":23.4923,"lng":120.4297,"addr":"嘉義市西區湖邊里興達路92號","nav":"陳媽媽紅豆餅 嘉義市西區興達路92號","hours":"12:30–17:45","open":{"ranges":[["12:30","17:45"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"西區"},
-{"uid":"turkey-taohuayuan","name":"桃花源餐廳","mainCat":"正餐","cat":"餐廳","schedType":"hours","lat":23.487,"lng":120.4745,"addr":"嘉義市東區文雅里大雅路一段870號","nav":"桃花源餐廳 嘉義市東區大雅路一段870號","hours":"11:00–14:00/17:00–21:00","open":{"ranges":[["11:00","14:00"],["17:00","21:00"]],"closed":[]},"tags":[],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"turkey-yezi","name":"葉子庭園餐廳","mainCat":"正餐","cat":"餐廳","schedType":"hours","lat":23.4849,"lng":120.4956,"addr":"嘉義市東區長竹里潭頂路82號","nav":"葉子庭園餐廳 嘉義市東區潭頂路82號","hours":"11:00–14:00/17:00–21:00","open":{"ranges":[["11:00","14:00"],["17:00","21:00"]],"closed":[]},"tags":[],"note":"鍋物、定食","city":"嘉義市","area":"東區"},
-{"uid":"turkey-zhengtong","name":"正統火雞肉飯","mainCat":"正餐","cat":"火雞肉飯","schedType":"hours","lat":23.4778,"lng":120.4838,"addr":"嘉義市東區蘭潭里大雅路二段591號","nav":"正統火雞肉飯 嘉義市東區大雅路二段591號","hours":"08:00–13:50/16:30–19:30","open":{"ranges":[["08:00","13:50"],["16:30","19:30"]],"closed":[]},"tags":[["tag-cool","❄️ 冷氣"],["tag-park","🅿️ 好停車"]],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"turkey-guicho","name":"檜町火雞肉飯","mainCat":"正餐","cat":"火雞肉飯","schedType":"hours","lat":23.48,"lng":120.4489,"addr":"嘉義市東區吳鳳北路101號","nav":"檜町火雞肉飯 嘉義市東區吳鳳北路101號","hours":"11:00–15:00/17:00–20:00","open":{"ranges":[["11:00","15:00"],["17:00","20:00"]],"closed":[]},"tags":[["tag-cool","❄️ 冷氣"],["tag-park","🅿️ 好停車"]],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"turkey-sanhe","name":"桃城三禾火雞肉飯","mainCat":"正餐","cat":"火雞肉飯","schedType":"hours","lat":23.4856,"lng":120.456,"addr":"嘉義市東區中山里民權路97號","nav":"桃城三禾火雞肉飯 嘉義市東區民權路97號","hours":"10:00–19:00(週四、五休)","open":{"ranges":[["10:00","19:00"]],"closed":[4,5]},"tags":[],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"turkey-xiao","name":"蕭老師火雞肉飯","mainCat":"正餐","cat":"火雞肉飯","schedType":"hours","lat":23.4899,"lng":120.4169,"addr":"嘉義市西區重興里自由路101號","nav":"蕭老師火雞肉飯 嘉義市西區重興里自由路101號","hours":"10:00–14:00/16:00–20:00(週五休)","open":{"ranges":[["10:00","14:00"],["16:00","20:00"]],"closed":[5]},"tags":[],"note":"店名依群組回報修正,若有誤請再告知","city":"嘉義市","area":"西區"},
-{"uid":"turkey-jiaojia","name":"焦家好味道","mainCat":"正餐","cat":"小吃","schedType":"unknown","lat":23.479,"lng":120.4479,"addr":"嘉義市西區文化路146號","nav":"焦家好味道 嘉義市西區文化路146號","hours":"—","open":null,"tags":[],"note":"","city":"嘉義市","area":"西區"},
-{"uid":"family-yuciye","name":"余慈爺公廟","mainCat":"景點","cat":"廟宇","schedType":"public-space","lat":23.4128,"lng":120.2986,"addr":"嘉義縣鹿草鄉後寮村61號","nav":"余慈爺公廟 嘉義縣鹿草鄉後寮村61號","hours":"—","open":null,"tags":[["tag-out","🌤️ 戶外"]],"note":"","city":"嘉義縣","area":"鹿草鄉"},
-{"uid":"family-weishideng","name":"威士登玩水園區","mainCat":"親子","cat":"親子玩水","schedType":"unknown","lat":23.468,"lng":120.427,"addr":"嘉義市西區光路里南京路272號","nav":"威士登玩水園區 嘉義市西區南京路272號","hours":"—","open":null,"tags":[["tag-out","💦 戶外玩水"]],"note":"票價:大人280/學生230/兒童160","city":"嘉義市","area":"西區"},
-{"uid":"family-kunchong","name":"新嘉大昆蟲館","mainCat":"親子","cat":"室內親子","schedType":"hours","lat":23.4715,"lng":120.487,"addr":"嘉義市東區鹿寮里學府路300號","nav":"新嘉大昆蟲館 嘉義市東區學府路300號","hours":"09:00–18:00","open":{"ranges":[["09:00","18:00"]],"closed":[]},"tags":[["tag-cool","❄️ 室內冷氣"]],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"family-wenhuapark","name":"嘉義文化公園","mainCat":"親子","cat":"公園","schedType":"public-space","lat":23.479,"lng":120.453,"addr":"嘉義市(截圖未附地址,以地標導航)","nav":"嘉義文化公園","hours":"—","open":null,"tags":[["tag-out","🌤️ 戶外"]],"note":"諸羅樹蛙共融遊戲場","city":"嘉義市","area":""},
-{"uid":"family-nightmarket","name":"文化路夜市","mainCat":"景點","cat":"夜市美食","schedType":"recommended-evening","lat":23.4776,"lng":120.4478,"addr":"嘉義市西區文化路","nav":"嘉義市文化路觀光夜市","hours":"—","open":null,"tags":[],"note":"晚間最熱鬧","city":"嘉義市","area":"西區"},
-{"uid":"family-museum","name":"嘉義市立博物館","mainCat":"景點","cat":"博物館","schedType":"unknown","lat":23.4867,"lng":120.4552,"addr":"嘉義市東區北門里忠孝路275-1號","nav":"嘉義市立博物館 忠孝路275-1號","hours":"—","open":null,"tags":[["tag-cool","❄️ 室內"]],"note":"","city":"嘉義市","area":"東區"},
-{"uid":"family-zhuqi","name":"嘉義竹崎親水公園","mainCat":"親子","cat":"親水公園","schedType":"public-space","lat":23.5233,"lng":120.5518,"addr":"嘉義縣竹崎鄉竹崎村中華路","nav":"竹崎親水公園","hours":"—","open":null,"tags":[["tag-out","🌤️ 戶外"]],"note":"天空步道","city":"嘉義縣","area":"竹崎鄉"},
-{"uid":"family-jinju","name":"民雄金桔觀光工廠","mainCat":"親子","cat":"觀光工廠","schedType":"unknown","lat":23.5405,"lng":120.4592,"addr":"嘉義縣民雄鄉三興村7鄰38號","nav":"民雄金桔觀光工廠 嘉義縣民雄鄉三興村7鄰38號","hours":"—","open":null,"tags":[],"note":"小火車、挖土機、迷宮","city":"嘉義縣","area":"民雄鄉"},
-{"uid":"custom-b9488d91-cb06-464c-9b49-828b5675adf6","name":"23-1","mainCat":"正餐","cat":"正餐","schedType":"unknown","lat":null,"lng":null,"addr":"23-1","nav":"23-1 23-1","hours":"—","open":null,"tags":[],"note":"","city":"","area":"","icon":"","phone":"","parkingType":"未確認","indoorType":"未設定","airConditioned":false,"stayMinutes":null},
-{"uid":"custom-f0eb62b7-3d99-4f27-8b62-6505507554f0","name":"23-2","mainCat":"點心","cat":"點心","schedType":"unknown","lat":null,"lng":null,"addr":"23-2","nav":"23-2 23-2","hours":"—","open":null,"tags":[],"note":"","city":"","area":"","icon":"","phone":"","parkingType":"未確認","indoorType":"未設定","airConditioned":false,"stayMinutes":null}
+ {uid:"hotel-tiancheng",city:"嘉義市",area:"東區",name:"天成文旅－繪日之丘",mainCat:"住宿",cat:"住宿",type:"hotel",
+  schedType:"hotel",lat:23.4875,lng:120.4750,addr:"嘉義市東區盧厝里大雅路一段888號",
+  nav:"天成文旅 繪日之丘 嘉義市東區大雅路一段888號",hours:"童樂室 09:00–12:00/15:00–22:00",
+  open:null,facilityName:"童樂室",facilityHours:[["09:00","12:00"],["15:00","22:00"]],
+  tags:[],note:"童樂室、免費零食"},
+ {uid:"snack-baoshi",city:"嘉義市",area:"東區",name:"南門包氏炭燒杏仁茶",mainCat:"點心",cat:"早餐",schedType:"hours",
+  lat:23.4744,lng:120.4536,addr:"嘉義市東區朝陽里民族路191號",
+  nav:"南門包氏炭燒杏仁茶 嘉義市東區民族路191號",hours:"06:00–10:00",
+  open:{ranges:[["06:00","10:00"]],closed:[]},tags:[],note:""},
+ {uid:"snack-ae",city:"嘉義市",area:"東區",name:"阿娥豆漿豆花",mainCat:"點心",cat:"甜點",schedType:"hours",
+  lat:23.4767,lng:120.4498,addr:"嘉義市東區過溝里延平街233號",
+  nav:"阿娥豆漿豆花 嘉義市東區延平街233號",hours:"14:00–23:00",
+  open:{ranges:[["14:00","23:00"]],closed:[]},tags:[],note:""},
+ {uid:"snack-suji",city:"嘉義市",area:"東區",name:"蘇記傳統紅豆餅",mainCat:"點心",cat:"紅豆餅",schedType:"hours",
+  lat:23.4767,lng:120.4490,addr:"嘉義市東區文化里延平街268號",
+  nav:"蘇記傳統紅豆餅 嘉義市東區延平街268號",hours:"12:30–18:30",
+  open:{ranges:[["12:30","18:30"]],closed:[]},tags:[],note:""},
+ {uid:"snack-apo",city:"嘉義市",area:"西區",name:"阿婆炸麻糬",mainCat:"點心",cat:"炸麻糬",schedType:"hours",
+  lat:23.4757,lng:120.4443,addr:"嘉義市西區導明里民生南路54號",
+  nav:"阿婆炸麻糬 嘉義市西區民生南路54號",hours:"13:00–17:00",
+  open:{ranges:[["13:00","17:00"]],closed:[]},tags:[],note:""},
+ {uid:"snack-liji",city:"嘉義市",area:"東區",name:"李記麵粉煎",mainCat:"點心",cat:"麵粉煎",schedType:"hours",
+  lat:23.4805,lng:120.4468,addr:"嘉義市東區中央里中正路379號",
+  nav:"李記麵粉煎 嘉義市東區中正路379號",hours:"15:30–22:00",
+  open:{ranges:[["15:30","22:00"]],closed:[]},tags:[],note:""},
+ {uid:"snack-chenmama",city:"嘉義市",area:"西區",name:"陳媽媽紅豆餅",mainCat:"點心",cat:"紅豆餅",schedType:"hours",
+  lat:23.4923,lng:120.4297,addr:"嘉義市西區湖邊里興達路92號",
+  nav:"陳媽媽紅豆餅 嘉義市西區興達路92號",hours:"12:30–17:45",
+  open:{ranges:[["12:30","17:45"]],closed:[]},tags:[],note:""},
+ {uid:"turkey-taohuayuan",city:"嘉義市",area:"東區",name:"桃花源餐廳",mainCat:"正餐",cat:"餐廳",schedType:"hours",
+  lat:23.4870,lng:120.4745,addr:"嘉義市東區文雅里大雅路一段870號",
+  nav:"桃花源餐廳 嘉義市東區大雅路一段870號",hours:"11:00–14:00/17:00–21:00",
+  open:{ranges:[["11:00","14:00"],["17:00","21:00"]],closed:[]},tags:[],note:""},
+ {uid:"turkey-yezi",city:"嘉義市",area:"東區",name:"葉子庭園餐廳",mainCat:"正餐",cat:"餐廳",schedType:"hours",
+  lat:23.4849,lng:120.4956,addr:"嘉義市東區長竹里潭頂路82號",
+  nav:"葉子庭園餐廳 嘉義市東區潭頂路82號",hours:"11:00–14:00/17:00–21:00",
+  open:{ranges:[["11:00","14:00"],["17:00","21:00"]],closed:[]},tags:[],note:"鍋物、定食"},
+ {uid:"turkey-zhengtong",city:"嘉義市",area:"東區",name:"正統火雞肉飯",mainCat:"正餐",cat:"火雞肉飯",schedType:"hours",
+  lat:23.4778,lng:120.4838,addr:"嘉義市東區蘭潭里大雅路二段591號",
+  nav:"正統火雞肉飯 嘉義市東區大雅路二段591號",hours:"08:00–13:50/16:30–19:30",
+  open:{ranges:[["08:00","13:50"],["16:30","19:30"]],closed:[]},
+  tags:[["tag-cool","❄️ 冷氣"],["tag-park","🅿️ 好停車"]],note:""},
+ {uid:"turkey-guicho",city:"嘉義市",area:"東區",name:"檜町火雞肉飯",mainCat:"正餐",cat:"火雞肉飯",schedType:"hours",
+  lat:23.4800,lng:120.4489,addr:"嘉義市東區吳鳳北路101號",
+  nav:"檜町火雞肉飯 嘉義市東區吳鳳北路101號",hours:"11:00–15:00/17:00–20:00",
+  open:{ranges:[["11:00","15:00"],["17:00","20:00"]],closed:[]},
+  tags:[["tag-cool","❄️ 冷氣"],["tag-park","🅿️ 好停車"]],note:""},
+ {uid:"turkey-sanhe",city:"嘉義市",area:"東區",name:"桃城三禾火雞肉飯",mainCat:"正餐",cat:"火雞肉飯",schedType:"hours",
+  lat:23.4856,lng:120.4560,addr:"嘉義市東區中山里民權路97號",
+  nav:"桃城三禾火雞肉飯 嘉義市東區民權路97號",hours:"10:00–19:00(週四、五休)",
+  open:{ranges:[["10:00","19:00"]],closed:[4,5]},tags:[],note:""},
+ {uid:"turkey-xiao",city:"嘉義市",area:"西區",name:"蕭老師火雞肉飯",mainCat:"正餐",cat:"火雞肉飯",schedType:"hours",
+  lat:23.4899,lng:120.4169,addr:"嘉義市西區重興里自由路101號",
+  nav:"蕭老師火雞肉飯 嘉義市西區重興里自由路101號",hours:"10:00–14:00/16:00–20:00(週五休)",
+  open:{ranges:[["10:00","14:00"],["16:00","20:00"]],closed:[5]},tags:[],
+  note:"店名依群組回報修正,若有誤請再告知"},
+ {uid:"turkey-jiaojia",city:"嘉義市",area:"西區",name:"焦家好味道",mainCat:"正餐",cat:"小吃",schedType:"unknown",
+  lat:23.4790,lng:120.4479,addr:"嘉義市西區文化路146號",
+  nav:"焦家好味道 嘉義市西區文化路146號",hours:"—",open:null,tags:[],note:""},
+ {uid:"family-yuciye",city:"嘉義縣",area:"鹿草鄉",name:"余慈爺公廟",mainCat:"景點",cat:"廟宇",schedType:"public-space",
+  lat:23.4128,lng:120.2986,addr:"嘉義縣鹿草鄉後寮村61號",
+  nav:"余慈爺公廟 嘉義縣鹿草鄉後寮村61號",hours:"—",open:null,
+  tags:[["tag-out","🌤️ 戶外"]],note:""},
+ {uid:"family-weishideng",city:"嘉義市",area:"西區",name:"威士登玩水園區",mainCat:"親子",cat:"親子玩水",schedType:"unknown",
+  lat:23.4680,lng:120.4270,addr:"嘉義市西區光路里南京路272號",
+  nav:"威士登玩水園區 嘉義市西區南京路272號",hours:"—",open:null,
+  tags:[["tag-out","💦 戶外玩水"]],note:"票價:大人280/學生230/兒童160"},
+ {uid:"family-kunchong",city:"嘉義市",area:"東區",name:"新嘉大昆蟲館",mainCat:"親子",cat:"室內親子",schedType:"hours",
+  lat:23.4715,lng:120.4870,addr:"嘉義市東區鹿寮里學府路300號",
+  nav:"新嘉大昆蟲館 嘉義市東區學府路300號",hours:"09:00–18:00",
+  open:{ranges:[["09:00","18:00"]],closed:[]},tags:[["tag-cool","❄️ 室內冷氣"]],note:""},
+ {uid:"family-wenhuapark",city:"嘉義市",area:"",name:"嘉義文化公園",mainCat:"親子",cat:"公園",schedType:"public-space",
+  lat:23.4790,lng:120.4530,addr:"嘉義市(截圖未附地址,以地標導航)",nav:"嘉義文化公園",
+  hours:"—",open:null,tags:[["tag-out","🌤️ 戶外"]],note:"諸羅樹蛙共融遊戲場"},
+ {uid:"family-nightmarket",city:"嘉義市",area:"西區",name:"文化路夜市",mainCat:"景點",cat:"夜市美食",schedType:"recommended-evening",
+  lat:23.4776,lng:120.4478,addr:"嘉義市西區文化路",nav:"嘉義市文化路觀光夜市",
+  hours:"—",open:null,tags:[],note:"晚間最熱鬧"},
+ {uid:"family-museum",city:"嘉義市",area:"東區",name:"嘉義市立博物館",mainCat:"景點",cat:"博物館",schedType:"unknown",
+  lat:23.4867,lng:120.4552,addr:"嘉義市東區北門里忠孝路275-1號",
+  nav:"嘉義市立博物館 忠孝路275-1號",hours:"—",open:null,
+  tags:[["tag-cool","❄️ 室內"]],note:""},
+ {uid:"family-zhuqi",city:"嘉義縣",area:"竹崎鄉",name:"嘉義竹崎親水公園",mainCat:"親子",cat:"親水公園",schedType:"public-space",
+  lat:23.5233,lng:120.5518,addr:"嘉義縣竹崎鄉竹崎村中華路",nav:"竹崎親水公園",
+  hours:"—",open:null,tags:[["tag-out","🌤️ 戶外"]],note:"天空步道"},
+ {uid:"family-jinju",city:"嘉義縣",area:"民雄鄉",name:"民雄金桔觀光工廠",mainCat:"親子",cat:"觀光工廠",schedType:"unknown",
+  lat:23.5405,lng:120.4592,addr:"嘉義縣民雄鄉三興村7鄰38號",
+  nav:"民雄金桔觀光工廠 嘉義縣民雄鄉三興村7鄰38號",hours:"—",open:null,tags:[],note:"小火車、挖土機、迷宮"}
 ];
 /*__PLACES_END__*/
 /*__DEFAULT_PHOTOS_START__*/
-const DEFAULT_PHOTOS={};   /* 正式預設照片(uid→https) */
+const DEFAULT_PHOTOS={};   /* v21:正式預設照片(uid→https);發布時由本機 https 照合成寫入 */
 /*__DEFAULT_PHOTOS_END__*/
 const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
@@ -1197,8 +1278,10 @@ function renderFilters(){
 }
 
 /* ═══ 10. 卡片 ═══ */
+let searchStr="";                                    /* v22B:搜尋字串,僅記憶體,不寫 localStorage */
 function cardList(){
   let pts=filters.showExcluded?[...ALLP]:visList();
+  pts=applySearch(pts);                              /* v22B:搜尋(區域後、分類前) */
   if(curTab==="custom")pts=pts.filter(p=>p.source==="custom");
   else if(curTab!=="all")pts=pts.filter(p=>p.mainCat===curTab);
   if(filters.customOnly)pts=pts.filter(p=>p.source==="custom");
@@ -1265,7 +1348,7 @@ function renderCards(now){
         <button class="visitBtn" data-v="${p.uid}" aria-pressed="${done}">${done?"✓今天":"完成?"}</button>
       </div>
       ${m?`<div class="dist">📏 約 ${m.km.toFixed(1)} km｜車程約 ${m.eta} 分(估) <span class="rank">｜第 ${m.rank} 近</span>${p.fixed?`<span class="fixed-tag">｜📌已校正</span>`:""}</div>`
-         :(!p.hasCoord?`<div class="noCoord">⚠️ 尚未設定座標——可導航,但不參與距離/推薦(用📌校正補上)</div>`:"")}
+         :(!p.hasCoord?`<div class="noCoord">⚠️ 尚未設定座標——可導航,但不參與距離/推薦 <button class="fixCoordBtn" data-fixcoord="${p.uid}">📌 補座標</button></div>`:"")}
       ${a?`<div class="arrive ${a.cls}" data-arrive>${a.text}</div>`:""}
       ${(p.stayMinutes||p.phone)?`<div class="meta">${p.stayMinutes?`⏱ 建議停留 ${esc(p.stayMinutes)} 分`:""}${p.stayMinutes&&p.phone?"｜":""}${p.phone?`☎ ${esc(p.phone)}`:""}</div>`:""}
       ${hist?`<div class="meta">🏁 曾去過 ${hist} 次${done?"｜✓ 今天已完成":""}</div>`:(done?`<div class="meta">✓ 今天已完成</div>`:"")}
@@ -1597,7 +1680,7 @@ function deletePlace(uid){
 document.getElementById("btnManage").addEventListener("click",()=>{
   const p=document.getElementById("managePanel");
   p.hidden=!p.hidden;
-  if(!p.hidden)renderManage();
+  if(!p.hidden){renderManage();autofillAddCity();}
 });
 document.querySelector(".mtabs").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
@@ -1606,6 +1689,7 @@ document.querySelector(".mtabs").addEventListener("click",e=>{
   document.getElementById("mAdd").hidden=manageTab!=="add";
   document.getElementById("mList").hidden=manageTab!=="list";
   document.getElementById("mExcluded").hidden=manageTab!=="excluded";
+  if(manageTab==="add")autofillAddCity();
   renderManage();
 });
 function manageRow(p){
@@ -1894,7 +1978,7 @@ F("fSave").addEventListener("click",()=>{
     alert(`已新增「${name}」。`);
   }
   maybeAddRegionForCity(cityVal);                    /* v22:city 不在本次旅行地區→詢問加入(景點已存,拒絕不影響) */
-  editingUid=null;fillForm(null);                    /* 工單18#3:只有成功才清表單退出編輯 */
+  editingUid=null;fillForm(null);autofillAddCity();  /* 工單18#3:清表單退出編輯;v22B 下次新增預帶目前縣市 */
   rebuildAndRender();
 });
 
@@ -1986,6 +2070,8 @@ document.getElementById("main").addEventListener("click",e=>{
     const uid=card?card.dataset.uid:null;
     if(uid)openPlaceSheet(uid,more);   /* 卡片⋮ → 共用底部管理抽屜 */
     return}
+  const fx=e.target.closest("[data-fixcoord]");   /* v22B:卡片「📌 補座標」直達座標校正 */
+  if(fx){openCoordSheetFor(fx.dataset.fixcoord);return}
   const pk=e.target.closest(".pick");
   if(pk&&!pk.disabled){
     const k=pk.dataset.k,p=byUid[k];
@@ -2503,7 +2589,7 @@ function updateDynamic(){
 }
 function renderAll(){
   const now=new Date();
-  renderHeader();renderRegionBar();renderTabs();renderSorts();renderFilters();
+  renderHeader();renderRegionBar();renderTabs();renderSorts();renderFilters();renderSearchStat();
   renderCards(now);renderReco(now);renderTripBar(now);
   renderSelect();renderLocExtras();
   if(ref){
@@ -2770,7 +2856,8 @@ function renderRegionBar(){                           /* 四來源聯集:全部�
   h+=opt("","全部地區",cr===""||cr==="全部");
   if(trip.length)h+=`<optgroup label="本次旅行地區">`+trip.map(c=>opt(c,c,cr===c)).join("")+`</optgroup>`;
   if(others.length)h+=`<optgroup label="景點庫其他城市">`+others.map(c=>opt(c,c,cr===c)).join("")+`</optgroup>`;
-  if(hasUncls)h+=opt("未分類","未分類",cr==="未分類");
+  const unclsN=ALLP.filter(p=>(p.city||"")==="").length;   /* v22B:未分類筆數=ALLP city 空(含暫時隱藏、不含永久移除) */
+  if(unclsN>0)h+=opt("未分類",`未分類（${unclsN}）`,cr==="未分類");
   h+=`</select>`;
   $b.innerHTML=h;
 }
@@ -2832,6 +2919,70 @@ document.getElementById("sRegionList").addEventListener("click",e=>{
     alert("移除旅行地區儲存失敗,未變更(見儲存提醒)。");return}
   renderRegionList();renderRegionBar();renderAll();
 });
+
+/* ═══ v22B 實用小改版:搜尋、複製今日行程、補座標、自動帶縣市 ═══ */
+function applySearch(list){                           /* 搜尋 name/addr/phone/note/mainCat/cat/city/area;trim+英文不分大小寫;中文 includes */
+  const q=searchStr.trim().toLowerCase();
+  if(!q)return list;
+  return list.filter(p=>{
+    const hay=[p.name,p.addr,p.phone,p.note,p.mainCat,p.cat,p.city,p.area]
+      .map(v=>typeof v==="string"?v:"").join("\u0001").toLowerCase();
+    return hay.includes(q);
+  });
+}
+function renderSearchStat(){                           /* 搜尋狀態:找到 N / 找不到 */
+  const el=document.getElementById("qStat");if(!el)return;
+  if(!searchStr.trim()){el.textContent="";return}
+  const n=cardList().length;                           /* v22B 修正:完整顯示管線(區域+搜尋+分類+只顯示自訂+隱藏已完成+顯示暫時隱藏),與實際卡片數一致 */
+  el.textContent=n>0?`找到 ${n} 個景點`:"找不到符合條件的景點";
+}
+function autofillAddCity(){                            /* 新增(非編輯)時 fCity 預設帶入合法 currentRegion */
+  if(editingUid)return;                               /* 編輯:用景點原 city,不覆蓋 */
+  if(document.getElementById("fName").value.trim())return;  /* 已在填名稱:不打斷 */
+  document.getElementById("fCity").value=canonCity(settings.currentRegion)||"";  /* 全部/未分類/非法→"" */
+}
+function openCoordSheetFor(uid){                       /* 卡片「補座標」直達座標校正;內建/自訂皆可 */
+  if(!byUid[uid])return;
+  openPlaceSheet(uid,null);
+  openCoordSheet();
+}
+function execCopyText(text){                           /* execCommand fallback(HTTP 非安全內容) */
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=text;ta.style.position="fixed";ta.style.left="-9999px";ta.setAttribute("readonly","");
+    document.body.appendChild(ta);ta.focus();ta.select();
+    const ok=document.execCommand("copy");
+    document.body.removeChild(ta);return ok;
+  }catch(_){return false}
+}
+function copyTodayTrip(){                               /* 複製今日行程文字,方便貼 LINE */
+  if(!trip.length){alert("目前沒有今日行程");return}
+  const title=(settings.title&&settings.title.trim())||"今日旅遊行程";
+  const now=new Date();
+  const dateLine=`${pad(now.getMonth()+1)}/${pad(now.getDate())} 今日行程`;
+  const lines=trip.map((u,i)=>`${i+1}. ${byUid[u]?byUid[u].name:u}`);
+  let text=title+"\n"+dateLine+"\n\n"+lines.join("\n");
+  if(settings.hotelName&&settings.hotelName.trim())text+="\n\n住宿:"+settings.hotelName.trim();
+  const finish=ok=>{
+    if(ok){alert("已複製今日行程,可貼到 LINE");return}
+    const box=document.getElementById("ioBox");         /* 最終 fallback:顯示於資料交換區手動複製 */
+    if(box){box.style.display="block";box.value=text;box.focus();box.select();}
+    alert("複製失敗,請手動選取文字");
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(()=>finish(true)).catch(()=>finish(execCopyText(text)));
+  else finish(execCopyText(text));
+}
+document.getElementById("qInput").addEventListener("input",e=>{
+  searchStr=e.target.value;                             /* 記憶體;不寫 localStorage */
+  renderCards(new Date());renderSearchStat();
+});
+document.getElementById("qClear").addEventListener("click",()=>{
+  searchStr="";document.getElementById("qInput").value="";   /* 只清搜尋,不動區域/分類/排序/localStorage */
+  renderCards(new Date());renderSearchStat();
+  document.getElementById("qInput").focus();
+});
+document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
 
 populateCityDropdowns();
 const bootBuildOK=buildAll();
