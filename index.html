@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22B 實用小改版)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22C 行程面板版面優化)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
-   複製行程給家人(行程面板主要操作列)、無座標卡片「📌 補座標」快捷、未分類顯示筆數、
-   頂部版本標籤 V22B(APP_RELEASE)、景點管理「📍 尚未設定座標（N）」篩選入口;
+   複製給家人(行程面板主要操作列)、無座標卡片「📌 補座標」快捷、未分類顯示筆數、
+   頂部版本標籤(APP_RELEASE)、景點管理「📍 尚未設定座標（N）」篩選入口;
+ v22C(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22C→畫面顯示 V22C):
+   行程面板收合列只留 查看行程/複製給家人/開多點導航;
+   修正 #tripCtl display:contents 蓋過 [hidden] 之缺陷(展開專用鈕原本收合時仍可見);
+   桌機收合單排、手機直向最多兩排 ≤150px;文案縮短(複製給家人、未定位,無法估車程);
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -213,6 +217,19 @@
   #tripBar .btn{min-height:2.8rem;font-size:.9em}
   /* 手機退回修正4:收合單列約 60–72px;展開才見完整控制 */
   #tripCtl{display:contents}
+  /* v22C 缺陷修正:作者 display:contents 會蓋過 UA [hidden]{display:none},
+     導致 tripCtl.hidden=true 仍然可見(展開清單/由近到遠/先遠後近/開始新行程露在收合列)。此處顯式關閉。 */
+  #tripCtl[hidden]{display:none}
+  /* v22C:收合列只留 摘要＋查看行程＋複製給家人＋開多點導航;桌機單排、手機直向最多兩排且 ≤150px */
+  #tripBar.tbShow{display:block}
+  #tripBar.tbShow.tbCollapsed{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;
+    max-height:9.4rem}                                    /* 9.4rem≈150px 上限;超出可捲(#tripBar overflow:auto) */
+  #tripBar.tbCollapsed .row{flex:1 1 auto;width:auto;min-width:0;flex-wrap:nowrap}
+  #tripBar.tbCollapsed #tripSum{flex:1 1 auto;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* 窄螢幕摘要省略,保住單排 */
+  #tripBar.tbCollapsed .btn{flex-shrink:0;white-space:nowrap}
+  #tripBar.tbCollapsed #tripGo{flex:0 1 auto;width:auto;max-width:100%;margin:0}
+  #tripBar.tbCollapsed .btn-nav{white-space:nowrap;max-width:100%}
   .btn-nav{background:var(--sign-green);color:#fff;text-decoration:none;
     display:inline-flex;align-items:center;border-radius:.7rem;padding:0 1rem;font-weight:800;min-height:2.8rem}
   .btn-lock{background:#3A4642;color:#B8C4BF;border:1px dashed #7a8781}
@@ -295,7 +312,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22B</span>
+    <span class="verChip" id="verChip">V22C</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
   </div>
@@ -420,7 +437,7 @@
   <div class="row">
     <b id="tripSum">今日行程 0 站</b>
     <button class="btn btn-dark" id="btnTripExpand">查看行程 ▾</button>
-    <button class="btn btn-dark" id="btnCopyTrip">📋 複製行程給家人</button>
+    <button class="btn btn-dark" id="btnCopyTrip">📋 複製給家人</button>
     <div id="tripCtl">
     <button class="btn btn-dark" id="btnList">展開清單 ▾</button>
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
@@ -768,7 +785,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22B";          /* v22B:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22C";          /* v22C:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -1449,8 +1466,10 @@ function segURLs(){
 }
 function renderTripBar(now){
   const bar=document.getElementById("tripBar");
-  if(!trip.length){bar.style.display="none";return}
-  bar.style.display="block";
+  /* v22C:顯示改用 class(tbShow/tbCollapsed),收合時套 flex 單排版面;僅版面,不動 trip/tripManual/排序/導航 */
+  if(!trip.length){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed");return}
+  bar.style.display="";bar.classList.add("tbShow");
+  bar.classList.toggle("tbCollapsed",!tripPanelExpanded);
   updateTripSummary(now);
   /* 手機退回修正4:預設收合單列;展開才見完整控制與清單 */
   document.getElementById("btnTripExpand").textContent=tripPanelExpanded?"▴ 收合行程":"查看行程 ▾";
@@ -1494,7 +1513,7 @@ function updateTripSummary(now){
   if(!trip.length)return;
   const{total}=tripTotal();
   document.getElementById("tripSum").textContent=
-    `今日行程 ${trip.length} 站`+(ref?`｜總車程估 ${total} 分(不含停留)`:`｜先定位才能估總車程`)
+    `今日行程 ${trip.length} 站`+(ref?`｜總車程估 ${total} 分(不含停留)`:`｜未定位,無法估車程`)
     +(tripManual?"｜✋ 已手動調整順序":"");
   const warn=trip.map(k=>byUid[k]).filter(p=>p&&stateOf(p,now).badge==="今日公休").map(p=>p.name);
   document.getElementById("tripWarn").textContent=
