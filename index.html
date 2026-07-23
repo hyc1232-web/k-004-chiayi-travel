@@ -5,7 +5,8 @@
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
-   複製今日行程文字、無座標卡片「📌 補座標」快捷、未分類顯示筆數;
+   複製行程給家人(行程面板主要操作列)、無座標卡片「📌 補座標」快捷、未分類顯示筆數、
+   頂部版本標籤 V22B(APP_RELEASE)、景點管理「📍 尚未設定座標（N）」篩選入口;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -57,6 +58,11 @@
     border-radius:.6rem;cursor:pointer}
   .hReload:active{background:rgba(255,255,255,.34)}
   @media(max-width:480px){ .hReload .hRlIcon{display:none} }  /* 手機窄螢幕只留「更新」文字,不擠標題;不只圖示 */
+  /* v22B:頂部版本標籤(桌機/手機皆見,不佔觸控區) */
+  .verChip{display:inline-flex;align-items:center;flex-shrink:0;padding:0 .5rem;min-height:1.9rem;
+    font-size:.82rem;font-weight:800;letter-spacing:.5px;line-height:1;white-space:nowrap;
+    background:rgba(0,0,0,.22);color:#fff;border:1px solid rgba(255,255,255,.55);border-radius:.45rem;
+    align-self:center}
   /* v22B:搜尋列(觸控 ≥44px,不擠區域/分類)+ 補座標按鈕 */
   .searchBar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.4rem 1rem 0}
   #qInput{flex:1;min-width:0;min-height:44px;font-size:1.05rem;padding:.4rem .7rem;
@@ -289,6 +295,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
+    <span class="verChip" id="verChip">V22B</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
   </div>
@@ -342,6 +349,7 @@
     <button data-mt="add" aria-pressed="true">➕ 新增景點</button>
     <button data-mt="list" aria-pressed="false">📋 管理景點</button>
     <button data-mt="excluded" aria-pressed="false">🚫 已暫時隱藏</button>
+    <button data-mt="nocoord" id="mtNoCoord" aria-pressed="false">📍 尚未設定座標（0）</button>
   </div>
 
   <div id="mAdd">
@@ -392,6 +400,7 @@
 
   <div id="mList" hidden></div>
   <div id="mExcluded" hidden></div>
+  <div id="mNoCoord" hidden></div>
 </div>
 
 <div class="reco" id="reco" hidden></div>
@@ -411,12 +420,12 @@
   <div class="row">
     <b id="tripSum">今日行程 0 站</b>
     <button class="btn btn-dark" id="btnTripExpand">查看行程 ▾</button>
+    <button class="btn btn-dark" id="btnCopyTrip">📋 複製行程給家人</button>
     <div id="tripCtl">
     <button class="btn btn-dark" id="btnList">展開清單 ▾</button>
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
     <button class="btn btn-dark" id="btnFarNear">先遠後近</button>
     <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 開始新行程</button>
-    <button class="btn btn-dark" id="btnCopyTrip">📋 複製今日行程</button>
     <div id="tripWarn"></div>
     </div>
   </div>
@@ -759,6 +768,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
+const APP_RELEASE="22B";          /* v22B:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -1689,6 +1699,7 @@ document.querySelector(".mtabs").addEventListener("click",e=>{
   document.getElementById("mAdd").hidden=manageTab!=="add";
   document.getElementById("mList").hidden=manageTab!=="list";
   document.getElementById("mExcluded").hidden=manageTab!=="excluded";
+  document.getElementById("mNoCoord").hidden=manageTab!=="nocoord";
   if(manageTab==="add")autofillAddCity();
   renderManage();
 });
@@ -1709,6 +1720,7 @@ function manageRow(p){
 }
 function renderManage(){
   if(document.getElementById("managePanel").hidden)return;
+  renderNoCoordTab();                                /* v22B:無座標分頁標籤 N 與清單 */
   const $l=document.getElementById("mList");
   if(manageTab==="list"){
     const bs=ALLP.filter(p=>p.source==="builtin"),cs=ALLP.filter(p=>p.source==="custom");
@@ -1745,6 +1757,7 @@ document.getElementById("managePanel").addEventListener("click",e=>{
   if(t.id==="btnCleanupPublished"){cleanupPublishedLocals();return}
   if(t.dataset.permremove){permRemove(t.dataset.permremove);return}
   if(t.dataset.permrestore){permRestore(t.dataset.permrestore);return}
+  if(t.dataset.fixcoord){openCoordSheetFor(t.dataset.fixcoord);return}   /* v22B:管理清單「📌 補座標」 */
   if(t.dataset.edit)startEdit(t.dataset.edit);
   else if(t.dataset.exclude)excludePlace(t.dataset.exclude);
   else if(t.dataset.restore)restorePlace(t.dataset.restore);
@@ -2956,7 +2969,7 @@ function execCopyText(text){                           /* execCommand fallback(H
   }catch(_){return false}
 }
 function copyTodayTrip(){                               /* 複製今日行程文字,方便貼 LINE */
-  if(!trip.length){alert("目前沒有今日行程");return}
+  if(!trip.length){alert("目前尚未加入行程");return}
   const title=(settings.title&&settings.title.trim())||"今日旅遊行程";
   const now=new Date();
   const dateLine=`${pad(now.getMonth()+1)}/${pad(now.getDate())} 今日行程`;
@@ -2983,6 +2996,25 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* v22B:無座標景點清單(N=ALLP 中無有效座標數;含暫時隱藏、不含永久移除,與未分類（N）同語意) */
+function noCoordList(){return ALLP.filter(p=>!p.hasCoord)}
+function renderNoCoordTab(){
+  const list=noCoordList(),tab=document.getElementById("mtNoCoord");
+  if(tab)tab.textContent=`📍 尚未設定座標（${list.length}）`;
+  const box=document.getElementById("mNoCoord");if(!box)return;
+  box.innerHTML=`<h3>尚未設定座標(${list.length})</h3>`
+    +`<div class="meta">這些景點可導航,但不參與距離/推薦排序。補上座標後即會從本清單消失。</div>`
+    +(list.length?list.map(p=>`<div class="mItem">
+        <b>${p.icon?esc(p.icon)+" ":""}${esc(p.name)}</b>(${esc(p.cat||p.mainCat)})
+        <span class="cityChip">${p.city?esc(p.city):"未分類"}${p.area?" "+esc(p.area):""}</span>
+        ${excluded.has(p.uid)?`<span class="stChip">已隱藏</span>`:""}
+        ${p.addr?`<div class="meta">${esc(p.addr)}</div>`:""}
+        <div class="mOps"><button class="btn btn-ghost" data-fixcoord="${p.uid}">📌 補座標</button>
+          <button class="btn btn-ghost" data-edit="${p.uid}">✏️ 編輯</button></div>
+      </div>`).join("")
+     :`<div class="meta">目前所有景點都有座標,無待補項目。</div>`);
+}
+document.getElementById("verChip").textContent="V"+APP_RELEASE;   /* v22B:版本標籤以常數為準 */
 
 populateCityDropdowns();
 const bootBuildOK=buildAll();
