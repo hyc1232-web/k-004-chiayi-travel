@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22E 雙區塊收合)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22F 底部遮擋與手機字體修正)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -20,6 +20,11 @@
    頂部綠色區可整體收合(收合單列:系統名稱＋V22E＋更新＋齒輪＋▼,約 56px);
    今日行程可整體縮小(只留「今日行程 N 站」＋▼,約 56px;復原條例外仍顯示);
    兩者狀態分離(headerCollapsed / tripBarCollapsed),皆僅記憶體、重整預設展開;
+ v22F(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22F→畫面顯示 V22F):
+   body 底部留白改為 calc(var(--tripbar-space) + 1rem + safe-area),
+   由 ResizeObserver 即時把 #tripBar 實際高度寫入 CSS 變數(隱藏/空行程寫 0),
+   收合/縮小/展開/復原條增減、視窗縮放與手機旋轉皆重算,不再用固定 8rem;
+   手機(≤759px)今日行程字級縮約 8–12%,觸控區維持 ≥44px,桌面(≥760px)完全不變;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -51,13 +56,14 @@
     --c-meal:#A66300; --c-snack:#D9480F; --c-kids:#0B7285;
     --c-spot:#6741D9; --c-stay:#00754A; --c-shop:#C2255C;
     --c-other:#5B6963; --c-custom:#1971C2;
+    --tripbar-space:0px;   /* v22F:由 JS 依 #tripBar 實際高度即時寫入,解決底部遮擋 */
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);
     font-size:clamp(1.2rem, 1rem + 1vw, 1.35rem); /* GS-P11 大字 */
     font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
     line-height:1.6;-webkit-text-size-adjust:100%;
-    padding-bottom:calc(8rem + env(safe-area-inset-bottom))}
+    padding-bottom:calc(var(--tripbar-space) + 1rem + env(safe-area-inset-bottom))}   /* v22F:隨 tripBar 實高變動 */
   header{position:sticky;top:0;z-index:20;background:var(--sign-green);color:#fff;
     padding:.6rem 1rem .5rem;border-bottom:4px solid var(--sign-green-dark)}
   .hRow{display:flex;align-items:flex-start;gap:.6rem}
@@ -343,6 +349,19 @@
     .card .addr,.card .note{margin:.15rem 0}
     .btn-nav,.card .btn{min-height:2.75rem}
     .visitBtn{min-height:2.75rem}
+    /* v22F:手機今日行程字體縮約 10%(僅字級,觸控區一律維持 ≥44px) */
+    #tripBar{font-size:.78em}                       /* 原 .85em → 約 -8% */
+    #tripBar b{font-size:1em}
+    #tripBar .btn{font-size:.82em}
+    .tName{font-size:.92em}
+    .tLeg{font-size:.8em}
+    .tEditNote,#tripWarn,#tripGo .segNote{font-size:.8em}
+    .tuMsg{font-size:.92em}
+    .tOps button{font-size:.74em}
+    /* 觸控區維持(不因字體縮小而縮) */
+    #tripBar .btn,.tOps button,.tEdit .btn,#tripUndo .btn{min-height:2.75rem}
+    .tbArrow,.hArrow{min-width:2.8rem;min-height:2.8rem}
+    .tChkWrap{min-width:2.75rem;min-height:2.75rem}
   }
 
 /* v22 多區域樣式(大字/44px 觸控,遵 GS-P11) */
@@ -363,7 +382,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22E</span>
+    <span class="verChip" id="verChip">V22F</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -839,7 +858,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22E";          /* v22E:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22F";          /* v22F:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -1542,9 +1561,10 @@ function renderTripBar(now){
   renderTripUndo();                                   /* v22D:復原條 */
   bar.classList.toggle("tbHasUndo",!!tripUndo);
   if(!trip.length){
-    if(!tripUndo){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed","tbUndoOnly","tbMin");return}
+    if(!tripUndo){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed","tbUndoOnly","tbMin");
+      setTimeout(syncTripBarSpace,0);return}   /* v22F:空行程→底部空間歸零 */
     bar.style.display="";bar.classList.add("tbShow","tbUndoOnly");   /* v22D:行程已空但復原條在→只留復原條 */
-    applyTripBarModes(bar);return}
+    applyTripBarModes(bar);setTimeout(syncTripBarSpace,0);return}
   bar.classList.remove("tbUndoOnly");
   bar.style.display="";bar.classList.add("tbShow");
   applyTripBarModes(bar);      /* v22E:整體縮小(tbMin)與收合單排(tbCollapsed)分離 */
@@ -1567,6 +1587,7 @@ function renderTripBar(now){
     +(lastGos.length>1?`<div class="segNote">每段起點=按下當下的位置。`
       +(firstLock?`第 ${firstLock.si+1} 段請在<b>完成第 ${firstLock.si*SEG_MAX} 站後</b>再開啟;`:"")
       +`鎖住的段連按兩次可強制開啟(會從現處直接拉過去)。</div>`:""));
+  setTimeout(syncTripBarSpace,0);                     /* v22F:每次重繪後量測(RO 不可用時的保底) */
   const list=document.getElementById("tripList");
   list.hidden=!tripPanelExpanded||!tripListOpen;      /* 手機退回修正4:收合時清單一律藏 */
   document.getElementById("btnList").textContent=tripListOpen?"收合清單 ▴":"展開清單 ▾";
@@ -3113,6 +3134,33 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22F:底部空間動態量測(解 #tripBar fixed 遮擋頁尾) ═══ */
+let _tripSpaceRO=null,_lastTripSpace=-1;
+function syncTripBarSpace(){                          /* 把 #tripBar 實際高度寫入 --tripbar-space */
+  const bar=document.getElementById("tripBar");if(!bar)return;
+  let h=0;
+  const cs=window.getComputedStyle?window.getComputedStyle(bar):null;
+  const shown=bar.classList.contains("tbShow")&&(!cs||cs.display!=="none");
+  if(shown){
+    const r=bar.getBoundingClientRect?bar.getBoundingClientRect():null;
+    h=r&&r.height?r.height:(bar.offsetHeight||0);     /* 空行程/隱藏時為 0 */
+  }
+  h=Math.max(0,Math.round(h));
+  if(h===_lastTripSpace)return;                       /* 無變化不寫,避免多餘重排 */
+  _lastTripSpace=h;
+  document.documentElement.style.setProperty("--tripbar-space",h+"px");
+}
+function initTripBarSpace(){
+  const bar=document.getElementById("tripBar");if(!bar)return;
+  if(typeof ResizeObserver==="function"){             /* 收合/縮小/展開/復原條出現消失都會改高度→即時觸發 */
+    _tripSpaceRO=new ResizeObserver(()=>syncTripBarSpace());
+    _tripSpaceRO.observe(bar);
+  }
+  /* fallback:無 ResizeObserver 時靠 resize/旋轉/每次 renderTripBar 後量測 */
+  window.addEventListener("resize",syncTripBarSpace);
+  window.addEventListener("orientationchange",()=>setTimeout(syncTripBarSpace,150));
+  syncTripBarSpace();
+}
 /* ═══ v22E:雙區塊整體收合(狀態分離,僅記憶體) ═══ */
 function applyTripBarModes(bar){
   bar.classList.toggle("tbMin",tripBarCollapsed);                              /* 整體縮小 */
@@ -3195,6 +3243,7 @@ function renderNoCoordTab(){
 document.getElementById("verChip").textContent="V"+APP_RELEASE;   /* v22B:版本標籤以常數為準 */
 
 populateCityDropdowns();
+initTripBarSpace();                                   /* v22F */
 const bootBuildOK=buildAll();
 reconcileCurrentRegion();
 /* 開機正規化結果十鍵齊回存(工單16#6:補 trip/tripManual),儲存與畫面永遠一致(群組#8) */
