@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22C 行程面板版面優化)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22D 行程編輯與復原)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -11,6 +11,11 @@
    行程面板收合列只留 查看行程/複製給家人/開多點導航;
    修正 #tripCtl display:contents 蓋過 [hidden] 之缺陷(展開專用鈕原本收合時仍可見);
    桌機收合單排、手機直向最多兩排 ≤150px;文案縮短(複製給家人、未定位,無法估車程);
+ v22D(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22D→畫面顯示 V22D):
+   行程編輯清單(每站勾選=保留、全選/全部取消/移除未勾選、上下移邊界 disabled);
+   批次移除與清空行程皆提供 8 秒復原(記憶體,不新增 localStorage 鍵);
+   任何行程寫入成功即讓上一筆復原失效;「查看行程」→「✏️ 編輯行程」、
+   「開始新行程」→「🗑 清空今日行程」;只改 trip/tripManual,不動景點/照片/座標/去過紀錄;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -238,6 +243,25 @@
   #tripGo{display:flex;gap:.5rem;flex-wrap:wrap;width:100%;max-width:64rem;margin:.2rem auto 0}
   #tripGo .segNote{width:100%;font-size:.85em;color:#9FB4AC}
   #tripList{width:100%;max-width:64rem;margin:.3rem auto 0}
+  /* v22D:行程編輯清單(勾選/排序鈕 ≥44px)與 8 秒復原條 */
+  .tEdit{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;padding:.45rem 0}
+  .tEdit .btn{min-height:2.75rem}
+  .tEditNote{font-size:.85em;color:#9FB4AC;flex-basis:100%}
+  .tItem{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+  .tOps{flex-basis:100%}
+  .tChkWrap{display:inline-flex;align-items:center;justify-content:center;
+    min-width:2.75rem;min-height:2.75rem;cursor:pointer;flex-shrink:0}
+  .tChk{width:1.5rem;height:1.5rem}
+  .tOps button[disabled]{opacity:.45;cursor:not-allowed}
+  #tripUndo{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+    width:100%;max-width:64rem;margin:.35rem auto 0;
+    background:#3A4642;border-radius:.6rem;padding:.35rem .6rem}
+  #tripUndo[hidden]{display:none}        /* 同 v22C 教訓:自訂 display 會蓋過 UA [hidden],需顯式關閉 */
+  #tripUndo .btn{min-height:2.75rem;flex-shrink:0}
+  .tuMsg{flex:1 1 auto;min-width:0;font-weight:800}
+  #tripBar.tbCollapsed.tbHasUndo{max-height:14rem}   /* 復原條存在的 8 秒內暫時放寬(見交付說明) */
+  #tripBar.tbUndoOnly .row,#tripBar.tbUndoOnly #tripGo,
+  #tripBar.tbUndoOnly #tripCtl,#tripBar.tbUndoOnly #tripList{display:none}
   .tItem{border-top:1px solid #3A4642;padding:.45rem 0}
   .tName{font-weight:800}
   .tLeg{color:#9FB4AC;font-size:.85em}
@@ -312,7 +336,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22C</span>
+    <span class="verChip" id="verChip">V22D</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
   </div>
@@ -436,16 +460,17 @@
 <div id="tripBar">
   <div class="row">
     <b id="tripSum">今日行程 0 站</b>
-    <button class="btn btn-dark" id="btnTripExpand">查看行程 ▾</button>
+    <button class="btn btn-dark" id="btnTripExpand">✏️ 編輯行程 ▾</button>
     <button class="btn btn-dark" id="btnCopyTrip">📋 複製給家人</button>
     <div id="tripCtl">
     <button class="btn btn-dark" id="btnList">展開清單 ▾</button>
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
     <button class="btn btn-dark" id="btnFarNear">先遠後近</button>
-    <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 開始新行程</button>
+    <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 清空今日行程</button>
     <div id="tripWarn"></div>
     </div>
   </div>
+  <div id="tripUndo" hidden></div>
   <div id="tripGo"></div>
   <div id="tripList" hidden></div>
 </div>
@@ -785,7 +810,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22C";          /* v22C:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22D";          /* v22D:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -828,7 +853,12 @@ const savePhotos  =()=>lsSet("cy_photos_v5",photos);
 const savePermRemoved=()=>lsSet("cy_perm_removed_v5",permanentRemovedUids); /* v21 */
 /* v21:照片讀取共用——本機三態優先,undefined 回落正式預設 */
 const photoOf=uid=>photos[uid]!==undefined?(photos[uid]||null):(DEFAULT_PHOTOS[uid]||null);
-const saveTrip    =()=>lsSet("cy_trip_v5",trip);
+/* v22D:行程編輯與復原狀態——只存記憶體,不新增 localStorage 鍵 */
+let tripUnchecked=new Set();          /* 被取消勾選的 uid;預設空集=全部勾選(新加入的站自動勾選) */
+let tripUndo=null,tripUndoTimer=null; /* {trip,manual,msg};8 秒後失效 */
+function clearTripUndo(){tripUndo=null;if(tripUndoTimer){clearTimeout(tripUndoTimer);tripUndoTimer=null}}
+/* 任何 trip 寫入成功都讓上一筆復原失效(規格16);批次移除/清空會在存檔後再設定新的一筆 */
+const saveTrip    =()=>{const ok=lsSet("cy_trip_v5",trip);if(ok)clearTripUndo();return ok};
 const saveTripManual=()=>lsSet("cy_trip_manual_v5",tripManual);
 const saveCT      =()=>{
   const ok=lsSet("cy_completed_today_v5",{date:todayKey(),uids:[...completedToday]});
@@ -983,7 +1013,7 @@ function arrivalOf(p,now){
 
 /* ═══ 5. 全域 UI 狀態 ═══ */
 let curTab="all",sortMode="order",ref=null,pendingUid=null;
-let tripListOpen=false,segClicked=-1,segWarn=-1,lastGos=[];
+let tripListOpen=true,segClicked=-1,segWarn=-1,lastGos=[];   /* v22D:展開面板即顯示全部站點 */
 let filters={customOnly:false,hideDone:false,showExcluded:false};
 let manageTab="add",editingUid=null;
 let renderedPts=[];
@@ -1467,12 +1497,18 @@ function segURLs(){
 function renderTripBar(now){
   const bar=document.getElementById("tripBar");
   /* v22C:顯示改用 class(tbShow/tbCollapsed),收合時套 flex 單排版面;僅版面,不動 trip/tripManual/排序/導航 */
-  if(!trip.length){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed");return}
+  renderTripUndo();                                   /* v22D:復原條 */
+  bar.classList.toggle("tbHasUndo",!!tripUndo);
+  if(!trip.length){
+    if(!tripUndo){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed","tbUndoOnly");return}
+    bar.style.display="";bar.classList.add("tbShow","tbUndoOnly");   /* v22D:行程已空但復原條在→只留復原條 */
+    bar.classList.toggle("tbCollapsed",!tripPanelExpanded);return}
+  bar.classList.remove("tbUndoOnly");
   bar.style.display="";bar.classList.add("tbShow");
   bar.classList.toggle("tbCollapsed",!tripPanelExpanded);
   updateTripSummary(now);
   /* 手機退回修正4:預設收合單列;展開才見完整控制與清單 */
-  document.getElementById("btnTripExpand").textContent=tripPanelExpanded?"▴ 收合行程":"查看行程 ▾";
+  document.getElementById("btnTripExpand").textContent=tripPanelExpanded?"▴ 收合行程":"✏️ 編輯行程 ▾";
   document.getElementById("tripCtl").hidden=!tripPanelExpanded;
   lastGos=segURLs();
   const firstLock=lastGos.find(g=>g.si>segClicked+1);
@@ -1494,15 +1530,24 @@ function renderTripBar(now){
   document.getElementById("btnList").textContent=tripListOpen?"收合清單 ▴":"展開清單 ▾";
   if(!tripListOpen){list.innerHTML="";return}
   const{legs}=tripTotal();
-  list.innerHTML=trip.map((k,i)=>{
+  [...tripUnchecked].forEach(u=>{if(!trip.includes(u))tripUnchecked.delete(u)});  /* v22D:勾選狀態隨行程收斂 */
+  const dropN=trip.filter(u=>tripUnchecked.has(u)).length,keepN=trip.length-dropN;
+  list.innerHTML=`<div class="tEdit">
+      <button class="btn btn-dark" data-act="checkall">☑ 全選</button>
+      <button class="btn btn-dark" data-act="uncheckall">☐ 全部取消勾選</button>
+      <button class="btn btn-danger" data-act="rmunchecked"${dropN?"":" disabled"}>🗑 移除未勾選(${dropN})</button>
+      <span class="tEditNote">勾選 = 保留在行程;目前保留 ${keepN} 站,未勾選 ${dropN} 站(移除只改行程,不刪景點資料)</span>
+    </div>`+trip.map((k,i)=>{
     const p=byUid[k];if(!p)return"";
+    const on=!tripUnchecked.has(k);
     return `<div class="tItem">
+      <label class="tChkWrap"><input type="checkbox" class="tChk" data-uid="${esc(k)}"${on?" checked":""} aria-label="保留 ${esc(p.name)} 在行程"></label>
       <span class="tName">${i+1}. ${esc(p.name)}</span>
       <span class="tLeg">${legs[i]!=null?`(前段約 ${legs[i]} 分)`:""}</span>
       <div class="tOps">
         <button data-op="top" data-i="${i}">設為起點</button>
-        <button data-op="up" data-i="${i}">↑ 上移</button>
-        <button data-op="down" data-i="${i}">↓ 下移</button>
+        <button data-op="up" data-i="${i}"${i===0?" disabled":""}>↑ 上移</button>
+        <button data-op="down" data-i="${i}"${i===trip.length-1?" disabled":""}>↓ 下移</button>
         <button data-op="end" data-i="${i}">設為最後一站</button>
         <button data-op="del" data-i="${i}">✕ 刪除</button>
       </div>
@@ -1528,12 +1573,16 @@ function confirmSortOverride(){                    /* 工單I:手調過才問,�
 document.getElementById("btnNearFar").addEventListener("click",()=>{if(!confirmSortOverride())return;if(greedyOrder()){segClicked=-1;renderAll()}}); /* 工單15#4:成功才重設段落 */
 document.getElementById("btnFarNear").addEventListener("click",()=>{if(!confirmSortOverride())return;if(farFirstOrder()){segClicked=-1;renderAll()}}); /* 工單15#4 */
 document.getElementById("btnClearTrip").addEventListener("click",()=>{
-  if(!confirm(`開始新行程?將清空目前 ${trip.length} 站。`))return;
+  const n=trip.length;
+  if(!n){alert("目前尚未加入行程");return}
+  if(!confirm(`將移除今日行程中的全部 ${n} 站。\n景點資料、照片、座標及去過紀錄都會保留。\n確定清空行程嗎?`))return;
   const oldT=[...trip],oldM=tripManual;              /* 存成功才生效(工單I) */
   trip=[];tripManual=false;
   if(![saveTrip(),saveTripManual()].every(Boolean)){ /* 工單14#6 */
     rollbackTripState(oldT,oldM,"清空未完成(儲存失敗),行程已還原。");return; /* 工單17#5 */
   }
+  tripUnchecked.clear();
+  setTripUndo(oldT,oldM,"今日行程已清空");            /* v22D:8 秒復原 */
   segClicked=-1;renderAll();
 });
 document.getElementById("tripGo").addEventListener("click",e=>{
@@ -1551,7 +1600,12 @@ document.getElementById("tripGo").addEventListener("click",e=>{
   }
 });
 document.getElementById("tripList").addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b)return;
+  const b=e.target.closest("button");if(!b||b.disabled)return;
+  if(b.dataset.act){                                  /* v22D:勾選批次動作 */
+    if(b.dataset.act==="checkall"){tripUnchecked.clear();renderTripBar(new Date());return}
+    if(b.dataset.act==="uncheckall"){trip.forEach(u=>tripUnchecked.add(u));renderTripBar(new Date());return}
+    if(b.dataset.act==="rmunchecked"){removeUncheckedFromTrip();return}
+    return}
   const i=+b.dataset.i,op=b.dataset.op,k=trip[i];
   const oldT=[...trip],oldM=tripManual;              /* 存成功才生效(工單I) */
   if(op==="del")trip.splice(i,1);
@@ -3015,6 +3069,48 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22D:行程編輯與復原 ═══ */
+function renderTripUndo(){
+  const el=document.getElementById("tripUndo");if(!el)return;
+  if(!tripUndo){el.hidden=true;el.innerHTML="";return}
+  el.hidden=false;
+  el.innerHTML=`<span class="tuMsg">${esc(tripUndo.msg)}</span>`
+    +`<button class="btn btn-dark" id="btnTripUndo">↩︎ 復原</button>`;
+}
+function setTripUndo(oldTrip,oldManual,msg){          /* 記憶體;8 秒後自動失效 */
+  tripUndo={trip:[...oldTrip],manual:oldManual,msg};
+  if(tripUndoTimer)clearTimeout(tripUndoTimer);
+  tripUndoTimer=setTimeout(()=>{tripUndo=null;tripUndoTimer=null;renderTripBar(new Date())},8000);
+}
+function undoTripChange(){                            /* 復原:完整舊 trip 與順序 */
+  if(!tripUndo)return false;
+  const snap=tripUndo,curT=[...trip],curM=tripManual;
+  trip=[...snap.trip];tripManual=snap.manual;
+  if(![saveTrip(),saveTripManual()].every(Boolean)){   /* 失敗→維持復原前狀態 */
+    trip=curT;tripManual=curM;saveTrip();saveTripManual();
+    alert("復原未完成(儲存失敗),已維持目前行程。");renderAll();return false}
+  clearTripUndo();tripUnchecked.clear();segClicked=-1;renderAll();return true;
+}
+function removeUncheckedFromTrip(){                   /* 批次移除:只改 trip */
+  const drop=trip.filter(u=>tripUnchecked.has(u));
+  if(!drop.length){alert("目前沒有未勾選的站點。");return false}
+  if(!confirm(`將從今日行程移除 ${drop.length} 站。\n景點資料、照片、座標與去過紀錄都不會刪除。\n確定嗎?`))return false;
+  const oldT=[...trip],oldM=tripManual;
+  trip=trip.filter(u=>!tripUnchecked.has(u));
+  if(!saveTrip()){
+    rollbackTripState(oldT,oldM,"移除未完成(儲存失敗),行程已還原。");return false}
+  tripUnchecked.clear();
+  setTripUndo(oldT,oldM,`已從行程移除 ${drop.length} 站`);
+  segClicked=-1;renderAll();return true;
+}
+document.getElementById("tripUndo").addEventListener("click",e=>{
+  if(e.target.closest("#btnTripUndo"))undoTripChange();
+});
+document.getElementById("tripList").addEventListener("change",e=>{
+  const c=e.target.closest(".tChk");if(!c)return;     /* 勾選狀態只在記憶體 */
+  if(c.checked)tripUnchecked.delete(c.dataset.uid);else tripUnchecked.add(c.dataset.uid);
+  renderTripBar(new Date());
+});
 /* v22B:無座標景點清單(N=ALLP 中無有效座標數;含暫時隱藏、不含永久移除,與未分類（N）同語意) */
 function noCoordList(){return ALLP.filter(p=>!p.hasCoord)}
 function renderNoCoordTab(){
