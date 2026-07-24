@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22I 更新重設全部地區與底部箭頭方向)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22J 搜尋直接新增＋顯示偏好)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -42,6 +42,11 @@
    存失敗還原舊區域、不重載並提示匯出備份;一般重新整理/直接開網址仍保留目前區域;
    底部箭頭改依空間方向(展開▼往下縮、縮小▲往上開),頂部維持(▲收合/▼展開),
    aria-expanded 一律依實際展開狀態,不隨箭頭反向而錯;
+ V22J(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22J):
+   搜尋查無結果時提供「＋ 以這個名稱新增景點」,帶入名稱與目前縣市,不自動儲存;
+   settings 新增 defaultRegionMode(all/last/firstTrip)與 defaultSortMode(trip/near/closing),
+   開站時套用一次;未定位選「離我最近」不報錯,按鈕保持選中並提示;
+   不新增 localStorage 鍵、不升資料格式版本;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -118,7 +123,12 @@
   #qInput{flex:1;min-width:0;min-height:44px;font-size:1.05rem;padding:.4rem .7rem;
     border:2px solid var(--line);border-radius:.6rem;background:var(--card);color:var(--ink)}
   #qClear{min-height:44px;flex-shrink:0}
-  .searchStat{font-size:.92rem;color:var(--ink-soft);flex-basis:100%;margin-top:.05rem}
+  .searchStat{font-size:.92rem;color:var(--ink-soft);flex-basis:100%;margin-top:.05rem;
+    display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
+  /* v22J:搜尋無結果時的一鍵新增 + 未定位排序提示 */
+  #btnAddFromSearch{min-height:2.75rem;font-size:.95rem}
+  .sortNote{display:block;width:100%;font-size:.9rem;color:var(--warn);margin-top:.25rem}
+  #sDefRegion,#sDefSort{min-height:44px;font-size:1.05rem}
   .noCoord{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}
   .fixCoordBtn{display:inline-flex;align-items:center;min-height:2.75rem;padding:0 .8rem;
     font-size:.9rem;font-weight:800;background:var(--closed);color:#fff;border:none;
@@ -409,7 +419,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22I</span>
+    <span class="verChip" id="verChip">V22J</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -431,6 +441,20 @@
     <button class="btn btn-ghost" id="btnAddRegion">加入</button>
     <span class="meta">未選=顯示全部城市;可加多個</span></div>
   <div class="frow"><div id="sRegionList" class="chipWrap" style="flex:1"></div></div>
+  <div class="frow"><label for="sDefRegion">開啟網站時預設顯示</label>
+    <select id="sDefRegion">
+      <option value="all">全部地區</option>
+      <option value="last">上次使用地區</option>
+      <option value="firstTrip">本次旅行第一個地區</option>
+    </select>
+    <span class="meta">「全部地區」最不容易誤以為景點消失。</span></div>
+  <div class="frow"><label for="sDefSort">預設排序</label>
+    <select id="sDefSort">
+      <option value="trip">行程順序</option>
+      <option value="near">離我最近</option>
+      <option value="closing">即將打烊</option>
+    </select>
+    <span class="meta">開啟網站時的預設排序;當次仍可手動切換。</span></div>
   <div class="frow">
     <button class="btn btn-loc" id="btnSaveSettings">儲存設定</button>
     <button class="btn btn-ghost" id="btnResetSettings">恢復預設值</button>
@@ -670,7 +694,8 @@ const MAIN_CATS=["正餐","點心","親子","景點","住宿","購物","其他"]
 const SCHED_TYPES=["hours","public-space","recommended-evening","unknown"];
 const PARK_TYPES=["專用停車場","附近停車場","路邊停車","停車困難","未確認"];
 const INDOOR_TYPES=["室內","戶外","半室內","未設定"];
-const DEF_SETTINGS={title:"嘉義親子吃玩之旅",hotelName:"天成文旅－繪日之丘",startDate:"",endDate:"",regions:[],currentRegion:""};
+const DEF_SETTINGS={title:"嘉義親子吃玩之旅",hotelName:"天成文旅－繪日之丘",startDate:"",endDate:"",regions:[],currentRegion:"",
+  defaultRegionMode:"all",defaultSortMode:"trip"};   /* v22J:顯示偏好(僅存於 settings,不新增 localStorage 鍵) */
 function normalizeSettings(raw){          /* 依群組 建議.txt */
   const result={...DEF_SETTINGS};
   if(!raw||typeof raw!=="object")return result;
@@ -689,6 +714,9 @@ function normalizeSettings(raw){          /* 依群組 建議.txt */
    if(cr==="全部")cr="";
    if(cr!==""&&cr!=="未分類"){cr=canonCity(cr);}
    result.currentRegion=cr;}
+  /* v22J:顯示偏好——非白名單值一律回落預設,舊 settings 缺欄位自動補 */
+  result.defaultRegionMode=["all","last","firstTrip"].includes(raw.defaultRegionMode)?raw.defaultRegionMode:"all";
+  result.defaultSortMode=["trip","near","closing"].includes(raw.defaultSortMode)?raw.defaultSortMode:"trip";
   return result;
 }
 function normalizeOpen(raw){               /* 群組v8#3:排序+合併重疊/相鄰時段 */
@@ -884,7 +912,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22I";          /* v22I:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22J";          /* v22J:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -1140,6 +1168,8 @@ document.getElementById("btnSettings").addEventListener("click",()=>{
     document.getElementById("sStart").value=settings.startDate||"";
     document.getElementById("sEnd").value=settings.endDate||"";
     document.getElementById("sHotel").value=settings.hotelName||"";
+    document.getElementById("sDefRegion").value=settings.defaultRegionMode||"all";   /* v22J */
+    document.getElementById("sDefSort").value=settings.defaultSortMode||"trip";
     renderRegionList();
   }
 });
@@ -1150,7 +1180,9 @@ document.getElementById("btnSaveSettings").addEventListener("click",()=>{
   settings=normalizeSettings(Object.assign({},settings,{
     title:document.getElementById("sTitle").value,
     hotelName:document.getElementById("sHotel").value,
-    startDate:s,endDate:e}));   /* v22:保留 regions/currentRegion */
+    startDate:s,endDate:e,
+    defaultRegionMode:document.getElementById("sDefRegion").value,     /* v22J:顯示偏好 */
+    defaultSortMode:document.getElementById("sDefSort").value}));   /* v22:保留 regions/currentRegion */
   if(!saveSettings()){
     settings=oldSettings;renderHeader();
     alert("設定儲存失敗,未變更(見儲存提醒)。");return}
@@ -1414,7 +1446,9 @@ function renderTabs(){
 function renderSorts(){
   const items=[["order","行程順序"],["near","離我最近"],["closing","即將打烊"]];
   document.getElementById("sorts").innerHTML=items.map(([k,l])=>
-    `<button data-s="${k}" aria-pressed="${sortMode===k}">${l}</button>`).join("");
+    `<button data-s="${k}" aria-pressed="${sortMode===k}">${l}</button>`).join("")
+    +((sortMode==="near"&&!ref)                        /* v22J:選了離我最近但尚未定位——保留選中,列表回退原順序 */
+      ?`<span class="sortNote">尚未定位,暫以原順序顯示;按「取得我的位置」或手動選所在景點後即依距離排序。</span>`:"");
 }
 function renderFilters(){
   const f=filters;
@@ -3187,11 +3221,26 @@ function applySearch(list){                           /* 搜尋 name/addr/phone/
     return hay.includes(q);
   });
 }
-function renderSearchStat(){                           /* 搜尋狀態:找到 N / 找不到 */
+function renderSearchStat(){                           /* 搜尋狀態:找到 N / 找不到 + 一鍵新增 */
   const el=document.getElementById("qStat");if(!el)return;
-  if(!searchStr.trim()){el.textContent="";return}
+  const q=searchStr.trim();
+  if(!q){el.innerHTML="";return}
   const n=cardList().length;                           /* v22B 修正:完整顯示管線(區域+搜尋+分類+只顯示自訂+隱藏已完成+顯示暫時隱藏),與實際卡片數一致 */
-  el.textContent=n>0?`找到 ${n} 個景點`:"找不到符合條件的景點";
+  if(n>0){el.textContent=`找到 ${n} 個景點`;return}
+  /* v22J:查無結果→提供以搜尋文字直接新增(不自動建立,仍需使用者按儲存) */
+  el.innerHTML=`<span>找不到「${esc(q)}」</span>`
+    +`<button class="btn btn-dark" id="btnAddFromSearch">＋ 以這個名稱新增景點</button>`;
+}
+function addPlaceFromSearch(){                         /* v22J:帶著搜尋文字進新增表單 */
+  const q=searchStr.trim();if(!q)return;
+  if(editingUid&&!confirm(`目前正在編輯既有景點,要放棄編輯並改為新增「${q}」嗎?`))return;
+  editingUid=null;                                     /* 確保是新增而非覆蓋既有 */
+  document.getElementById("managePanel").hidden=false;
+  document.querySelector('.mtabs button[data-mt="add"]').click();   /* 沿用既有分頁切換(含清表單與自動帶縣市) */
+  document.getElementById("fName").value=q;            /* 先自動帶縣市再填名稱,避免 autofill 因有名稱而略過 */
+  const addr=document.getElementById("fAddr");
+  try{addr.focus()}catch(_){}                          /* 名稱已填,游標移到地址欄 */
+  try{document.getElementById("managePanel").scrollIntoView({behavior:"smooth",block:"start"})}catch(_){}
 }
 function autofillAddCity(){                            /* 新增(非編輯)時 fCity 預設帶入合法 currentRegion */
   if(editingUid)return;                               /* 編輯:用景點原 city,不覆蓋 */
@@ -3234,12 +3283,29 @@ document.getElementById("qInput").addEventListener("input",e=>{
   searchStr=e.target.value;                             /* 記憶體;不寫 localStorage */
   renderCards(new Date());renderSearchStat();
 });
+document.getElementById("qStat").addEventListener("click",e=>{   /* v22J:按鈕每次重繪,用委派 */
+  if(e.target.closest("#btnAddFromSearch"))addPlaceFromSearch();
+});
 document.getElementById("qClear").addEventListener("click",()=>{
   searchStr="";document.getElementById("qInput").value="";   /* 只清搜尋,不動區域/分類/排序/localStorage */
   renderCards(new Date());renderSearchStat();
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22J:開站顯示偏好(只在啟動時套用一次;不新增 localStorage 鍵) ═══ */
+const SORT_MODE_BY_PREF={trip:"order",near:"near",closing:"closing"};   /* settings 值 → 內部 sortMode */
+function applyStartupPrefs(){
+  /* 預設排序:未定位選 near 不報錯,按鈕仍選中,列表由既有 `sortMode==="near"&&ref` 守門回退原順序 */
+  sortMode=SORT_MODE_BY_PREF[settings.defaultSortMode]||"order";
+  /* 預設顯示區域 */
+  const mode=settings.defaultRegionMode||"all";
+  const before=settings.currentRegion;
+  if(mode==="all")settings.currentRegion="";
+  else if(mode==="firstTrip")
+    settings.currentRegion=(settings.regions&&settings.regions.length)?settings.regions[0]:"";
+  /* mode==="last":沿用既有 currentRegion,不動 */
+  if(settings.currentRegion!==before)saveSettings();   /* 存失敗不影響本次顯示 */
+}
 /* ═══ v22F:底部空間動態量測(解 #tripBar fixed 遮擋頁尾) ═══ */
 let _tripSpaceRO=null,_lastTripSpace=-1;
 function syncTripBarSpace(){                          /* 把 #tripBar 實際高度寫入 --tripbar-space */
@@ -3357,7 +3423,8 @@ document.getElementById("verChip").textContent="V"+APP_RELEASE+(PUBLISH_BUILD?"-
 populateCityDropdowns();
 initTripBarSpace();                                   /* v22F */
 const bootBuildOK=buildAll();
-reconcileCurrentRegion();
+applyStartupPrefs();                                  /* v22J:先套顯示偏好 */
+reconcileCurrentRegion();                             /* 再對帳(區域已消失時回落全部) */
 /* 開機正規化結果十鍵齊回存(工單16#6:補 trip/tripManual),儲存與畫面永遠一致(群組#8) */
 const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
   saveExcluded(),saveVH(),saveCT(),savePhotos(),saveTrip(),saveTripManual(),
