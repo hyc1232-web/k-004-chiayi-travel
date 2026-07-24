@@ -129,6 +129,17 @@
   #btnAddFromSearch{min-height:2.75rem;font-size:.95rem}
   .sortNote{display:block;width:100%;font-size:.9rem;color:var(--warn);margin-top:.25rem}
   #sDefRegion,#sDefSort{min-height:44px;font-size:1.05rem}
+  /* v22K:備份資訊區塊與非阻斷提醒(不新增浮動層,不遮底部行程) */
+  .bkBox{flex:1;border:2px solid var(--line);border-radius:.6rem;padding:.55rem .7rem;background:var(--paper)}
+  .bkBox.bkWarn{border-color:var(--warn);background:#FFF7E6}
+  .bkLine{font-size:.95rem;color:var(--ink-soft);margin:.25rem 0 .5rem;line-height:1.7}
+  .bkOps{display:flex;flex-wrap:wrap;gap:.5rem}
+  .bkOps .btn{min-height:2.75rem}
+  #backupNotice{margin:.5rem 1rem 0;border:2px solid var(--warn);border-radius:.6rem;
+    padding:.6rem .75rem;background:#FFF7E6;color:var(--ink);font-size:1rem;line-height:1.7}
+  #backupNotice[hidden]{display:none}
+  #backupNotice .bkTitle{font-weight:800;display:block;margin-bottom:.2rem}
+  #backupNotice .bkOps{margin-top:.5rem}
   .noCoord{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}
   .fixCoordBtn{display:inline-flex;align-items:center;min-height:2.75rem;padding:0 .8rem;
     font-size:.9rem;font-weight:800;background:var(--closed);color:#fff;border:none;
@@ -419,7 +430,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22J</span>
+    <span class="verChip" id="verChip">V22K</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -448,6 +459,12 @@
       <option value="firstTrip">本次旅行第一個地區</option>
     </select>
     <span class="meta">「全部地區」最不容易誤以為景點消失。</span></div>
+  <div class="frow" id="sBackupRow">
+    <div class="bkBox" id="sBackupBox">
+      <b>資料備份</b>
+      <div class="bkLine" id="sBackupInfo"></div>
+      <div class="bkOps"><button class="btn btn-loc" id="btnBackupNow">📦 立即備份</button></div>
+    </div></div>
   <div class="frow"><label for="sDefSort">預設排序</label>
     <select id="sDefSort">
       <option value="trip">行程順序</option>
@@ -544,6 +561,7 @@
 
 <div class="reco" id="reco" hidden></div>
 
+<div id="backupNotice" hidden></div>
 <div class="regionBar" id="regionBar"></div>
 <div class="searchBar" id="searchBar">
   <input type="search" id="qInput" placeholder="🔍 搜尋景點、地址或備註" aria-label="搜尋景點、地址或備註">
@@ -695,7 +713,8 @@ const SCHED_TYPES=["hours","public-space","recommended-evening","unknown"];
 const PARK_TYPES=["專用停車場","附近停車場","路邊停車","停車困難","未確認"];
 const INDOOR_TYPES=["室內","戶外","半室內","未設定"];
 const DEF_SETTINGS={title:"嘉義親子吃玩之旅",hotelName:"天成文旅－繪日之丘",startDate:"",endDate:"",regions:[],currentRegion:"",
-  defaultRegionMode:"all",defaultSortMode:"trip"};   /* v22J:顯示偏好(僅存於 settings,不新增 localStorage 鍵) */
+  defaultRegionMode:"all",defaultSortMode:"trip",   /* v22J:顯示偏好(僅存於 settings,不新增 localStorage 鍵) */
+  lastFullBackupAt:"",backupChangeCount:0};          /* v22K:備份資訊(同樣只存於 settings) */
 function normalizeSettings(raw){          /* 依群組 建議.txt */
   const result={...DEF_SETTINGS};
   if(!raw||typeof raw!=="object")return result;
@@ -717,6 +736,11 @@ function normalizeSettings(raw){          /* 依群組 建議.txt */
   /* v22J:顯示偏好——非白名單值一律回落預設,舊 settings 缺欄位自動補 */
   result.defaultRegionMode=["all","last","firstTrip"].includes(raw.defaultRegionMode)?raw.defaultRegionMode:"all";
   result.defaultSortMode=["trip","near","closing"].includes(raw.defaultSortMode)?raw.defaultSortMode:"trip";
+  /* v22K:備份資訊——非法日期字串→"";非非負整數→0 */
+  {const t=typeof raw.lastFullBackupAt==="string"?raw.lastFullBackupAt.trim():"";
+   result.lastFullBackupAt=(t&&!isNaN(new Date(t).getTime()))?t:"";
+   const c=Number(raw.backupChangeCount);
+   result.backupChangeCount=(Number.isFinite(c)&&c>=0)?Math.floor(c):0;}
   return result;
 }
 function normalizeOpen(raw){               /* 群組v8#3:排序+合併重疊/相鄰時段 */
@@ -912,7 +936,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22J";          /* v22J:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22K";          /* v22K:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -950,12 +974,12 @@ let visitedHistory={};
    if(typeof k==="string"&&Number.isFinite(n)&&n>0)visitedHistory[k]=Math.round(n);
  }}
 const saveSettings=()=>lsSet("cy_trip_settings_v5",settings);
-const saveCustom  =()=>lsSet("cy_custom_places_v5",customPlaces);
-const saveOverrides=()=>lsSet("cy_place_overrides_v5",overrides);
+const saveCustom  =()=>{const ok=lsSet("cy_custom_places_v5",customPlaces);if(ok)bumpBackupChange();return ok};   /* v22K:自訂景點新增/編輯/刪除 */
+const saveOverrides=()=>{const ok=lsSet("cy_place_overrides_v5",overrides);if(ok)bumpBackupChange();return ok};  /* v22K:內建景點修改 */
 const saveExcluded=()=>lsSet("cy_excluded_places_v5",[...excluded]);
-const saveCoordFix=()=>lsSet("cy_coords3",coordFix);
-const savePhotos  =()=>lsSet("cy_photos_v5",photos);
-const savePermRemoved=()=>lsSet("cy_perm_removed_v5",permanentRemovedUids); /* v21 */
+const saveCoordFix=()=>{const ok=lsSet("cy_coords3",coordFix);if(ok)bumpBackupChange();return ok};               /* v22K:座標校正 */
+const savePhotos  =()=>{const ok=lsSet("cy_photos_v5",photos);if(ok)bumpBackupChange();return ok};               /* v22K:照片新增/替換/刪除 */
+const savePermRemoved=()=>{const ok=lsSet("cy_perm_removed_v5",permanentRemovedUids);if(ok)bumpBackupChange();return ok}; /* v21;v22K 計數 */
 /* v21:照片讀取共用——本機三態優先,undefined 回落正式預設 */
 const photoOf=uid=>photos[uid]!==undefined?(photos[uid]||null):(DEFAULT_PHOTOS[uid]||null);
 /* v22D:行程編輯與復原狀態——只存記憶體,不新增 localStorage 鍵 */
@@ -963,14 +987,14 @@ let tripUnchecked=new Set();          /* 被取消勾選的 uid;預設空集=全
 let tripUndo=null,tripUndoTimer=null; /* {trip,manual,msg};8 秒後失效 */
 function clearTripUndo(){tripUndo=null;if(tripUndoTimer){clearTimeout(tripUndoTimer);tripUndoTimer=null}}
 /* 任何 trip 寫入成功都讓上一筆復原失效(規格16);批次移除/清空會在存檔後再設定新的一筆 */
-const saveTrip    =()=>{const ok=lsSet("cy_trip_v5",trip);if(ok)clearTripUndo();return ok};
+const saveTrip    =()=>{const ok=lsSet("cy_trip_v5",trip);if(ok){clearTripUndo();bumpBackupChange()}return ok};  /* v22K:行程新增/移除/重排/清空 */
 const saveTripManual=()=>lsSet("cy_trip_manual_v5",tripManual);
 const saveCT      =()=>{
   const ok=lsSet("cy_completed_today_v5",{date:todayKey(),uids:[...completedToday]});
   if(ok)ctRaw={date:todayKey(),uids:[...completedToday]}; /* 工單19-A:寫入成功才刷記憶體鏡像,跨日判斷靠它 */
   return ok;
 };
-const saveVH      =()=>lsSet("cy_visited_history_v5",visitedHistory);
+const saveVH      =()=>{const ok=lsSet("cy_visited_history_v5",visitedHistory);if(ok)bumpBackupChange();return ok}; /* v22K:去過紀錄 */
 
 /* ═══ 3. 合併管線(工單九):內建→自訂→覆蓋→座標校正 ═══ */
 let ALLP=[],byUid={};
@@ -1170,6 +1194,7 @@ document.getElementById("btnSettings").addEventListener("click",()=>{
     document.getElementById("sHotel").value=settings.hotelName||"";
     document.getElementById("sDefRegion").value=settings.defaultRegionMode||"all";   /* v22J */
     document.getElementById("sDefSort").value=settings.defaultSortMode||"trip";
+    renderBackupUI();                                 /* v22K */
     renderRegionList();
   }
 });
@@ -1186,7 +1211,8 @@ document.getElementById("btnSaveSettings").addEventListener("click",()=>{
   if(!saveSettings()){
     settings=oldSettings;renderHeader();
     alert("設定儲存失敗,未變更(見儲存提醒)。");return}
-  renderHeader();alert("旅遊設定已儲存。");
+  bumpBackupChange();                                /* v22K:旅遊設定變更 */
+  renderHeader();renderBackupUI();alert("旅遊設定已儲存。");
 });
 document.getElementById("btnResetSettings").addEventListener("click",()=>{
   if(!confirm("恢復預設旅遊設定(標題/住宿,日期清空)?"))return;
@@ -2631,21 +2657,8 @@ document.getElementById("btnImport").addEventListener("click",()=>{
     alert(`座標匯入完成:成功 ${ok}/失敗 ${fail}`);
   }catch(e){alert("JSON 格式解析失敗,確認是從「匯出」複製的完整內容。")}
 });
-document.getElementById("btnExportAll").addEventListener("click",()=>{
-  $io.style.display="block";
-  $io.value=JSON.stringify({
-    version:DATA_SCHEMA_VERSION,appVersion:APP_VERSION,
-    exportedAt:new Date().toISOString(),
-    tripSettings:settings,customPlaces,placeOverrides:overrides,
-    excludedPlaces:[...excluded],coordFix,trip,tripManual,
-    /* v21 補充1:三態匯出——""(明確無照)/data:(現場照跨裝置)/https;http 舊照維持不匯出 */
-    photos:Object.fromEntries(Object.entries(photos).filter(([u,v])=>normalizeLocalPhotoValue(v)!==undefined)),
-    permRemoved:permanentRemovedUids,
-    completedToday:[...completedToday],completedDate:todayKey(),
-    visitedHistory
-  },null,1);
-  $io.focus();$io.select();
-});
+/* v22K:與「📦 立即備份」共用同一函式——同一份格式,另建下載檔並記錄備份日期 */
+document.getElementById("btnExportAll").addEventListener("click",exportFullBackup);
 document.getElementById("btnImportAll").addEventListener("click",()=>{
   if($io.style.display!=="block"){$io.style.display="block";$io.value="";$io.focus();
     alert("把「匯出完整旅遊資料」的 JSON 貼進框內,再按一次「匯入完整旅遊資料」。");return}
@@ -2754,6 +2767,7 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     Object.assign(photos,vPhotos);
   }
   /* 工單14#4:整組交易——十鍵全存成功才算匯入完成,任一失敗全部還原 */
+  const trackBefore=backupTracking;backupTracking=false;   /* v22K:匯入的批次寫入不逐鍵計數 */
   const saved=[saveSettings(),saveCustom(),saveOverrides(),saveExcluded(),
     saveCoordFix(),saveTrip(),saveTripManual(),saveCT(),saveVH(),savePhotos(),
     savePermRemoved()].every(Boolean);               /* v21:十一鍵 */
@@ -2769,9 +2783,16 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     alert(rollbackSaved
       ?"匯入未完成(儲存失敗),資料已還原。"
       :"匯入未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份現有資料。");
+    backupTracking=trackBefore;                            /* v22K:還原追蹤狀態,匯入失敗不計數 */
     buildAll();reconcileCurrentRegion();renderHeader();renderAll();renderManage();return;
   }
-  buildAll();reconcileCurrentRegion();renderHeader();renderAll();renderManage();
+  backupTracking=trackBefore;                              /* v22K:還原追蹤狀態 */
+  /* v22K:匯入的舊備份日期不代表本機已備份→清空並計為 1 次變更 */
+  settings.lastFullBackupAt="";settings.backupChangeCount=1;
+  lsSet("cy_trip_settings_v5",settings);
+  backupNoticeSnoozed=false;
+  buildAll();reconcileCurrentRegion();renderHeader();renderAll();renderManage();renderBackupUI();
+  alert("資料匯入完成,建議立即重新匯出一份本機完整備份。");
   alert(`完整匯入(${mode==="replace"?"完全取代":"合併"})結果:\n`
     +`自訂景點:成功 ${R.cust.ok}、失敗 ${R.cust.fail}\n`
     +`內建覆蓋:成功 ${R.over.ok}、失敗 ${R.over.fail}\n`
@@ -3292,6 +3313,103 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22K:備份提醒(資訊全存於 settings,不新增 localStorage 鍵) ═══ */
+const BACKUP_STALE_DAYS=14, BACKUP_CHANGE_LIMIT=20;
+let backupTracking=false;      /* 開機/匯入期間為 false,避免把還原與批次寫入算成使用者變更 */
+let backupNoticeSnoozed=false; /* 「稍後提醒」——僅本頁記憶體,重新開啟即失效 */
+function backupCountNow(){
+  const c=Number(settings.backupChangeCount);
+  return (Number.isFinite(c)&&c>=0)?Math.floor(c):0;
+}
+function bumpBackupChange(){                       /* 直接寫鍵,避開 saveSettings 包裝與遞迴 */
+  if(!backupTracking)return;
+  settings.backupChangeCount=backupCountNow()+1;
+  lsSet("cy_trip_settings_v5",settings);
+  renderBackupUI();
+}
+function backupDaysSince(){                        /* 從未備份→null */
+  const t=settings.lastFullBackupAt;
+  if(!t)return null;
+  const d=new Date(t);if(isNaN(d.getTime()))return null;
+  return (Date.now()-d.getTime())/86400000;
+}
+function backupNeedsAttention(){                   /* 兩條件合併為一張提醒 */
+  const days=backupDaysSince();
+  const never=(days===null);
+  const stale=(days!==null&&days>BACKUP_STALE_DAYS);
+  const many=backupCountNow()>=BACKUP_CHANGE_LIMIT;
+  return {never,stale,many,need:never||stale||many,days};
+}
+function fmtBackupAt(){
+  const t=settings.lastFullBackupAt;if(!t)return "尚未備份";
+  const d=new Date(t);if(isNaN(d.getTime()))return "尚未備份";
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function renderBackupUI(){
+  const st=backupNeedsAttention();
+  const info=document.getElementById("sBackupInfo");
+  if(info){
+    info.innerHTML=`上次完整備份:<b>${esc(fmtBackupAt())}</b><br>備份後資料變更:<b>${backupCountNow()}</b> 次`;
+    const box=document.getElementById("sBackupBox");
+    if(box)box.classList.toggle("bkWarn",st.need);
+  }
+  const el=document.getElementById("backupNotice");
+  if(!el)return;
+  if(!st.need||backupNoticeSnoozed){el.hidden=true;el.innerHTML="";return}
+  const reasons=[];
+  if(st.never)reasons.push("尚未做過完整備份");
+  else if(st.stale)reasons.push(`已超過 ${BACKUP_STALE_DAYS} 天沒有完整備份`);
+  if(st.many)reasons.push(`備份後已累積 ${backupCountNow()} 次資料變更`);
+  el.hidden=false;
+  el.innerHTML=`<span class="bkTitle">⚠️ ${esc(reasons.join(";"))}</span>`
+    +`手機清除瀏覽資料、換手機或瀏覽器空間異常時,本機景點、行程、照片及紀錄可能遺失。`
+    +`<div class="bkOps"><button class="btn btn-loc" id="btnBackupNotice">📦 立即備份</button>`
+    +`<button class="btn btn-ghost" id="btnBackupSnooze">稍後提醒</button></div>`;
+}
+function buildFullBackupJson(){                    /* 與既有匯出同一份格式,不另建格式 */
+  return JSON.stringify({
+    version:DATA_SCHEMA_VERSION,appVersion:APP_VERSION,
+    exportedAt:new Date().toISOString(),
+    tripSettings:settings,customPlaces,placeOverrides:overrides,
+    excludedPlaces:[...excluded],coordFix,trip,tripManual,
+    photos:Object.fromEntries(Object.entries(photos).filter(([u,v])=>normalizeLocalPhotoValue(v)!==undefined)),
+    permRemoved:permanentRemovedUids,
+    completedToday:[...completedToday],completedDate:todayKey(),
+    visitedHistory
+  },null,1);
+}
+function exportFullBackup(){                       /* 成功建立下載檔且設定存檔成功,才算完成備份 */
+  let text;
+  try{text=buildFullBackupJson()}
+  catch(err){alert("備份未完成:資料轉換失敗("+err.message+")。");return false}
+  try{$io.style.display="block";$io.value=text;$io.focus();$io.select();}catch(_){}
+  const stamp=new Date();
+  const fname=`旅遊吃玩導航_完整備份_${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}`
+    +`_${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.json`;
+  try{
+    const blob=new Blob([text],{type:"application/json;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(err){alert("備份未完成:無法建立下載檔("+err.message+")。備份日期未更新。");return false}
+  const oldAt=settings.lastFullBackupAt,oldCnt=settings.backupChangeCount;
+  settings.lastFullBackupAt=stamp.toISOString();
+  settings.backupChangeCount=0;
+  if(!lsSet("cy_trip_settings_v5",settings)){       /* 設定存檔失敗→不更新備份日期 */
+    settings.lastFullBackupAt=oldAt;settings.backupChangeCount=oldCnt;
+    alert("下載已建立,但備份日期無法儲存,因此未更新備份紀錄(見儲存提醒)。");
+    renderBackupUI();return false;
+  }
+  backupNoticeSnoozed=false;renderBackupUI();
+  alert(`完整旅遊資料已匯出\n\n備份日期:${fmtBackupAt()}\n檔名:${fname}\n請妥善保存下載的 JSON 檔。`);
+  return true;
+}
+document.getElementById("btnBackupNow").addEventListener("click",exportFullBackup);
+document.getElementById("backupNotice").addEventListener("click",e=>{
+  if(e.target.closest("#btnBackupNotice")){exportFullBackup();return}
+  if(e.target.closest("#btnBackupSnooze")){        /* 只在本頁隱藏,不寫任何鍵、不改備份日期 */
+    backupNoticeSnoozed=true;renderBackupUI();}
+});
 /* ═══ v22J:開站顯示偏好(只在啟動時套用一次;不新增 localStorage 鍵) ═══ */
 const SORT_MODE_BY_PREF={trip:"order",near:"near",closing:"closing"};   /* settings 值 → 內部 sortMode */
 function applyStartupPrefs(){
@@ -3424,6 +3542,7 @@ populateCityDropdowns();
 initTripBarSpace();                                   /* v22F */
 const bootBuildOK=buildAll();
 applyStartupPrefs();                                  /* v22J:先套顯示偏好 */
+renderBackupUI();                                     /* v22K:備份資訊與提醒 */
 reconcileCurrentRegion();                             /* 再對帳(區域已消失時回落全部) */
 /* 開機正規化結果十鍵齊回存(工單16#6:補 trip/tripManual),儲存與畫面永遠一致(群組#8) */
 const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
@@ -3432,6 +3551,8 @@ const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
 if((!bootBuildOK||!bootSaved)&&!lsFailWarned)        /* 工單16#5+18#7:失敗警告一次,lsSet 已提醒過就不重複跳 */
   alert("⚠️ 開機資料回存不完整(瀏覽器儲存異常)。畫面可正常操作,但請先按「📦 匯出完整旅遊資料」備份。");
 renderAll();
+backupTracking=true;                                 /* v22K:開機回存不計數,之後的使用者操作才計 */
+renderBackupUI();
 setInterval(updateDynamic,30000);
 </script>
 </body>
