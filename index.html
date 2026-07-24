@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22J 搜尋直接新增＋顯示偏好)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22K1 完整還原與合併匯入分流)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -47,6 +47,11 @@
    settings 新增 defaultRegionMode(all/last/firstTrip)與 defaultSortMode(trip/near/closing),
    開站時套用一次;未定位選「離我最近」不報錯,按鈕保持選中並提示;
    不新增 localStorage 鍵、不升資料格式版本;
+ V22K(2026-07-22):備份日期/14天/20次提醒、變更計數、匯出同時下載 JSON;
+ V22K1(2026-07-22,APP_RELEASE=22K1):匯入分流「完整還原(預設)/合併匯入」,
+   完整還原嚴格取代十二類資料(含 photos,事前告知將移除幾張現場拍且不可復原),
+   同 UID 以備份覆蓋、備份沒有的本機自訂景點移除,任一儲存失敗全部回滾;
+   報告列出覆蓋/新增/移除/失敗筆數;兩種模式成功後皆清空備份日期並計 1 次變更;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -430,7 +435,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22K</span>
+    <span class="verChip" id="verChip">V22K1</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -936,7 +941,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22K";          /* v22K:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22K1";         /* v22K1:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2671,15 +2676,23 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
   if(Number.isFinite(Number(d.appVersion))&&Number(d.appVersion)>APP_VERSION){
     alert(`這份備份由較新的程式 v${d.appVersion} 產生,目前程式是 v${APP_VERSION}。`
       +`為避免新欄位或新狀態遺失,已拒絕匯入。`);return}
-  let mode="merge";
-  if(!confirm("匯入模式:按「確定」=合併到現有資料;按「取消」=進入「完全取代」流程")){
-    if(!confirm("完全取代:現有設定、自訂景點、暫時隱藏與紀錄將被覆蓋,確定?"))return;
-    if(!confirm("再次確認:真的要完全取代目前資料?"))return;
-    mode="replace";
-  }
+  /* v22K1:匯入方式二選一——預設(確定鍵)為「完整還原」,並明確寫出兩者差異 */
+  const modeAsk=
+    "匯入方式\n\n"
+    +"【確定】完整還原(建議)\n"
+    +"  使用備份內容取代目前本機旅遊資料。\n"
+    +"  ・相同景點以備份內容覆蓋\n"
+    +"  ・備份中沒有的本機自訂景點會被移除\n\n"
+    +"【取消】合併匯入\n"
+    +"  保留目前資料,只補入缺少內容。\n"
+    +"  ・相同 UID 以備份內容覆蓋該筆\n"
+    +"  ・本機獨有的景點與紀錄都會保留\n\n"
+    +"要執行「完整還原」嗎?";
+  const mode=confirm(modeAsk)?"replace":"merge";
   /* 逐類驗證:全部過正規化,壞的整筆剔除;分類統計(群組#12) */
   const R={cust:{ok:0,fail:0},over:{ok:0,fail:0},exc:{ok:0,fail:0},
-           fix:{ok:0,skip:0,fail:0},trip:0,hist:0,ct:0,photo:0,set:false};
+           fix:{ok:0,skip:0,fail:0},trip:0,hist:0,ct:0,photo:0,set:false,
+           custOverwrite:0,custAdd:0,custRemove:0};   /* v22K1:覆蓋/新增/移除統計 */
   const vCustom=[],importedUid=new Set();   /* 群組#5:同批同 uid 去重 */
   if(Array.isArray(d.customPlaces))for(const raw of d.customPlaces){
     const c=normalizeCustomPlace(raw);   /* uid 嚴格規則+欄位白名單+座標成對 */
@@ -2732,6 +2745,30 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     }
   const vSet=(d.tripSettings&&typeof d.tripSettings==="object")?d.tripSettings:null;
   R.set=!!vSet;
+  /* v22K1:自訂景點覆蓋/新增/移除統計(兩種模式共用;移除只會發生在完整還原) */
+  const localUidSet=new Set(customPlaces.map(c=>c.uid));
+  const backupUidSet=new Set(vCustom.map(c=>c.uid));
+  R.custOverwrite=vCustom.filter(c=>localUidSet.has(c.uid)).length;
+  R.custAdd=vCustom.length-R.custOverwrite;
+  const removedLocal=(mode==="replace")
+    ?customPlaces.filter(c=>!backupUidSet.has(c.uid)):[];
+  R.custRemove=removedLocal.length;
+  /* v22K1:完整還原=嚴格取代(含照片)。現場拍照片不可再生,故事前明確告知將失去幾張並可取消 */
+  if(mode==="replace"){
+    const lostShots=Object.keys(photos).filter(u=>
+      typeof photos[u]==="string"&&photos[u].startsWith("data:")&&!(u in vPhotos)).length;
+    const names=removedLocal.slice(0,8).map(c=>c.name).join("、")
+      +(removedLocal.length>8?` …等 ${removedLocal.length} 筆`:"");
+    if(!confirm(
+      "完整還原確認\n\n"
+      +`將以備份檔取代目前本機資料:\n`
+      +`・自訂景點:目前 ${customPlaces.length} 筆 → 備份 ${vCustom.length} 筆\n`
+      +`  覆蓋 ${R.custOverwrite} 筆、新增 ${R.custAdd} 筆、移除本機獨有 ${R.custRemove} 筆`
+      +(R.custRemove?`\n  (將移除:${names})`:"")+"\n"
+      +`・現場拍照片:將移除 ${lostShots} 張(備份檔內沒有,移除後無法復原)\n`
+      +`・行程、去過紀錄、座標校正、旅遊設定一併回到備份檔狀態\n\n`
+      +"確定完整還原嗎?"))return;
+  }
   /* 工單14#4:套用前十鍵快照(淺拷貝即可——replace 整鍵重指派、merge 只換元素引用,皆不深改既有物件) */
   const snap={settings:{...settings},customPlaces:[...customPlaces],overrides:{...overrides},
     excluded:[...excluded],coordFix:{...coordFix},trip:[...trip],tripManual,
@@ -2742,14 +2779,9 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     customPlaces=vCustom;overrides=vOver;excluded=new Set(vExc);
     coordFix=vFix;trip=vTrip;tripManual=vTripManual;completedToday=new Set(vCT);visitedHistory=vHist;
     permanentRemovedUids=vPermRemoved;               /* v21 補充2:replace=匯入檔合法全收 */
-    /* 照片:完全取代仍保留本機「現場拍」(data:)——不可再生資產;
-       同 uid 衝突時本機照優先(工單14#5);只保留取代後仍存在的 uid(工單15#6) */
-    {const validAfterReplace=new Set([...BUILTIN_UIDS,...vCustom.map(c=>c.uid)]);
-     const localData={};
-     for(const u in photos)
-       if(validAfterReplace.has(u)&&typeof photos[u]==="string"&&photos[u].startsWith("data:"))
-         localData[u]=photos[u];
-     photos=Object.assign({},vPhotos,localData);}
+    /* v22K1:完整還原=嚴格取代(工單 §8 將 photos 列入取代項)。
+       與 v21「保留本機現場拍」的舊行為不同,故已於前一步 confirm 明確告知將移除幾張且不可復原。 */
+    photos=Object.assign({},vPhotos);
   }else{
     if(vSet)settings=normalizeSettings(Object.assign({},settings,vSet));
     for(const c of vCustom){
@@ -2793,13 +2825,15 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
   backupNoticeSnoozed=false;
   buildAll();reconcileCurrentRegion();renderHeader();renderAll();renderManage();renderBackupUI();
   alert("資料匯入完成,建議立即重新匯出一份本機完整備份。");
-  alert(`完整匯入(${mode==="replace"?"完全取代":"合併"})結果:\n`
-    +`自訂景點:成功 ${R.cust.ok}、失敗 ${R.cust.fail}\n`
+  alert((mode==="replace"
+      ? "完整還原成功,已恢復至備份檔狀態。\n\n"
+      : "合併匯入完成,既有資料已保留。\n(相同 UID:以備份內容覆蓋該筆)\n\n")
+    +`自訂景點:覆蓋 ${R.custOverwrite} 筆、新增 ${R.custAdd} 筆、移除 ${R.custRemove} 筆、失敗 ${R.cust.fail} 筆\n`
     +`內建覆蓋:成功 ${R.over.ok}、失敗 ${R.over.fail}\n`
     +`暫時隱藏名單:成功 ${R.exc.ok}、失敗 ${R.exc.fail}\n`
     +`發布移除標記:${R.permRemoved} 筆\n`
     +`座標校正:成功 ${R.fix.ok}、失敗 ${R.fix.fail}\n`
-    +`行程:${R.trip} 站｜今日完成:${R.ct} 筆｜歷史紀錄:${R.hist} 筆｜照片網址:${R.photo} 筆\n`
+    +`行程:${R.trip} 站｜今日完成:${R.ct} 筆｜歷史紀錄:${R.hist} 筆｜照片:${R.photo} 筆\n`
     +`旅遊設定:${R.set?"已套用":"未包含"}`);
 });
 
