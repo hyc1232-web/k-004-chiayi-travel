@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22F 底部遮擋與手機字體修正)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22G 行程介面簡化與專注編輯模式)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -25,6 +25,12 @@
    由 ResizeObserver 即時把 #tripBar 實際高度寫入 CSS 變數(隱藏/空行程寫 0),
    收合/縮小/展開/復原條增減、視窗縮放與手機旋轉皆重算,不再用固定 8rem;
    手機(≤759px)今日行程字級縮約 8–12%,觸控區維持 ≥44px,桌面(≥760px)完全不變;
+ v22G(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22G→畫面顯示 V22G):
+   全站統一箭頭語意(▲=收合/縮小、▼=展開/放大);刪除「展開清單/收合清單」重複控制,
+   今日行程只留一個箭頭控制整體面板,btnTripExpand 專職「✏️ 編輯行程 / ✅ 完成編輯」;
+   新增專注編輯模式(tripEditMode,僅記憶體),高度上限 100dvh - 收合header - safe-area,
+   只顯示編輯相關控制與完整站點清單;每站操作縮短為 起點/↑/↓/終點/移除 並保持單排(不足時橫捲);
+   導航文案改「🗺 開啟Google地圖(N站)」(URL 與分段邏輯不變);手機字級再縮;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -57,6 +63,7 @@
     --c-spot:#6741D9; --c-stay:#00754A; --c-shop:#C2255C;
     --c-other:#5B6963; --c-custom:#1971C2;
     --tripbar-space:0px;   /* v22F:由 JS 依 #tripBar 實際高度即時寫入,解決底部遮擋 */
+    --header-collapsed-h:3.5rem;  /* v22G:收合 header 實高(padding .35rem×2 + 按鈕 2.8rem = 56px) */
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);
@@ -295,6 +302,15 @@
   #tripBar.tbMin #tripSum{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #tripBar.tbMin #btnTripExpand,#tripBar.tbMin #btnCopyTrip,
   #tripBar.tbMin #tripCtl,#tripBar.tbMin #tripGo,#tripBar.tbMin #tripList{display:none}
+  /* v22G:專注編輯模式——高度可接近全螢幕,但不超過 100dvh - 收合header - safe-area */
+  #tripBar.tbEdit{max-height:calc(100vh - var(--header-collapsed-h) - env(safe-area-inset-bottom));
+    max-height:calc(100dvh - var(--header-collapsed-h) - env(safe-area-inset-bottom))}
+  #tripBar.tbEdit #btnCopyTrip,#tripBar.tbEdit #btnNearFar,
+  #tripBar.tbEdit #btnFarNear,#tripBar.tbEdit #tripGo{display:none}   /* 編輯模式隱藏一般操作 */
+  /* v22G:每站操作單排(空間不足橫向捲動,不換兩排);每顆 ≥44px */
+  .tOps{flex-basis:100%;display:flex;gap:.3rem;flex-wrap:nowrap;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.15rem}
+  .tOps button{flex:0 0 auto;min-height:2.75rem;min-width:2.75rem;padding:0 .6rem}
   .tItem{border-top:1px solid #3A4642;padding:.45rem 0}
   .tName{font-weight:800}
   .tLeg{color:#9FB4AC;font-size:.85em}
@@ -350,13 +366,13 @@
     .btn-nav,.card .btn{min-height:2.75rem}
     .visitBtn{min-height:2.75rem}
     /* v22F:手機今日行程字體縮約 10%(僅字級,觸控區一律維持 ≥44px) */
-    #tripBar{font-size:.78em}                       /* 原 .85em → 約 -8% */
+    #tripBar{font-size:.70em}                       /* v22G:原 .85em → -17.6%(規格 14) */
     #tripBar b{font-size:1em}
-    #tripBar .btn{font-size:.82em}
-    .tName{font-size:.92em}
-    .tLeg{font-size:.8em}
-    .tEditNote,#tripWarn,#tripGo .segNote{font-size:.8em}
-    .tuMsg{font-size:.92em}
+    #tripBar .btn{font-size:.76em}
+    .tName{font-size:.86em}
+    .tLeg{font-size:.74em}
+    .tEditNote,#tripWarn,#tripGo .segNote{font-size:.74em}
+    .tuMsg{font-size:.86em}
     .tOps button{font-size:.74em}
     /* 觸控區維持(不因字體縮小而縮) */
     #tripBar .btn,.tOps button,.tEdit .btn,#tripUndo .btn{min-height:2.75rem}
@@ -382,7 +398,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22F</span>
+    <span class="verChip" id="verChip">V22G</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -507,10 +523,9 @@
 <div id="tripBar">
   <div class="row">
     <b id="tripSum">今日行程 0 站</b>
-    <button class="btn btn-dark" id="btnTripExpand">✏️ 編輯行程 ▾</button>
+    <button class="btn btn-dark" id="btnTripExpand" title="進入專注編輯模式">✏️ 編輯行程</button>
     <button class="btn btn-dark" id="btnCopyTrip">📋 複製給家人</button>
     <div id="tripCtl">
-    <button class="btn btn-dark" id="btnList">展開清單 ▾</button>
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
     <button class="btn btn-dark" id="btnFarNear">先遠後近</button>
     <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 清空今日行程</button>
@@ -858,7 +873,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22F";          /* v22F:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22G";          /* v22G:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -1213,6 +1228,8 @@ let tripPanelExpanded=false;        /* 手機退回修正4:行程面板預設收
    刻意與 tripPanelExpanded(編輯區展開)、tripListOpen(站點清單展開)分離,互不共用變數。 */
 let headerCollapsed=false;          /* 頂部綠色區整體收合 */
 let tripBarCollapsed=false;         /* 今日行程整體縮小 */
+/* v22G:專注編輯模式——只存記憶體,不新增 localStorage 鍵;不影響 trip/tripManual/勾選/順序 */
+let tripEditMode=false;
 function setRef(r){ref=r;renderAll()}
 /* 手機退回修正2:清除手動選點——有 GPS 回 GPS,無 GPS 回未定位;不清 lastGpsRef、不觸發重新定位 */
 function clearManualHereSelection(){
@@ -1551,7 +1568,7 @@ function segURLs(){
        +"&waypoints="+encodeURIComponent(seg.slice(0,-1).map(p=>p.nav).join("|"));
     const a=si*SEG_MAX+1,b=si*SEG_MAX+seg.length;
     return{url,si,
-      label:segs.length===1?`開多點導航(共 ${b} 站)`
+      label:segs.length===1?`🗺 開啟Google地圖(${b}站)`   /* v22G:只改顯示文案,URL 與分段邏輯不變 */
         :`第 ${si+1} 段:第${a}站${seg[0].name}→第${b}站${seg[seg.length-1].name}`};
   });
 }
@@ -1570,8 +1587,10 @@ function renderTripBar(now){
   applyTripBarModes(bar);      /* v22E:整體縮小(tbMin)與收合單排(tbCollapsed)分離 */
   updateTripSummary(now);
   /* 手機退回修正4:預設收合單列;展開才見完整控制與清單 */
-  document.getElementById("btnTripExpand").textContent=tripPanelExpanded?"▴ 收合行程":"✏️ 編輯行程 ▾";
-  document.getElementById("tripCtl").hidden=!tripPanelExpanded;
+  /* v22G:btnTripExpand 只當「編輯行程」入口/「完成編輯」出口,不再控制收合(收合一律由 btnTripMin) */
+  document.getElementById("btnTripExpand").textContent=tripEditMode?"✅ 完成編輯":"✏️ 編輯行程";
+  document.getElementById("btnTripExpand").title=tripEditMode?"結束編輯":"進入專注編輯模式";
+  document.getElementById("tripCtl").hidden=tripBarCollapsed;
   lastGos=segURLs();
   const firstLock=lastGos.find(g=>g.si>segClicked+1);
   document.getElementById("tripGo").innerHTML=
@@ -1589,9 +1608,8 @@ function renderTripBar(now){
       +`鎖住的段連按兩次可強制開啟(會從現處直接拉過去)。</div>`:""));
   setTimeout(syncTripBarSpace,0);                     /* v22F:每次重繪後量測(RO 不可用時的保底) */
   const list=document.getElementById("tripList");
-  list.hidden=!tripPanelExpanded||!tripListOpen;      /* 手機退回修正4:收合時清單一律藏 */
-  document.getElementById("btnList").textContent=tripListOpen?"收合清單 ▴":"展開清單 ▾";
-  if(!tripListOpen){list.innerHTML="";return}
+  list.hidden=!tripEditMode;                          /* v22G:完整站點清單只在專注編輯模式出現 */
+  if(!tripEditMode){list.innerHTML="";return}
   const{legs}=tripTotal();
   [...tripUnchecked].forEach(u=>{if(!trip.includes(u))tripUnchecked.delete(u)});  /* v22D:勾選狀態隨行程收斂 */
   const dropN=trip.filter(u=>tripUnchecked.has(u)).length,keepN=trip.length-dropN;
@@ -1608,11 +1626,11 @@ function renderTripBar(now){
       <span class="tName">${i+1}. ${esc(p.name)}</span>
       <span class="tLeg">${legs[i]!=null?`(前段約 ${legs[i]} 分)`:""}</span>
       <div class="tOps">
-        <button data-op="top" data-i="${i}">設為起點</button>
-        <button data-op="up" data-i="${i}"${i===0?" disabled":""}>↑ 上移</button>
-        <button data-op="down" data-i="${i}"${i===trip.length-1?" disabled":""}>↓ 下移</button>
-        <button data-op="end" data-i="${i}">設為最後一站</button>
-        <button data-op="del" data-i="${i}">✕ 刪除</button>
+        <button data-op="top" data-i="${i}" title="設為起點">起點</button>
+        <button data-op="up" data-i="${i}"${i===0?" disabled":""} title="上移" aria-label="上移">↑</button>
+        <button data-op="down" data-i="${i}"${i===trip.length-1?" disabled":""} title="下移" aria-label="下移">↓</button>
+        <button data-op="end" data-i="${i}" title="設為最後一站">終點</button>
+        <button data-op="del" data-i="${i}" title="從行程移除">移除</button>
       </div>
     </div>`;
   }).join("");
@@ -1621,6 +1639,8 @@ function updateTripSummary(now){
   if(!trip.length)return;
   if(tripBarCollapsed){                              /* v22E:整體縮小只留「今日行程 N 站」 */
     document.getElementById("tripSum").textContent=`今日行程 ${trip.length} 站`;return}
+  if(tripEditMode){                                  /* v22G:專注編輯模式標題 */
+    document.getElementById("tripSum").textContent=`編輯今日行程 ${trip.length} 站`;return}
   const{total}=tripTotal();
   document.getElementById("tripSum").textContent=
     `今日行程 ${trip.length} 站`+(ref?`｜總車程估 ${total} 分(不含停留)`:`｜未定位,無法估車程`)
@@ -1630,8 +1650,9 @@ function updateTripSummary(now){
     warn.length?`⚠️ 今日公休仍在行程中:${warn.join("、")}`:"";
 }
 document.getElementById("btnTripExpand").addEventListener("click",()=>{
-  tripPanelExpanded=!tripPanelExpanded;renderTripBar(new Date());}); /* 手機退回修正4 */
-document.getElementById("btnList").addEventListener("click",()=>{tripListOpen=!tripListOpen;renderTripBar(new Date())});
+  tripEditMode=!tripEditMode;                        /* v22G:進入/結束專注編輯模式;不動 trip/勾選/順序 */
+  tripPanelExpanded=true;                            /* 保留既有旗標語意:非最小化即為展開 */
+  renderTripBar(new Date());});
 function confirmSortOverride(){                    /* 工單I:手調過才問,答否=不排 */
   return !(tripManual&&trip.length>1)||confirm("目前是你手動調整過的順序,重新排序會蓋掉手調結果,確定?");
 }
@@ -3163,13 +3184,16 @@ function initTripBarSpace(){
 }
 /* ═══ v22E:雙區塊整體收合(狀態分離,僅記憶體) ═══ */
 function applyTripBarModes(bar){
-  bar.classList.toggle("tbMin",tripBarCollapsed);                              /* 整體縮小 */
-  bar.classList.toggle("tbCollapsed",!tripBarCollapsed&&!tripPanelExpanded);   /* 既有:收合單排 */
+  /* v22G:三態互斥——min(整體縮小)/ edit(專注編輯)/ normal(一般展開);不再有「收合單排」中間態 */
+  bar.classList.toggle("tbMin",tripBarCollapsed);
+  bar.classList.toggle("tbEdit",!tripBarCollapsed&&tripEditMode);
+  bar.classList.remove("tbCollapsed");
   const b=document.getElementById("btnTripMin");
   if(b){
+    /* 全站統一箭頭語意:▲=收合/縮小(目前為完整狀態) ▼=展開/放大(目前為縮小狀態) */
     b.textContent=tripBarCollapsed?"▼":"▲";
     b.setAttribute("aria-expanded",tripBarCollapsed?"false":"true");
-    b.title=tripBarCollapsed?"展開今日行程":"收合今日行程";
+    b.title=tripBarCollapsed?"展開今日行程":(tripEditMode?"結束編輯並收合":"收合今日行程");
     b.setAttribute("aria-label",b.title);
   }
 }
@@ -3177,8 +3201,10 @@ document.getElementById("btnHeaderToggle").addEventListener("click",()=>{
   headerCollapsed=!headerCollapsed;renderHeader();      /* 記憶體;重整後預設展開 */
 });
 document.getElementById("btnTripMin").addEventListener("click",()=>{
-  tripBarCollapsed=!tripBarCollapsed;                   /* 不動 tripPanelExpanded/tripListOpen,展開後恢復原內部狀態 */
-  renderTripBar(new Date());
+  /* v22G:唯一的收合控制。編輯模式中按下→先退出編輯回一般展開;否則切換整體縮小/展開 */
+  if(tripEditMode)tripEditMode=false;
+  else tripBarCollapsed=!tripBarCollapsed;
+  renderTripBar(new Date());                           /* 不動 trip/tripManual/勾選/順序 */
 });
 /* ═══ v22D:行程編輯與復原 ═══ */
 function renderTripUndo(){
