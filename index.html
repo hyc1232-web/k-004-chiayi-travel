@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22D 行程編輯與復原)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22E 雙區塊收合)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -16,6 +16,10 @@
    批次移除與清空行程皆提供 8 秒復原(記憶體,不新增 localStorage 鍵);
    任何行程寫入成功即讓上一筆復原失效;「查看行程」→「✏️ 編輯行程」、
    「開始新行程」→「🗑 清空今日行程」;只改 trip/tripManual,不動景點/照片/座標/去過紀錄;
+ v22E(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22E→畫面顯示 V22E):
+   頂部綠色區可整體收合(收合單列:系統名稱＋V22E＋更新＋齒輪＋▼,約 56px);
+   今日行程可整體縮小(只留「今日行程 N 站」＋▼,約 56px;復原條例外仍顯示);
+   兩者狀態分離(headerCollapsed / tripBarCollapsed),皆僅記憶體、重整預設展開;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -72,6 +76,19 @@
     font-size:.82rem;font-weight:800;letter-spacing:.5px;line-height:1;white-space:nowrap;
     background:rgba(0,0,0,.22);color:#fff;border:1px solid rgba(255,255,255,.55);border-radius:.45rem;
     align-self:center}
+  /* v22E:頂部收合箭頭(明確邊框+底色,觸控 ≥44px) */
+  .hArrow{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center;
+    min-width:2.8rem;min-height:2.8rem;font-size:1.1rem;font-weight:800;line-height:1;
+    background:rgba(255,255,255,.18);color:#fff;border:2px solid rgba(255,255,255,.7);
+    border-radius:.6rem;cursor:pointer}
+  .hArrow:active{background:rgba(255,255,255,.34)}
+  /* v22E:頂部收合單列——系統名稱＋版本＋更新＋齒輪＋▼,目標 56–64px,手機直向不換行 */
+  header.hCollapsed{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap;padding:.35rem 1rem}
+  header.hCollapsed .sysName{margin:0;flex:1 1 auto;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header.hCollapsed .hRow{flex:0 0 auto;width:auto;align-items:center}
+  header.hCollapsed #hTitle{display:none}
+  header.hCollapsed .hSub{display:none}
   /* v22B:搜尋列(觸控 ≥44px,不擠區域/分類)+ 補座標按鈕 */
   .searchBar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.4rem 1rem 0}
   #qInput{flex:1;min-width:0;min-height:44px;font-size:1.05rem;padding:.4rem .7rem;
@@ -262,6 +279,16 @@
   #tripBar.tbCollapsed.tbHasUndo{max-height:14rem}   /* 復原條存在的 8 秒內暫時放寬(見交付說明) */
   #tripBar.tbUndoOnly .row,#tripBar.tbUndoOnly #tripGo,
   #tripBar.tbUndoOnly #tripCtl,#tripBar.tbUndoOnly #tripList{display:none}
+  /* v22E:今日行程整體縮小——只留「今日行程 N 站」＋▼(復原條例外仍顯示),目標 50–60px */
+  .tbArrow{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+    min-width:2.8rem;min-height:2.8rem;font-size:1.05rem;font-weight:800;line-height:1;
+    background:#3A4642;color:#fff;border:1px solid #7a8781;border-radius:.6rem;cursor:pointer}
+  .tbArrow:active{background:#4a5652}
+  #tripBar.tbMin{padding:.35rem 1rem calc(.35rem + env(safe-area-inset-bottom))}
+  #tripBar.tbMin .row{flex-wrap:nowrap}
+  #tripBar.tbMin #tripSum{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tripBar.tbMin #btnTripExpand,#tripBar.tbMin #btnCopyTrip,
+  #tripBar.tbMin #tripCtl,#tripBar.tbMin #tripGo,#tripBar.tbMin #tripList{display:none}
   .tItem{border-top:1px solid #3A4642;padding:.45rem 0}
   .tName{font-weight:800}
   .tLeg{color:#9FB4AC;font-size:.85em}
@@ -336,9 +363,10 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22D</span>
+    <span class="verChip" id="verChip">V22E</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
+    <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
   </div>
   <div class="hSub" id="hDates">尚未設定旅遊日期</div>
   <div class="hSub">今天 <span id="hToday">—</span><span id="hDay"></span></div>
@@ -469,6 +497,7 @@
     <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 清空今日行程</button>
     <div id="tripWarn"></div>
     </div>
+    <button id="btnTripMin" class="tbArrow" aria-expanded="true" title="收合今日行程" aria-label="收合今日行程">▲</button>
   </div>
   <div id="tripUndo" hidden></div>
   <div id="tripGo"></div>
@@ -810,7 +839,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22D";          /* v22D:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22E";          /* v22E:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -1037,6 +1066,15 @@ function renderHeader(){
       :"尚未設定旅遊日期";
   document.getElementById("hHotel").textContent=
     settings.hotelName?`住宿:${settings.hotelName}`:"";
+  /* v22E:頂部整體收合(記憶體狀態) */
+  document.querySelector("header").classList.toggle("hCollapsed",headerCollapsed);
+  const hArrow=document.getElementById("btnHeaderToggle");
+  if(hArrow){
+    hArrow.textContent=headerCollapsed?"▼":"▲";
+    hArrow.setAttribute("aria-expanded",headerCollapsed?"false":"true");
+    hArrow.title=headerCollapsed?"展開頂部":"收合頂部";
+    hArrow.setAttribute("aria-label",hArrow.title);
+  }
   tickClock();
 }
 function tickClock(){
@@ -1152,6 +1190,10 @@ function nearestOf(pos){
 let lastGpsRef=null;                /* 手機退回修正2:最後一次 GPS(手動選點不覆蓋) */
 let mobileMultiSelectMode=false;    /* 手機退回修正3:精簡多選(純介面狀態,不入 localStorage) */
 let tripPanelExpanded=false;        /* 手機退回修正4:行程面板預設收合 */
+/* v22E:兩區塊「整體收合」狀態——只存記憶體,不寫 localStorage,重整後預設展開。
+   刻意與 tripPanelExpanded(編輯區展開)、tripListOpen(站點清單展開)分離,互不共用變數。 */
+let headerCollapsed=false;          /* 頂部綠色區整體收合 */
+let tripBarCollapsed=false;         /* 今日行程整體縮小 */
 function setRef(r){ref=r;renderAll()}
 /* 手機退回修正2:清除手動選點——有 GPS 回 GPS,無 GPS 回未定位;不清 lastGpsRef、不觸發重新定位 */
 function clearManualHereSelection(){
@@ -1500,12 +1542,12 @@ function renderTripBar(now){
   renderTripUndo();                                   /* v22D:復原條 */
   bar.classList.toggle("tbHasUndo",!!tripUndo);
   if(!trip.length){
-    if(!tripUndo){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed","tbUndoOnly");return}
+    if(!tripUndo){bar.style.display="";bar.classList.remove("tbShow","tbCollapsed","tbUndoOnly","tbMin");return}
     bar.style.display="";bar.classList.add("tbShow","tbUndoOnly");   /* v22D:行程已空但復原條在→只留復原條 */
-    bar.classList.toggle("tbCollapsed",!tripPanelExpanded);return}
+    applyTripBarModes(bar);return}
   bar.classList.remove("tbUndoOnly");
   bar.style.display="";bar.classList.add("tbShow");
-  bar.classList.toggle("tbCollapsed",!tripPanelExpanded);
+  applyTripBarModes(bar);      /* v22E:整體縮小(tbMin)與收合單排(tbCollapsed)分離 */
   updateTripSummary(now);
   /* 手機退回修正4:預設收合單列;展開才見完整控制與清單 */
   document.getElementById("btnTripExpand").textContent=tripPanelExpanded?"▴ 收合行程":"✏️ 編輯行程 ▾";
@@ -1556,6 +1598,8 @@ function renderTripBar(now){
 }
 function updateTripSummary(now){
   if(!trip.length)return;
+  if(tripBarCollapsed){                              /* v22E:整體縮小只留「今日行程 N 站」 */
+    document.getElementById("tripSum").textContent=`今日行程 ${trip.length} 站`;return}
   const{total}=tripTotal();
   document.getElementById("tripSum").textContent=
     `今日行程 ${trip.length} 站`+(ref?`｜總車程估 ${total} 分(不含停留)`:`｜未定位,無法估車程`)
@@ -3069,6 +3113,25 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22E:雙區塊整體收合(狀態分離,僅記憶體) ═══ */
+function applyTripBarModes(bar){
+  bar.classList.toggle("tbMin",tripBarCollapsed);                              /* 整體縮小 */
+  bar.classList.toggle("tbCollapsed",!tripBarCollapsed&&!tripPanelExpanded);   /* 既有:收合單排 */
+  const b=document.getElementById("btnTripMin");
+  if(b){
+    b.textContent=tripBarCollapsed?"▼":"▲";
+    b.setAttribute("aria-expanded",tripBarCollapsed?"false":"true");
+    b.title=tripBarCollapsed?"展開今日行程":"收合今日行程";
+    b.setAttribute("aria-label",b.title);
+  }
+}
+document.getElementById("btnHeaderToggle").addEventListener("click",()=>{
+  headerCollapsed=!headerCollapsed;renderHeader();      /* 記憶體;重整後預設展開 */
+});
+document.getElementById("btnTripMin").addEventListener("click",()=>{
+  tripBarCollapsed=!tripBarCollapsed;                   /* 不動 tripPanelExpanded/tripListOpen,展開後恢復原內部狀態 */
+  renderTripBar(new Date());
+});
 /* ═══ v22D:行程編輯與復原 ═══ */
 function renderTripUndo(){
   const el=document.getElementById("tripUndo");if(!el)return;
