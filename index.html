@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22H 發布流程強化)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22I 更新重設全部地區與底部箭頭方向)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -37,6 +37,11 @@
    七驗加掛 ⑧「併入名單逐一核對」,任一景點未寫入產出即停止下載並列名;
    產出同時下載 index.html(供上傳)與 旅遊吃玩導航_發布備份_日期時間.html,並提示勿上傳施工檔;
    合併核心 buildPublishPlaces 一字未動;
+ v22I(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22I):
+   按「更新」時先把 settings.currentRegion 重設為 ""(全部地區)並存檔,存成功才重載;
+   存失敗還原舊區域、不重載並提示匯出備份;一般重新整理/直接開網址仍保留目前區域;
+   底部箭頭改依空間方向(展開▼往下縮、縮小▲往上開),頂部維持(▲收合/▼展開),
+   aria-expanded 一律依實際展開狀態,不隨箭頭反向而錯;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -404,7 +409,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22H</span>
+    <span class="verChip" id="verChip">V22I</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -537,7 +542,7 @@
     <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 清空今日行程</button>
     <div id="tripWarn"></div>
     </div>
-    <button id="btnTripMin" class="tbArrow" aria-expanded="true" title="收合今日行程" aria-label="收合今日行程">▲</button>
+    <button id="btnTripMin" class="tbArrow" aria-expanded="true" title="收合今日行程" aria-label="收合今日行程">▼</button>
   </div>
   <div id="tripUndo" hidden></div>
   <div id="tripGo"></div>
@@ -879,7 +884,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22H";          /* v22H:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22I";          /* v22I:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -3062,14 +3067,28 @@ async function generatePublishHtml(){
 }
 document.getElementById("btnPublish").addEventListener("click",()=>{generatePublishHtml()});
 /* v22A:重新載入最新版——query 換新強制破快取抓新版;不清 localStorage、不動任何旅遊資料 */
+/* v22I:更新前先把「目前區域」重設為全部地區——避免使用者更新後只看到單一縣市而誤以為資料不見。
+   交易式:存成功才重載;存失敗還原舊值、不重載並提示。只動 currentRegion,不碰其他資料。 */
+function reloadLatestWithAllRegions(){
+  const oldRegion=settings.currentRegion;             /* 供儲存失敗回復 */
+  settings.currentRegion="";                          /* ""=全部地區 */
+  if(!saveSettings()){
+    settings.currentRegion=oldRegion;                 /* 還原,不重載 */
+    try{renderRegionBar()}catch(_){}
+    alert("無法切換為全部地區,更新已取消,請先匯出資料備份。");
+    return false;
+  }
+  location.replace(location.pathname+"?v="+Date.now());
+  return true;
+}
+const RELOAD_CONFIRM_MSG="將重新下載網站最新版,並切換為顯示全部地區。\n"
+  +"不會刪除景點、行程、照片、座標或去過紀錄。\n確定更新嗎?";
 document.getElementById("btnReload").addEventListener("click",()=>{
-  if(confirm("將重新下載網站最新版,不會刪除本機旅遊資料,確定?"))
-    location.replace(location.pathname+"?v="+Date.now());
+  if(confirm(RELOAD_CONFIRM_MSG))reloadLatestWithAllRegions();
 });
-/* v22A:頂部「🔄 更新」——與頁尾同動作,第一入口;專屬確認文案 */
+/* v22A:頂部「🔄 更新」——與頁尾同動作,第一入口 */
 document.getElementById("btnHeaderReload").addEventListener("click",()=>{
-  if(confirm("將重新下載網站最新版,不會刪除景點、行程、去過紀錄、照片與座標。確定更新嗎?"))
-    location.replace(location.pathname+"?v="+Date.now());
+  if(confirm(RELOAD_CONFIRM_MSG))reloadLatestWithAllRegions();
 });
 
 /* ═══ v22 多區域:縣市下拉、目前區域列、地區管理、開機對帳 ═══ */
@@ -3256,10 +3275,11 @@ function applyTripBarModes(bar){
   bar.classList.remove("tbCollapsed");
   const b=document.getElementById("btnTripMin");
   if(b){
-    /* 全站統一箭頭語意:▲=收合/縮小(目前為完整狀態) ▼=展開/放大(目前為縮小狀態) */
-    b.textContent=tripBarCollapsed?"▼":"▲";
+    /* v22I:底部箭頭依「空間方向」——面板在下方,展開時按▼往下縮回、縮小時按▲往上打開。
+       與頂部(在上方,▲收合/▼展開)相反是刻意的;aria-expanded 仍依實際展開狀態,不隨箭頭反向而錯。 */
+    b.textContent=tripBarCollapsed?"▲":"▼";
     b.setAttribute("aria-expanded",tripBarCollapsed?"false":"true");
-    b.title=tripBarCollapsed?"展開今日行程":(tripEditMode?"結束編輯並收合":"收合今日行程");
+    b.title=tripBarCollapsed?"展開今日行程":"收合今日行程";
     b.setAttribute("aria-label",b.title);
   }
 }
