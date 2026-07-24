@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(v22G 行程介面簡化與專注編輯模式)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(v22H 發布流程強化)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -31,6 +31,12 @@
    新增專注編輯模式(tripEditMode,僅記憶體),高度上限 100dvh - 收合header - safe-area,
    只顯示編輯相關控制與完整站點清單;每站操作縮短為 起點/↑/↓/終點/移除 並保持單排(不足時橫捲);
    導航文案改「🗺 開啟Google地圖(N站)」(URL 與分段邏輯不變);手機字級再縮;
+ v22H(2026-07-22,同 APP_VERSION 22,APP_RELEASE=22H):
+   新增 PUBLISH_BUILD 旗標——施工版 false 顯示 V22H,發布產出改寫為 true 顯示 V22H-P;
+   發布確認視窗改為醒目區塊並列出所有併入景點名稱;自訂景點有資料卻併入 0 筆時警告並說明原因;
+   七驗加掛 ⑧「併入名單逐一核對」,任一景點未寫入產出即停止下載並列名;
+   產出同時下載 index.html(供上傳)與 旅遊吃玩導航_發布備份_日期時間.html,並提示勿上傳施工檔;
+   合併核心 buildPublishPlaces 一字未動;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -398,7 +404,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22G</span>
+    <span class="verChip" id="verChip">V22H</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -873,7 +879,10 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22G";          /* v22G:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22H";          /* v22H:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+/* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
+   讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
+const PUBLISH_BUILD=false;
 const DATA_SCHEMA_VERSION=5;      /* 資料格式版本(匯出/匯入驗這個) */
 let settings=normalizeSettings(lsGet("cy_trip_settings_v5",{}));
 let customPlaces=dedupeCustomPlaces(lsGet("cy_custom_places_v5",[]));
@@ -2880,7 +2889,42 @@ async function sha256Hex(text){
   const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
   return[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
 }
-/* 七驗(規格第三版定稿;任一失敗→不下載) */
+/* ═══ v22H:發布輔助(唯讀;不更動 buildPublishPlaces 合併核心) ═══ */
+function diagnoseCustomMergeSkips(){        /* 唯讀重跑核心的兩個略過條件,取得原因 */
+  const out=[];
+  for(const c of customPlaces){
+    const nm=(c&&c.name)?c.name:((c&&c.uid)||"(無名)");
+    if(!c||typeof c.uid!=="string"){out.push(`${nm}:資料結構異常(uid 非字串)`);continue}
+    if(BUILTIN_UIDS.has(c.uid)){out.push(`${nm}:uid 與內建景點重複(已正式化),依規則不重複併入`);continue}
+    if(!normalizeCustomPlace(c)){out.push(`${nm}:正規化後判為無效(名稱必填;地址/導航關鍵字/座標三者至少一項)`);continue}
+  }
+  return out;
+}
+function publishMergedBlock(pub){           /* 併入名單醒目區塊(規格 3/4/10) */
+  const line="═══════════════════════════════";
+  let t=line+`\n★ 自訂景點併入:${pub.stats.merged} 筆\n`;
+  if(pub.mergedNames.length)
+    t+=pub.mergedNames.map((n,i)=>`   ${i+1}. ${n}`).join("\n")+"\n";
+  if(customPlaces.length>0&&pub.stats.merged===0){
+    const why=diagnoseCustomMergeSkips();
+    t+=`\n⚠️ 警告:本機有 ${customPlaces.length} 筆自訂景點,但併入 0 筆!\n原因:\n`
+      +(why.length?why.map(r=>"   • "+r).join("\n"):"   • 無法判定,請至景點管理檢查內容")
+      +"\n若你預期這些景點要進發布檔,請先修正後再產生。\n";
+  }
+  return t+line+"\n";
+}
+function verifyMergedInOutput(placesArr,mergedUids,mergedNames){   /* 規格 11/12:逐一核對 */
+  const missing=[];
+  if(!Array.isArray(placesArr))return["(產出 PLACES 無法回讀,無法核對併入名單)"];
+  const uidSet=new Set(placesArr.map(p=>p&&p.uid));
+  const nameSet=new Set(placesArr.map(p=>p&&p.name));
+  (mergedUids||[]).forEach((u,i)=>{
+    const nm=(mergedNames||[])[i];
+    if(!uidSet.has(u)||!nameSet.has(nm))missing.push(`${nm||"(無名)"}(${u})`);
+  });
+  return missing;
+}
+/* 七驗(規格第三版定稿;任一失敗→不下載)+ v22H ⑧併入名單核對 */
 function runPublishChecks(outText,expect){
   const errs=[];
   const av=readUniqueConst(outText,"APP_VERSION");
@@ -2910,6 +2954,11 @@ function runPublishChecks(outText,expect){
   try{new Function(js)}catch(err){errs.push("⑥產出 JS 無法編譯:"+err.message)}
   const guardAnchor='if(!c||typeof c.uid!=="string"||'+"BUILTIN_UIDS.has(c.uid))continue"; /* 拼接避免本行自含錨串 */
   if(!outText.includes(guardAnchor))errs.push("⑦防重複顯示保護行遺失");
+  /* v22H ⑧:併入名單逐一核對(任一未寫入→停止下載並列名) */
+  if(expect.mergedUids&&expect.mergedUids.length){
+    const miss=verifyMergedInOutput(arr,expect.mergedUids,expect.mergedNames);
+    if(miss.length)errs.push("⑧自訂景點未寫入產出("+miss.length+" 筆):"+miss.join("、"));
+  }
   return errs;
 }
 async function getPublishSource(){
@@ -2964,9 +3013,9 @@ async function generatePublishHtml(){
     +`├ 內建修改套用:${pub.stats.overridden} 筆\n`
     +`├ 座標校正烙入:${pub.stats.coordFixed} 筆\n`
     +`├ 自正式版移除:${pub.stats.removed} 筆${pub.removedNames.length?"\n│   → "+pub.removedNames.join("、"):""}\n`
-    +`├ 自訂景點併入:${pub.stats.merged} 筆${pub.mergedNames.length?"\n│   → "+pub.mergedNames.join("、"):""}\n`
     +`└ 正式預設照片:${Object.keys(dp).length} 張(僅 https)\n\n`
-    +`不包含:今日完成/曾去過/本次行程/手動排序/本機拍攝照片/旅遊日期住宿/暫時隱藏\n\n確定產生?`);
+    +publishMergedBlock(pub)                      /* v22H:併入名單醒目區塊(含 0 筆警告與原因) */
+    +`\n不包含:今日完成/曾去過/本次行程/手動排序/本機拍攝照片/旅遊日期住宿/暫時隱藏\n\n確定產生?`);
   if(!okGo)return;
   const sp=sentinelBlock(src.text,"PLACES"),sd0=sentinelBlock(src.text,"DEFAULT_PHOTOS");
   if(!sp||!sd0||sp.end>sd0.start){alert("原始檔哨兵異常、順序錯誤或區間重疊,已中止。");return} /* v21 同版修正4 */
@@ -2980,18 +3029,35 @@ async function generatePublishHtml(){
     +src.text.slice(sp.innerEnd,sd0.innerStart)
     +"\n"+serializeDefaultPhotos(dp)+"\n"
     +src.text.slice(sd0.innerEnd);
-  const errs=runPublishChecks(out,{count:pub.list.length});
+  /* v22H:標記為發布版(來源已是發布版則維持 true);標記必須恰好一處 */
+  const bF="const PUBLISH_BUILD="+"false;",bT="const PUBLISH_BUILD="+"true;";
+  const cF=out.split(bF).length-1,cT=out.split(bT).length-1;
+  if(cF+cT!==1){alert(`發布版標記異常(false ${cF} 處/true ${cT} 處),已停止下載。`);return}
+  if(cF===1)out=out.replace(bF,bT);
+  const errs=runPublishChecks(out,{count:pub.list.length,
+    mergedUids:pub.list.filter(p=>!BUILTIN_UIDS.has(p.uid)).map(p=>p.uid),
+    mergedNames:pub.list.filter(p=>!BUILTIN_UIDS.has(p.uid)).map(p=>p.name)});
   if(errs.length){alert("產出檢查未通過,已停止下載:\n"+errs.join("\n"));return}
   const sha=await sha256Hex(out);
-  const fname=`旅遊吃玩導航_發布_${ymd}_${hms}_v${APP_VERSION}.html`;
-  const blob=new Blob([out],{type:"text/html;charset=utf-8"});
-  const link=document.createElement("a");
-  link.href=URL.createObjectURL(blob);link.download=fname;link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),4000);
-  alert(`發布檔已下載:${fname}\n來源:${src.mode}\n`
+  const bakName=`旅遊吃玩導航_發布備份_${ymd}_${hms}.html`;
+  const dl=(name,text)=>{                          /* v22H:同內容下載兩份——index.html 供上傳、備份檔存查 */
+    const b=new Blob([text],{type:"text/html;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(b);a.download=name;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  };
+  dl("index.html",out);
+  setTimeout(()=>dl(bakName,out),600);             /* 錯開,避開瀏覽器連續下載節流 */
+  alert(`✅ 發布檔已產生(兩份內容相同)\n`
+    +`① index.html ← 上傳這個到 GitHub\n② ${bakName}(備份存查)\n\n`
+    +`═══════════════════════════════\n`
+    +`⚠️ 請上傳本次下載的發布檔,不是原始施工 index 檔。\n`
+    +`  發布檔右上角顯示 V${APP_RELEASE}-P,施工檔顯示 V${APP_RELEASE}。\n`
+    +`═══════════════════════════════\n\n`
+    +`來源:${src.mode}\n`
     +`正式 ${pub.list.length} 筆｜移除 ${pub.stats.removed}｜併入 ${pub.stats.merged}｜預設照 ${Object.keys(dp).length}\n`
     +`SHA-256 前16碼:${sha.slice(0,16)}\n完整:${sha}\n\n`
-    +`後續:①上傳 GitHub 取代舊檔 ②手機開新版確認 ③把 SHA 抄進 CHANGELOG\n`
+    +`後續:①上傳 GitHub 取代舊檔 ②手機開新版確認右上角是 V${APP_RELEASE}-P ③把 SHA 抄進 CHANGELOG\n`
     +`④確認正常後,可回「景點管理→已暫時隱藏」分頁清理已發布項與已正式化本機資料(不會自動清)。`);
 }
 document.getElementById("btnPublish").addEventListener("click",()=>{generatePublishHtml()});
@@ -3266,7 +3332,7 @@ function renderNoCoordTab(){
       </div>`).join("")
      :`<div class="meta">目前所有景點都有座標,無待補項目。</div>`);
 }
-document.getElementById("verChip").textContent="V"+APP_RELEASE;   /* v22B:版本標籤以常數為準 */
+document.getElementById("verChip").textContent="V"+APP_RELEASE+(PUBLISH_BUILD?"-P":"");   /* v22H:發布版加 -P */
 
 populateCityDropdowns();
 initTripBarSpace();                                   /* v22F */
