@@ -3075,14 +3075,14 @@ function reloadLatestWithAllRegions(){
   if(!saveSettings()){
     settings.currentRegion=oldRegion;                 /* 還原,不重載 */
     try{renderRegionBar()}catch(_){}
-    alert("無法切換為全部地區,更新已取消,請先匯出資料備份。");
+    alert("無法切換為全部地區,更新已取消。\n請先匯出完整旅遊資料備份。");
     return false;
   }
   location.replace(location.pathname+"?v="+Date.now());
   return true;
 }
-const RELOAD_CONFIRM_MSG="將重新下載網站最新版,並切換為顯示全部地區。\n"
-  +"不會刪除景點、行程、照片、座標或去過紀錄。\n確定更新嗎?";
+const RELOAD_CONFIRM_MSG="將重新下載網站最新版,並切換為顯示全部地區。\n\n"
+  +"不會刪除:\n・景點\n・今日行程\n・照片\n・座標\n・去過紀錄\n\n確定更新嗎?";
 document.getElementById("btnReload").addEventListener("click",()=>{
   if(confirm(RELOAD_CONFIRM_MSG))reloadLatestWithAllRegions();
 });
@@ -3279,7 +3279,7 @@ function applyTripBarModes(bar){
        與頂部(在上方,▲收合/▼展開)相反是刻意的;aria-expanded 仍依實際展開狀態,不隨箭頭反向而錯。 */
     b.textContent=tripBarCollapsed?"▲":"▼";
     b.setAttribute("aria-expanded",tripBarCollapsed?"false":"true");
-    b.title=tripBarCollapsed?"展開今日行程":"收合今日行程";
+    b.title=tripBarCollapsed?"展開今日行程":(tripEditMode?"結束編輯並回一般展開":"收合今日行程");
     b.setAttribute("aria-label",b.title);
   }
 }
