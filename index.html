@@ -474,7 +474,7 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L</span>
+    <span class="verChip" id="verChip">V22L1</span>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -1002,7 +1002,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L";          /* v22L:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L1";         /* v22L1:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -1529,24 +1529,16 @@ function renderLocExtras(){
 function togglePlaceCompleted(uid,forceComplete=false){
   if(!byUid[uid])return false;
   if(forceComplete&&completedToday.has(uid))return true; /* 已完成再 force:無事可做 */
-  const oldCT=new Set(completedToday),oldVH={...visitedHistory};
-  if(forceComplete||!completedToday.has(uid)){
-    completedToday.add(uid);
-    const rec=visitedHistory[uid]?{...visitedHistory[uid],history:[...visitedHistory[uid].history]}:vhBlank();
-    rec.count=(Number(rec.count)||0)+1;              /* v22L:次數仍由完成流程維護,日期/評價另由對話框補 */
-    visitedHistory[uid]=rec;
-  }else{
-    completedToday.delete(uid);
-    const rec=visitedHistory[uid];
-    if(rec){
-      const n=(Number(rec.count)||0)-1;
-      if(n>0)visitedHistory[uid]={...rec,count:n,history:[...rec.history]};
-      else delete visitedHistory[uid];
-    }
-  }
-  if(![saveCT(),saveVH()].every(Boolean)){
-    completedToday=oldCT;visitedHistory=oldVH;
-    const rollbackSaved=[saveCT(),saveVH()].every(Boolean); /* 工單15#3 同源:回存也要驗 */
+  /* ═══ v22L1 解耦:今日完成「只」動 completedToday,絕不觸碰 visitedHistory ═══
+     修正前(v21 沿用至 v22L)取消完成會 count-- 並在歸零時整筆 delete,
+     連 history/rating/note 一起消失,導致景點從評價篩選中不見。
+     去過次數改由「記錄這次造訪→儲存」負責(見 vdSaveClick)。 */
+  const oldCT=new Set(completedToday);
+  if(forceComplete||!completedToday.has(uid))completedToday.add(uid);
+  else completedToday.delete(uid);
+  if(!saveCT()){                                     /* 失敗只需還原 completedToday */
+    completedToday=oldCT;
+    const rollbackSaved=saveCT();
     alert(rollbackSaved
       ?"完成紀錄儲存失敗,資料已還原。"
       :"完成紀錄儲存失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
@@ -3591,18 +3583,15 @@ function vdSaveClick(){
   const rating=vdGetRating(),note=vhNote(noteRaw);
   const cur=vhOf(uid);
   let rec;
-  if(vdMode==="add"){                                /* 完成流程已 count+1,這裡只補歷史與摘要 */
-    rec=cur?{...cur,history:[...cur.history]}:vhBlank();
-    const base=Math.max(0,(Number(rec.count)||0)-rec.history.length-1);
+  rec=cur?{...cur,history:[...cur.history]}:vhBlank();
+  const base=vhLegacyBase(rec);                      /* 無日期的舊次數,任何重算都保住 */
+  if(vdMode==="add"){                                /* v22L1:去過次數由此新增(完成流程不再加) */
     rec.history.push({date,rating,note});
-    vhSyncFromHistory(rec,base);
   }else{                                             /* 編輯:改最新一筆(沒有歷史則建一筆) */
-    rec=cur?{...cur,history:[...cur.history]}:vhBlank();
-    const base=vhLegacyBase(rec);
-    if(rec.history.length){rec.history[0]={date,rating,note}}
-    else{rec.history.push({date,rating,note})}
-    vhSyncFromHistory(rec,Math.max(0,base-(cur&&cur.history.length?0:1)));
+    if(rec.history.length)rec.history[0]={date,rating,note};
+    else rec.history.push({date,rating,note});
   }
+  vhSyncFromHistory(rec,base);
   if(!vhCommit(uid,rec))return;
   closeVisitDialog();renderAll();
 }
