@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L7.2 編輯定位二次修正)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L7.3 桌面定位修正)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -97,6 +97,11 @@
    捲動改用 window.scrollTo 絕對定位(錨點文件座標 − 頁首高度 − 12px),不再依賴 scrollIntoView;
    固定順序:顯示面板→切分頁→填表單→兩次 rAF 後捲動→400ms 後才(僅桌面)給焦點;
    手機一律不自動 focus,鍵盤不彈出、不產生二次位移;搜尋新增流程同步套用。
+ V22L7.3(2026-07-22,APP_RELEASE=22L7.3):桌面定位修正——
+   座標改用 offsetTop 累加(避開 transform/sticky 與動畫中的過渡值);
+   偵測可捲動容器,必要時捲容器而非 window;
+   捲動後驗證位置(容差 24px),未到位最多重試 2 次且改用 behavior:"auto" 直接跳;
+   確認到位後才給焦點——修正桌面 focus 打斷 smooth 動畫導致停在中段的問題。
    卡片「管理」改淺底膠囊、字級小於景點名稱(修正 font-size 被覆蓋的問題);
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
@@ -681,7 +686,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L7.2</span>
+    <span class="verChip" id="verChip">V22L7.3</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -1257,7 +1262,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L7.2";       /* v22L7.2:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L7.3";       /* v22L7.3:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2531,7 +2536,7 @@ function startEdit(uid){
   /* v22L7.2:改用 window.scrollTo 絕對定位到編輯區頂端錨點。
      不再依賴 element.scrollIntoView()(會被 sticky 頁首與後續 focus 造成二次位移)。 */
   runEditScrollSequence();
-  showToast(`已開啟「${p.name}」編輯表單`);
+  showToast("已跳至景點編輯表單");
 }
 function setEditScrollOffset(){                       /* 頁首高度會隨展開/收合改變,每次進入前重算 */
   const h=headerHeightNow();
@@ -2550,27 +2555,75 @@ function isMobileViewport(){                          /* 手機不自動 focus,�
   }catch(_){}
   return (window.innerWidth||9999)<760;
 }
-function scrollToPlaceEditTop(){                      /* 絕對位置 = 錨點文件座標 − 頁首高度 − 安全間距 */
+/* ═══ v22L7.3:捲動容器偵測 ═══
+   編輯區若被放進某個可捲動容器,必須改捲那個容器而不是 window。 */
+function getScrollParent(el){
+  let p=el&&el.parentElement;
+  while(p&&p!==document.body&&p!==document.documentElement){
+    let cs=null;try{cs=window.getComputedStyle(p)}catch(_){}
+    const oy=cs?cs.overflowY:"";
+    if((oy==="auto"||oy==="scroll"||oy==="overlay")&&p.scrollHeight>p.clientHeight+1)return p;
+    p=p.parentElement;
+  }
+  return null;                                        /* null = 由 window 捲動 */
+}
+/* v22L7.3:改用 offsetTop 累加取得文件座標。
+   getBoundingClientRect 會受 transform / sticky / 動畫中的捲動位置影響,
+   在桌面(有 focus 與 smooth 動畫)時容易算到過渡中的值。 */
+function offsetTopDoc(el){
+  let y=0,node=el;
+  while(node){y+=node.offsetTop||0;node=node.offsetParent}
+  return y;
+}
+function offsetTopIn(el,container){
+  if(!container)return offsetTopDoc(el);
+  try{
+    const a=el.getBoundingClientRect(),b=container.getBoundingClientRect();
+    return Math.round(a.top-b.top+(container.scrollTop||0));
+  }catch(_){return offsetTopDoc(el)}
+}
+function currentScrollTop(container){
+  if(container)return container.scrollTop||0;
+  if(window.pageYOffset!==undefined)return window.pageYOffset;
+  return (document.documentElement&&document.documentElement.scrollTop)||0;
+}
+function applyScroll(container,y,behavior){
+  try{
+    if(container)container.scrollTo({top:y,behavior});
+    else window.scrollTo({top:y,behavior});
+  }catch(_){
+    try{if(container)container.scrollTop=y;else window.scrollTo(0,y)}catch(__){}
+  }
+}
+/* v22L7.3:捲動 → 驗證 → 未到位最多重試 2 次(重試改用 auto 直接跳,避免動畫被中斷)
+   → 確認到位後才呼叫 onDone(桌面才在此時給焦點,避免 focus 打斷 smooth 動畫)。 */
+const EDIT_SCROLL_TOLERANCE=24;
+function scrollToPlaceEditTop(onDone,attempt){
+  attempt=attempt||0;
   const a=document.getElementById("placeEditTopAnchor");
-  if(!a)return false;
-  const rect=a.getBoundingClientRect?a.getBoundingClientRect():null;
-  if(!rect)return false;
-  const pageY=(window.pageYOffset!==undefined)?window.pageYOffset
-    :(document.documentElement&&document.documentElement.scrollTop)||0;
-  const y=Math.max(0,Math.round(rect.top+pageY-headerHeightNow()-12));
-  try{window.scrollTo({top:y,behavior:"smooth"})}catch(_){try{window.scrollTo(0,y)}catch(__){}}
+  if(!a){if(onDone)onDone(false);return false}
+  const container=getScrollParent(a);
+  const target=Math.max(0,Math.round(offsetTopIn(a,container)-headerHeightNow()-12));
+  applyScroll(container,target,attempt===0?"smooth":"auto");
+  const wait=attempt===0?450:250;
+  setTimeout(()=>{
+    const cur=currentScrollTop(container);
+    const okPos=Math.abs(cur-target)<=EDIT_SCROLL_TOLERANCE;
+    if(!okPos&&attempt<2){scrollToPlaceEditTop(onDone,attempt+1);return}
+    if(onDone)onDone(okPos);
+  },wait);
   return true;
 }
-function runEditScrollSequence(){                     /* 固定順序:版面穩定後才捲動,捲動完成後才(桌面)給焦點 */
+function focusEditField(id){                          /* 手機一律不自動 focus;桌面用 preventScroll */
+  if(isMobileViewport())return false;
+  const el=document.getElementById(id);
+  if(!el)return false;
+  try{el.focus({preventScroll:true})}catch(_){return false}
+  return true;
+}
+function runEditScrollSequence(focusId){              /* 固定順序:版面穩定 → 捲動 → 驗證到位 → 才給焦點 */
   setEditScrollOffset();
-  const go=()=>{
-    scrollToPlaceEditTop();
-    setTimeout(()=>{
-      if(isMobileViewport())return;                   /* 手機:不自動 focus,鍵盤不彈出 */
-      const el=document.getElementById("fName");
-      if(el){try{el.focus({preventScroll:true})}catch(_){}}
-    },400);
-  };
+  const go=()=>scrollToPlaceEditTop(()=>{focusEditField(focusId||"fName")});
   if(typeof requestAnimationFrame==="function")
     requestAnimationFrame(()=>requestAnimationFrame(go));   /* 兩次 rAF:等版面與 hidden 切換完成 */
   else setTimeout(go,0);
@@ -3892,19 +3945,8 @@ function addPlaceFromSearch(){                         /* v22J:帶著搜尋文�
   document.getElementById("managePanel").hidden=false;
   document.querySelector('.mtabs button[data-mt="add"]').click();   /* 沿用既有分頁切換(含清表單與自動帶縣市) */
   document.getElementById("fName").value=q;            /* 先自動帶縣市再填名稱,避免 autofill 因有名稱而略過 */
-  /* v22L7.2:與編輯流程一致——先捲到編輯區頂端,桌面才給焦點(手機不自動 focus) */
-  setEditScrollOffset();
-  const runAdd=()=>{
-    scrollToPlaceEditTop();
-    setTimeout(()=>{
-      if(isMobileViewport())return;
-      const addr=document.getElementById("fAddr");
-      if(addr){try{addr.focus({preventScroll:true})}catch(_){}}
-    },400);
-  };
-  if(typeof requestAnimationFrame==="function")
-    requestAnimationFrame(()=>requestAnimationFrame(runAdd));
-  else setTimeout(runAdd,0);
+  /* v22L7.3:與編輯流程共用同一套捲動/驗證/重試機制 */
+  runEditScrollSequence("fAddr");
 }
 function autofillAddCity(){                            /* 新增(非編輯)時 fCity 預設帶入合法 currentRegion */
   if(editingUid)return;                               /* 編輯:用景點原 city,不覆蓋 */
