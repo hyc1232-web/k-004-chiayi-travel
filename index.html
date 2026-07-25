@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L4 管理入口與手機頂部排版)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L4.1 收合名稱與歷史紀錄排版)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -76,6 +76,11 @@
    座標與照片狀態文案明確化,無去過紀錄時給明確指引而非空視窗;
    手機(<760px)完整展開改上下兩區,旅遊標題獨佔一列並限兩行,按鈕另成一列;
    關閉造訪紀錄視窗焦點回原卡片按鈕(不跳頁首);SOP 補第 4、5 步;
+ V22L4.1(2026-07-22,APP_RELEASE=22L4.1):手機收合時系統名稱改用短名「旅遊導航」,
+   並縮小收合列各按鈕內距/間距與版本字級,讓名稱保有 ≥4.5rem 且所有按鈕仍完整可見
+   (原因:360px 螢幕收合列按鈕已佔約 325px,名稱只剩約 35px 而被截成「旅…」);
+   造訪紀錄每筆改為獨立區塊三列版面(日期+評價／心得／編輯+刪除並排,觸控 ≥44px);
+   卡片「管理」改淺底膠囊、字級小於景點名稱(修正 font-size 被覆蓋的問題);
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -161,6 +166,30 @@
   header.hCollapsed{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap;padding:.35rem 1rem}
   header.hCollapsed .sysName{margin:0;flex:1 1 auto;min-width:0;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* ═══ v22L4.1:手機收合列寬度重分配 ═══
+     問題:360px 螢幕上,版本+首頁+更新+齒輪+箭頭與間距即佔約 325px,
+     系統名稱只剩約 35px → 只能顯示「旅…」(違反可辨識要求)。
+     解法:收合時改用短名「旅遊導航」,並同步縮小各按鈕內距/間距與版本字級,
+     讓名稱至少保有 4.5rem(72px),同時所有按鈕仍完整可見、不產生水平捲動。 */
+  @media (max-width:759px){
+    header.hCollapsed{padding:.35rem .6rem;gap:.4rem}
+    header.hCollapsed .sysName{min-width:4.5rem}
+    header.hCollapsed .sysFull{display:none}
+    header.hCollapsed .sysShort{display:inline}
+    header.hCollapsed .hRow{gap:.3rem}
+    header.hCollapsed .verChip{font-size:.7rem;padding:0 .3rem;letter-spacing:0}
+    header.hCollapsed .hReload{padding:0 .45rem;font-size:.9rem}
+    header.hCollapsed .hHome{padding:0 .45rem}
+    header.hCollapsed #btnSettings{min-width:2.75rem;min-height:2.75rem;font-size:1.15em}
+    header.hCollapsed .hArrow{min-width:2.75rem;min-height:2.75rem}
+  }
+  @media (max-width:359px){          /* 極窄螢幕再讓一步,仍保名稱 ≥4.5rem 且按鈕不被擠出 */
+    header.hCollapsed{padding:.35rem .45rem}
+    header.hCollapsed .hRow{gap:.22rem}
+    header.hCollapsed .verChip{font-size:.64rem;padding:0 .2rem}
+    header.hCollapsed .hReload{padding:0 .35rem;font-size:.82rem}
+    header.hCollapsed .hHome{padding:0 .35rem}
+  }
   header.hCollapsed .hRow{flex:0 0 auto;width:auto;align-items:center}
   header.hCollapsed #hTitle{display:none}
   header.hCollapsed .hSub{display:none}
@@ -232,13 +261,26 @@
   .vdCheck{display:inline-flex;align-items:center;gap:.45rem;min-height:2.75rem;
     font-weight:400;min-width:0;cursor:pointer}
   .vdCheck input{width:1.3rem;height:1.3rem}
-  .vdHistItem{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;
-    border-top:1px solid var(--line);padding:.45rem 0;font-size:.92em}
-  .vdHistItem .vdHDate{font-weight:800;min-width:6rem}
-  .vdHistItem .vdHNote{flex:1 1 100%;min-width:0;color:var(--ink-soft);
+  /* v22L4.1:每筆獨立區塊,三列固定版面——①日期+評價 ②心得 ③編輯/刪除並排 */
+  .vdHistItem{display:block;border:1px solid var(--line);border-radius:.6rem;
+    background:var(--paper);padding:.55rem .65rem;margin-top:.5rem;font-size:.92em}
+  .vdHistItem:first-child{margin-top:.35rem}
+  .vdHRow1{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
+  .vdHistItem .vdHDate{font-weight:800}
+  .vdHistItem .vdHRate{color:var(--ink-soft)}
+  .vdHistItem .vdHNote{margin-top:.25rem;color:var(--ink-soft);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .vdHistItem button{min-height:2.75rem;min-width:2.75rem;border:1px solid var(--line);
-    border-radius:.5rem;background:var(--paper);cursor:pointer}
+  .vdHOps{display:flex;flex-wrap:nowrap;gap:.5rem;margin-top:.45rem}
+  .vdHistItem button{flex:0 0 auto;min-height:2.75rem;min-width:2.75rem;padding:0 .7rem;
+    font:inherit;font-size:.92em;border:1px solid var(--line);
+    border-radius:.5rem;background:var(--card);color:var(--ink);cursor:pointer}
+  .vdHistItem button[data-vdel]{border-color:#e6bcbc;color:var(--closed)}  /* 淡紅邊,不比「清除全部」搶眼 */
+  @media (min-width:760px){          /* 桌面維持緊湊:日期評價與操作同一列 */
+    .vdHistItem{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.5rem .6rem}
+    .vdHRow1{flex:1 1 auto;min-width:0}
+    .vdHistItem .vdHNote{flex:1 1 100%;margin-top:0}
+    .vdHOps{margin-top:0}
+  }
   .bkBox{flex:1;border:2px solid var(--line);border-radius:.6rem;padding:.55rem .7rem;background:var(--paper)}
   .bkBox.bkWarn{border-color:var(--warn);background:#FFF7E6}
   .bkLine{font-size:.95rem;color:var(--ink-soft);margin:.25rem 0 .5rem;line-height:1.7}
@@ -369,10 +411,16 @@
     font:inherit;font-size:1.1em;font-weight:800;cursor:pointer;
     border:3px dashed var(--sign-green);background:#fff;color:var(--sign-green)}
   .pick[aria-pressed="true"]{background:var(--sign-green);color:#fff;border-style:solid}
-  .moreBtn{position:absolute;top:.6rem;right:.6rem;z-index:2;min-width:3.5rem;min-height:2.75rem;
-    font-size:.9rem;font-weight:800;white-space:nowrap;padding:0 .5rem;
-    border-radius:50%;border:none;background:var(--paper);color:var(--ink-soft);
-    font:inherit;font-size:1.2em;font-weight:800;cursor:pointer;line-height:1}
+  /* v22L4.1:淺底膠囊,字級小於景點名稱(.name 1.22em),降低視覺搶焦;
+     修正先前 font-size 被後宣告 1.2em 覆蓋的問題 */
+  .moreBtn{position:absolute;top:.6rem;right:.6rem;z-index:2;
+    min-width:3.5rem;min-height:2.75rem;padding:0 .7rem;
+    display:inline-flex;align-items:center;justify-content:center;
+    white-space:nowrap;line-height:1;cursor:pointer;
+    border-radius:999px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink-soft);
+    font:inherit;font-size:.85rem;font-weight:800}
+  .moreBtn:active{background:var(--card)}
   .noCoord{color:var(--closed);font-weight:800;font-size:.8em}
   /* 管理面板 */
   .mtabs{display:flex;gap:.4rem;margin:.3rem 0 .5rem;flex-wrap:wrap}
@@ -524,6 +572,7 @@
 
 /* v22 多區域樣式(大字/44px 觸控,遵 GS-P11) */
 .sysName{font-size:1rem;font-weight:800;letter-spacing:.5px;opacity:.9;margin-bottom:.15rem}
+.sysShort{display:none}   /* v22L4.1:手機收合時改用短名「旅遊導航」,避免被截成單字 */
 .regionBar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.5rem 0;padding:.2rem 0}
 .regionBar label{font-weight:800}
 .regionBar select{min-height:44px;font-size:1.05rem;padding:.35rem .6rem;max-width:100%}
@@ -537,10 +586,10 @@
 <body>
 
 <header>
-  <div class="sysName">🧭 旅遊吃玩導航</div>
+  <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L4</span>
+    <span class="verChip" id="verChip">V22L4.1</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -1087,7 +1136,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L4";         /* v22L4:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L4.1";       /* v22L4.1:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -3679,12 +3728,15 @@ function vdRenderHistory(){
   const h=(rec&&rec.history)?rec.history:[];
   box.innerHTML=h.length
     ?h.map((r,i)=>`<div class="vdHistItem">`
+        +`<div class="vdHRow1">`
         +`<span class="vdHDate">${esc(r.date.replace(/-/g,"/"))}</span>`
-        +`<span>${r.rating?esc(VH_RATINGS[r.rating]):"(未評價)"}</span>`
+        +`<span class="vdHRate">${r.rating?esc(VH_RATINGS[r.rating]):"(未評價)"}</span>`
+        +`</div>`
+        +(r.note?`<div class="vdHNote">「${esc(r.note)}」</div>`:"")
+        +`<div class="vdHOps">`
         +`<button data-vedit="${i}" title="編輯這筆">✏️ 編輯</button>`
         +`<button data-vdel="${i}" title="刪除這筆">🗑 刪除</button>`
-        +(r.note?`<span class="vdHNote">「${esc(r.note)}」</span>`:"")
-        +`</div>`).join("")
+        +`</div></div>`).join("")
     :`<div class="vdMeta">目前沒有帶日期的造訪紀錄${rec&&rec.count?`(舊資料僅有次數 ${rec.count} 次)`:""}。</div>`;
 }
 function vdSyncMarkDone(){                           /* v22L2:日期=今天→預設勾選;非今天→預設不勾 */
