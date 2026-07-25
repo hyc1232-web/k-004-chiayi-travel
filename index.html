@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L2 造訪日期與今日完成分離)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L3 首頁與紀錄入口優化)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -65,6 +65,11 @@
    日期=今天預設勾、非今天預設不勾,可記錄過去造訪而不影響今日完成;
    ⋮「編輯去過紀錄」改為列出全部 history 並逐筆編輯/刪除(刪除有專屬確認);
    同日期以最後更新者為最新;篩選標題改「最新評價」;卡片將最近造訪與今天完成分行;
+ V22L3(2026-07-22,APP_RELEASE=22L3):頂部新增「🏠 首頁」一鍵回到全部地區/全部景點
+   (只重設畫面狀態,不動任何資料;窄螢幕只顯示 🏠 避免換排);
+   卡片有去過紀錄時顯示「查看紀錄」按鈕直達編輯視窗(不影響今日完成);
+   篩選欄位改名「造訪紀錄」並新增「從未去過」與「尚未評價(已去過)」;
+   新增可收合的「📘 使用步驟」SOP(僅記憶體);
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -118,6 +123,7 @@
     border-radius:.6rem;cursor:pointer}
   .hReload:active{background:rgba(255,255,255,.34)}
   @media(max-width:480px){ .hReload .hRlIcon{display:none} }  /* 手機窄螢幕只留「更新」文字,不擠標題;不只圖示 */
+  @media(max-width:480px){ .hHome .hHomeTxt{display:none} .hHome{padding:0 .55rem} }  /* v22L3:窄螢幕首頁只留 🏠,避免頂部換排 */
   /* v22B:頂部版本標籤(桌機/手機皆見,不佔觸控區) */
   .verChip{display:inline-flex;align-items:center;flex-shrink:0;padding:0 .5rem;min-height:1.9rem;
     font-size:.82rem;font-weight:800;letter-spacing:.5px;line-height:1;white-space:nowrap;
@@ -136,6 +142,31 @@
   header.hCollapsed .hRow{flex:0 0 auto;width:auto;align-items:center}
   header.hCollapsed #hTitle{display:none}
   header.hCollapsed .hSub{display:none}
+  /* v22L3:首頁按鈕(頂部,與更新/齒輪同高,不換排) */
+  .hHome{display:inline-flex;align-items:center;justify-content:center;gap:.25rem;flex-shrink:0;
+    min-height:2.8rem;padding:0 .7rem;font-size:1rem;font-weight:800;line-height:1;white-space:nowrap;
+    background:rgba(255,255,255,.18);color:#fff;border:2px solid rgba(255,255,255,.7);
+    border-radius:.6rem;cursor:pointer}
+  .hHome:active{background:rgba(255,255,255,.34)}
+  /* v22L3:SOP 使用步驟(預設收合,不占畫面) */
+  .sopBar{margin:.4rem 1rem 0}
+  .sopToggle{min-height:2.75rem;padding:0 .8rem;font-size:.95rem;font-weight:800;
+    background:var(--card);color:var(--ink);border:2px solid var(--line);border-radius:.6rem;cursor:pointer}
+  #sopBox{margin:.35rem 1rem 0;padding:.6rem .8rem;background:var(--card);
+    border:2px solid var(--line);border-radius:.6rem}
+  #sopBox[hidden]{display:none}
+  .sopList{margin:0;padding-left:1.4rem;line-height:1.9;font-size:.98rem}
+  .sopTip{margin-top:.4rem;font-size:.92rem;color:var(--ink-soft)}
+  @media (min-width:760px){ .sopList{columns:2;column-gap:1.6rem} }
+  /* v22L3:卡片「查看紀錄」入口 */
+  .vhOpen{font:inherit;font-size:.95em;font-weight:800;color:var(--sign-green-dark);
+    background:none;border:none;border-bottom:2px solid var(--sign-green-dark);
+    padding:0 .1rem;margin-left:.15rem;cursor:pointer;min-height:2.2rem}
+  /* v22L3:短提示(非阻斷,不佔版面) */
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tripbar-space) + 1.2rem);
+    z-index:70;max-width:92vw;background:rgba(20,28,25,.94);color:#fff;font-size:1rem;font-weight:700;
+    padding:.6rem 1rem;border-radius:.6rem;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+  #toast[hidden]{display:none}
   /* v22B:搜尋列(觸控 ≥44px,不擠區域/分類)+ 補座標按鈕 */
   .searchBar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.4rem 1rem 0}
   #qInput{flex:1;min-width:0;min-height:44px;font-size:1.05rem;padding:.4rem .7rem;
@@ -486,7 +517,8 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L2</span>
+    <span class="verChip" id="verChip">V22L3</span>
+    <button id="btnHome" class="hHome" title="回到首頁(顯示全部地區與全部景點)"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -617,6 +649,7 @@
 
 <div class="reco" id="reco" hidden></div>
 
+<div id="toast" hidden></div>
 <div id="visitDlg" hidden><div class="vdCard" role="dialog" aria-modal="true" aria-labelledby="vdTitle">
   <b id="vdTitle">記錄這次造訪</b>
   <div id="vdPlace" class="vdMeta"></div>
@@ -649,6 +682,18 @@
   <input type="search" id="qInput" placeholder="🔍 搜尋景點、地址或備註" aria-label="搜尋景點、地址或備註">
   <button class="btn btn-ghost" id="qClear">清除</button>
   <span class="searchStat" id="qStat"></span>
+</div>
+<div class="sopBar">
+  <button id="btnSop" class="sopToggle" aria-expanded="false" aria-controls="sopBox">📘 使用步驟 ▾</button>
+</div>
+<div id="sopBox" hidden>
+  <ol class="sopList">
+    <li>選擇想去的景點</li>
+    <li>按 ＋ 加入今日行程</li>
+    <li>到達後按「完成?」並記錄評價</li>
+    <li>點「查看紀錄」回顧去過日期與心得</li>
+  </ol>
+  <div class="sopTip">找不到景點時,可用搜尋後新增景點。</div>
 </div>
 <nav id="tabs" aria-label="主分類"></nav>
 <div class="sorts" id="sorts"></div>
@@ -1018,7 +1063,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L2";         /* v22L2:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L3";         /* v22L3:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -1646,9 +1691,10 @@ function renderFilters(){
     +`<button data-f="hideDone" aria-pressed="${f.hideDone}">隱藏已完成</button>`
     +`<button data-f="showExcluded" aria-pressed="${f.showExcluded}">顯示暫時隱藏</button>`
     +`<button data-f="multiSel" aria-pressed="${mobileMultiSelectMode}">${mobileMultiSelectMode?"✓ 多選模式":"☑ 多選景點"}</button>`
-    +`<span class="vhFilterWrap"><label for="vhFilter">最新評價</label>`      /* v22L2:標題改為最新評價;僅記憶體 */
+    +`<span class="vhFilterWrap"><label for="vhFilter">造訪紀錄</label>`      /* v22L3:欄位名稱改為造訪紀錄;僅記憶體 */
     +`<select id="vhFilter">`
-    +[["","全部"],["again","👍 值得再去"],["normal","😐 普通"],["avoid","👎 不再安排"],["none","尚未評價"]]
+    +[["","所有景點"],["again","👍 值得再去"],["normal","😐 普通"],["avoid","👎 不再安排"],
+      ["none","尚未評價(已去過)"],["never","從未去過"]]
       .map(([v,l])=>`<option value="${v}"${vhFilter===v?" selected":""}>${l}</option>`).join("")
     +`</select></span>`;
 }
@@ -1659,11 +1705,13 @@ let vhFilter="";                                     /* v22L:去過評價篩選,
 function cardList(){
   let pts=filters.showExcluded?[...ALLP]:visList();
   pts=applySearch(pts);                              /* v22B:搜尋(區域後、分類前) */
-  if(vhFilter){                                      /* v22L:去過評價篩選,與其他條件疊加 */
+  if(vhFilter){                                      /* v22L3:造訪紀錄篩選,與其他條件疊加 */
     pts=pts.filter(p=>{
       const r=vhOf(p.uid);
-      if(vhFilter==="none")return !!r&&!r.rating;     /* 有去過但未評價;從未去過不列入 */
-      return !!r&&r.rating===vhFilter;
+      const been=!!r&&(Number(r.count)||0)>0;         /* 有去過=有紀錄且次數>0 */
+      if(vhFilter==="never")return !been;             /* 從未去過:無紀錄或 count=0 */
+      if(vhFilter==="none")return been&&!r.rating;    /* 尚未評價(已去過);從未去過不列入 */
+      return been&&r.rating===vhFilter;               /* 依最新有效紀錄的評價 */
     });
   }
   if(curTab==="custom")pts=pts.filter(p=>p.source==="custom");
@@ -1735,7 +1783,7 @@ function renderCards(now){
          :(!p.hasCoord?`<div class="noCoord">⚠️ 尚未設定座標——可導航,但不參與距離/推薦 <button class="fixCoordBtn" data-fixcoord="${p.uid}">📌 補座標</button></div>`:"")}
       ${a?`<div class="arrive ${a.cls}" data-arrive>${a.text}</div>`:""}
       ${(p.stayMinutes||p.phone)?`<div class="meta">${p.stayMinutes?`⏱ 建議停留 ${esc(p.stayMinutes)} 分`:""}${p.stayMinutes&&p.phone?"｜":""}${p.phone?`☎ ${esc(p.phone)}`:""}</div>`:""}
-      ${hist?`<div class="meta">🏁 去過 ${hist} 次${vh&&vh.lastVisitedAt?`｜最近 ${esc(vh.lastVisitedAt.replace(/-/g,"/"))}`:""}</div>`:""}
+      ${hist?`<div class="meta">🏁 去過 ${hist} 次${vh&&vh.lastVisitedAt?`｜最近 ${esc(vh.lastVisitedAt.replace(/-/g,"/"))}`:""}｜<button class="vhOpen" data-vhopen="${p.uid}">查看紀錄</button></div>`:""}
       ${done?`<div class="meta">✓ 今天已完成</div>`:""}
       ${(vh&&vh.rating)?`<div class="meta vhTag vhTag-${vh.rating}">${VH_RATINGS[vh.rating]}</div>`:""}
       ${(vh&&vh.note)?`<div class="meta vhNote">「${esc(vh.note)}」</div>`:""}
@@ -2509,6 +2557,8 @@ document.getElementById("main").addEventListener("click",e=>{
       trip=oldT;renderAll();                           /* 工單15#5:還原後保險重繪 */
       alert("行程更新未完成(儲存失敗),已還原。");return}
     segClicked=-1;renderAll();return}
+  const vo=e.target.closest("[data-vhopen]");        /* v22L3:查看紀錄→直接開編輯視窗;不動完成狀態 */
+  if(vo){openVisitDialog(vo.dataset.vhopen,"edit");return}
   const vb=e.target.closest(".visitBtn");
   if(vb){
     const wasDone=completedToday.has(vb.dataset.v);
@@ -3538,6 +3588,51 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22L3:首頁、SOP、短提示 ═══ */
+let sopOpen=false;                                   /* 僅記憶體,不新增 localStorage 鍵 */
+let toastTimer=null;
+function showToast(msg){
+  const el=document.getElementById("toast");if(!el)return;
+  el.textContent=msg;el.hidden=false;
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.hidden=true;toastTimer=null},3000);
+}
+function renderSop(){
+  const b=document.getElementById("btnSop"),box=document.getElementById("sopBox");
+  if(!b||!box)return;
+  box.hidden=!sopOpen;
+  b.setAttribute("aria-expanded",sopOpen?"true":"false");
+  b.textContent=sopOpen?"📘 使用步驟 ▴":"📘 使用步驟 ▾";
+}
+document.getElementById("btnSop").addEventListener("click",()=>{sopOpen=!sopOpen;renderSop()});
+function goHome(){                                   /* 只改目前畫面狀態,不動任何資料 */
+  searchStr="";                                      /* 搜尋文字清空 */
+  const qi=document.getElementById("qInput");if(qi)qi.value="";
+  curTab="all";                                      /* 主分類=全部 */
+  filters.customOnly=false;filters.hideDone=false;filters.showExcluded=false;  /* 顯示模式=顯示全部 */
+  vhFilter="";                                       /* 造訪紀錄=所有景點 */
+  sortMode="order";                                  /* 排序=行程順序 */
+  mobileMultiSelectMode=false;
+  /* 關閉各面板/對話框 */
+  const sp=document.getElementById("settingsPanel");if(sp)sp.hidden=true;
+  const mp=document.getElementById("managePanel");if(mp)mp.hidden=true;
+  try{closePlaceSheet()}catch(_){}                   /* 走正常關閉:清 timer、還焦點 */
+  {const ps=document.getElementById("placeSheet"),po=document.getElementById("placeSheetOverlay");
+   if(ps)ps.hidden=true;if(po)po.hidden=true;        /* v22L3:首頁為整體重設,不等退場動畫,立即關閉 */
+   document.body.classList.remove("sheet-open");}
+  try{closeVisitDialog()}catch(_){}
+  /* currentRegion 回全部地區,依現有規則儲存(失敗只提示,不影響畫面已重設) */
+  if(settings.currentRegion!==""){
+    const old=settings.currentRegion;
+    settings.currentRegion="";
+    if(!saveSettings()){settings.currentRegion=old;
+      alert("已回到首頁,但「顯示全部地區」無法儲存(見儲存提醒)。");}
+  }
+  renderAll();renderSearchStat();
+  try{window.scrollTo({top:0,behavior:"smooth"})}catch(_){try{window.scrollTo(0,0)}catch(__){}}
+  showToast("已回到首頁,顯示全部地區與全部景點");
+}
+document.getElementById("btnHome").addEventListener("click",goHome);
 /* ═══ v22L:去過紀錄對話框(新增/編輯共用) ═══ */
 let vdUid=null,vdMode="add",vdEditIndex=null;   /* v22L2:vdEditIndex=正在編輯的 history 索引 */
 const vdEl=id=>document.getElementById(id);
@@ -3921,6 +4016,7 @@ initTripBarSpace();                                   /* v22F */
 const bootBuildOK=buildAll();
 applyStartupPrefs();                                  /* v22J:先套顯示偏好 */
 renderBackupUI();                                     /* v22K:備份資訊與提醒 */
+renderSop();                                          /* v22L3:SOP 預設收合 */
 reconcileCurrentRegion();                             /* 再對帳(區域已消失時回落全部) */
 /* 開機正規化結果十鍵齊回存(工單16#6:補 trip/tripManual),儲存與畫面永遠一致(群組#8) */
 const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
