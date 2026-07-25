@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L3 首頁與紀錄入口優化)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L4 管理入口與手機頂部排版)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -70,6 +70,12 @@
    卡片有去過紀錄時顯示「查看紀錄」按鈕直達編輯視窗(不影響今日完成);
    篩選欄位改名「造訪紀錄」並新增「從未去過」與「尚未評價(已去過)」;
    新增可收合的「📘 使用步驟」SOP(僅記憶體);
+ V22L4(2026-07-22,APP_RELEASE=22L4):卡片右上角「⋮」改為文字按鈕「管理」
+   (≥44×56px、aria-haspopup="dialog"、title/aria-label「管理這個景點」);
+   抽屜標題改「管理景點」+景點名稱,分組改為 景點資料/位置與照片/顯示狀態/危險操作,
+   座標與照片狀態文案明確化,無去過紀錄時給明確指引而非空視窗;
+   手機(<760px)完整展開改上下兩區,旅遊標題獨佔一列並限兩行,按鈕另成一列;
+   關閉造訪紀錄視窗焦點回原卡片按鈕(不跳頁首);SOP 補第 4、5 步;
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
@@ -124,6 +130,22 @@
   .hReload:active{background:rgba(255,255,255,.34)}
   @media(max-width:480px){ .hReload .hRlIcon{display:none} }  /* 手機窄螢幕只留「更新」文字,不擠標題;不只圖示 */
   @media(max-width:480px){ .hHome .hHomeTxt{display:none} .hHome{padding:0 .55rem} }  /* v22L3:窄螢幕首頁只留 🏠,避免頂部換排 */
+  /* v22L4:手機(<760px)完整展開改為上下兩區——第一列系統名稱、第二區標題、第三列按鈕,
+     避免旅遊標題被按鈕擠成多行(例:嘉義/親子/吃玩/之旅) */
+  @media (max-width:759px){
+    header:not(.hCollapsed) .sysName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      margin-bottom:.3rem}
+    header:not(.hCollapsed) .hRow{flex-wrap:wrap;align-items:center;row-gap:.45rem}
+    header:not(.hCollapsed) #hTitle{flex:1 1 100%;order:1;min-width:0;
+      font-size:clamp(1.35rem,4.6vw,1.6rem);line-height:1.3;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    header:not(.hCollapsed) .verChip,
+    header:not(.hCollapsed) .hHome,
+    header:not(.hCollapsed) .hReload,
+    header:not(.hCollapsed) #btnSettings,
+    header:not(.hCollapsed) .hArrow{order:2}
+    header:not(.hCollapsed) .hRow>*{max-width:100%}
+  }
   /* v22B:頂部版本標籤(桌機/手機皆見,不佔觸控區) */
   .verChip{display:inline-flex;align-items:center;flex-shrink:0;padding:0 .5rem;min-height:1.9rem;
     font-size:.82rem;font-weight:800;letter-spacing:.5px;line-height:1;white-space:nowrap;
@@ -347,7 +369,8 @@
     font:inherit;font-size:1.1em;font-weight:800;cursor:pointer;
     border:3px dashed var(--sign-green);background:#fff;color:var(--sign-green)}
   .pick[aria-pressed="true"]{background:var(--sign-green);color:#fff;border-style:solid}
-  .moreBtn{position:absolute;top:.6rem;right:.6rem;z-index:2;min-width:2.9rem;min-height:2.9rem;
+  .moreBtn{position:absolute;top:.6rem;right:.6rem;z-index:2;min-width:3.5rem;min-height:2.75rem;
+    font-size:.9rem;font-weight:800;white-space:nowrap;padding:0 .5rem;
     border-radius:50%;border:none;background:var(--paper);color:var(--ink-soft);
     font:inherit;font-size:1.2em;font-weight:800;cursor:pointer;line-height:1}
   .noCoord{color:var(--closed);font-weight:800;font-size:.8em}
@@ -517,8 +540,8 @@
   <div class="sysName">🧭 旅遊吃玩導航</div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L3</span>
-    <button id="btnHome" class="hHome" title="回到首頁(顯示全部地區與全部景點)"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
+    <span class="verChip" id="verChip">V22L4</span>
+    <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
@@ -691,7 +714,8 @@
     <li>選擇想去的景點</li>
     <li>按 ＋ 加入今日行程</li>
     <li>到達後按「完成?」並記錄評價</li>
-    <li>點「查看紀錄」回顧去過日期與心得</li>
+    <li>景點去過後,點卡片上的「查看紀錄」修改日期、評價或心得</li>
+    <li>要修改景點、照片或座標,按卡片右上角「管理」</li>
   </ol>
   <div class="sopTip">找不到景點時,可用搜尋後新增景點。</div>
 </div>
@@ -724,7 +748,7 @@
   <div class="sheetHandle"></div>
   <div class="sheetHeader">
     <div>
-      <div class="sheetLabel">景點管理</div>
+      <div class="sheetLabel">管理景點</div>
       <h2 id="placeSheetTitle"></h2>
     </div>
     <button id="closePlaceSheet" aria-label="關閉">✕</button>
@@ -1063,7 +1087,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L3";         /* v22L3:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L4";         /* v22L4:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -1764,7 +1788,7 @@ function renderCards(now){
     const exc=excluded.has(p.uid),vh=vhOf(p.uid),hist=vh?vh.count:0,isC=p.source==="custom";
     const ph=photoOf(p.uid);              /* v21:含正式預設回落 */
     return `<div class="card ${catCls(p)}${done?" done":""}${exc?" excluded":""}" data-i="${i}" data-uid="${p.uid}">
-      <button class="moreBtn" data-more title="更多">⋮</button>
+      <button class="moreBtn" data-more title="管理這個景點" aria-label="管理這個景點" aria-haspopup="dialog">管理</button>
       <div class="cardTop">
         ${ph?`<img class="cardPhoto" src="${esc(ph)}" alt="${esc(p.name)}照片" loading="lazy" onerror="this.style.display='none'">`:""}
         <div class="cardHead">
@@ -2558,7 +2582,7 @@ document.getElementById("main").addEventListener("click",e=>{
       alert("行程更新未完成(儲存失敗),已還原。");return}
     segClicked=-1;renderAll();return}
   const vo=e.target.closest("[data-vhopen]");        /* v22L3:查看紀錄→直接開編輯視窗;不動完成狀態 */
-  if(vo){openVisitDialog(vo.dataset.vhopen,"edit");return}
+  if(vo){vdTrigger=vo;openVisitDialog(vo.dataset.vhopen,"edit");return}
   const vb=e.target.closest(".visitBtn");
   if(vb){
     const wasDone=completedToday.has(vb.dataset.v);
@@ -2619,10 +2643,11 @@ function renderPlaceSheet(){
   const phState=localPh===""?"已設為無照":localPh?(localPh.startsWith("data:")?"本機照片":"網址照片"):(hasDefault?"預設照片":"無");
   $sheetMain.innerHTML=
     `<div class="meta" style="margin:-.2rem 0 .2rem">${esc(p.mainCat)}｜${esc(p.cat||p.mainCat)}<br>`
-    +`目前:${exc?"已暫時隱藏":"正常顯示"}｜座標:${coordState}｜照片:${phState}</div>`
+    +`目前:${exc?"已暫時隱藏":"正常顯示"}<br>`
+    +`座標:${p.hasCoord?`已設定(${esc(coordState)})`:"尚未設定"}｜照片:${esc(phState)}${ph?"(目前已有照片)":""}</div>`
     /* 工單H:照片預覽——拍完照/存網址後主畫面重繪,立即可見(原本只有文字狀態) */
     +(ph?`<img class="sheetPhotoPreview" src="${esc(ph)}" alt="目前照片預覽" loading="lazy">`:"")
-    +`<div class="sheetGroup"><div class="sheetGroupTitle">一般設定</div>
+    +`<div class="sheetGroup"><div class="sheetGroupTitle">景點資料</div>
       <button class="sheetAction" data-sheet-action="edit">✏️ 編輯景點</button>
       <button class="sheetAction" data-sheet-action="visit">📝 編輯去過紀錄</button>
       <button class="sheetAction" data-sheet-action="copy">📄 複製景點</button></div>
@@ -2632,11 +2657,11 @@ function renderPlaceSheet(){
       <button class="sheetAction" data-sheet-action="photo-url">🖼 貼圖片網址</button>
       ${ph?`<button class="sheetAction" data-sheet-action="photo-remove">🗑 移除照片</button>`:""}
       ${(hasDefault&&localPh!==undefined)?`<button class="sheetAction" data-sheet-action="photo-restore-default">↩︎ 恢復預設照片</button>`:""}</div>
-    <div class="sheetGroup"><div class="sheetGroupTitle">景點狀態</div>
-      ${exc?`<button class="sheetAction" data-sheet-action="restore">♻️ 恢復景點</button>`
+    <div class="sheetGroup"><div class="sheetGroupTitle">顯示狀態</div>
+      ${exc?`<button class="sheetAction" data-sheet-action="restore">✅ 恢復顯示</button>`
            :`<button class="sheetAction" data-sheet-action="exclude">🚫 暫時隱藏</button>`}</div>
     ${isC?`<div class="sheetGroup"><div class="sheetGroupTitle">危險操作</div>
-      <button class="sheetAction sheetAction-danger" data-sheet-action="delete">🗑 刪除本機自訂景點</button></div>`:""}`;
+      <button class="sheetAction sheetAction-danger" data-sheet-action="delete">🗑 永久刪除景點</button></div>`:""}`;
 }
 function openCoordSheet(){
   sheetView="coord";renderPlaceSheet();
@@ -2810,7 +2835,11 @@ $sheet.addEventListener("click",e=>{
   if(!activeManageUid)return;
   const uid=activeManageUid,act=b.dataset.sheetAction;
   if(act==="edit"){closePlaceSheet();startEdit(uid);return}
-  if(act==="visit"){closePlaceSheet();openVisitDialog(uid,"edit");return}   /* v22L */
+  if(act==="visit"){                                 /* v22L4:無紀錄也保留入口,按下給明確指引 */
+    const r=vhOf(uid);
+    if(!r||(Number(r.count)||0)===0){
+      alert("目前沒有去過紀錄,可先按景點卡片的『完成?』記錄造訪。");return}
+    closePlaceSheet();openVisitDialog(uid,"edit");return}
   if(act==="copy"){if(copyPlace(uid))closePlaceSheet();return}
   if(act==="coord"){openCoordSheet();return}
   if(act==="back"){backToSheetMain();return}
@@ -3630,11 +3659,12 @@ function goHome(){                                   /* 只改目前畫面狀態
   }
   renderAll();renderSearchStat();
   try{window.scrollTo({top:0,behavior:"smooth"})}catch(_){try{window.scrollTo(0,0)}catch(__){}}
-  showToast("已回到首頁,顯示全部地區與全部景點");
+  showToast("已回到首頁:全部地區、所有景點");
 }
 document.getElementById("btnHome").addEventListener("click",goHome);
 /* ═══ v22L:去過紀錄對話框(新增/編輯共用) ═══ */
 let vdUid=null,vdMode="add",vdEditIndex=null;   /* v22L2:vdEditIndex=正在編輯的 history 索引 */
+let vdTrigger=null;                             /* v22L4:記住開啟來源,關閉後焦點歸位(不跳頁首) */
 const vdEl=id=>document.getElementById(id);
 function vdTodayStr(){const n=new Date();return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`}
 function vdSetRating(v){
@@ -3705,7 +3735,11 @@ function openVisitDialog(uid,mode,editIndex){
   vdEl("vdCount").textContent=`${vdEl("vdNote").value.length}/${VH_NOTE_MAX}`;
   vdEl("visitDlg").hidden=false;
 }
-function closeVisitDialog(){vdEl("visitDlg").hidden=true;vdUid=null;vdEditIndex=null}
+function closeVisitDialog(){
+  vdEl("visitDlg").hidden=true;vdUid=null;vdEditIndex=null;
+  const t=vdTrigger;vdTrigger=null;                 /* v22L4:焦點回到原卡片按鈕,頁面不跳頂端 */
+  if(t&&document.contains(t)){try{t.focus({preventScroll:true})}catch(_){try{t.focus()}catch(__){}}}
+}
 function vdApplyMarkDone(uid,want){                  /* 明確使用者選擇→同步今日完成;失敗不影響已存的造訪紀錄 */
   const has=completedToday.has(uid);
   if(want===has)return true;
