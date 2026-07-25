@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L9 造訪紀錄流程優化)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L10 造訪紀錄介面簡化與同日防呆)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -107,6 +107,13 @@
    按鈕改「儲存造訪紀錄」「略過,不記錄」;心得欄位改示例式 placeholder;
    儲存成功提示「造訪紀錄已儲存」、略過提示「已略過造訪紀錄」;
    略過不新增紀錄但仍套用勾選狀態的今日完成。
+ V22L10(2026-07-22,APP_RELEASE=22L10):新增(綠「＋ 新增造訪紀錄」)與編輯單筆(橘「✏️ 編輯這筆造訪紀錄」)
+   以標題文字與識別色明確區分;同日已有紀錄改顯示原紀錄摘要(日期/評價/心得前30字)並提供
+   編輯原紀錄(主要)/＋ 另外新增一筆(非主要)/取消三選項,附使用時機說明;
+   同一天多筆自動標示「第 N 次」(僅顯示不寫入資料,較晚建立者次數較大);
+   新增畫面不再展開全部歷史,改以「查看這個景點的過去紀錄(共 N 筆)」切換,未儲存內容會先詢問;
+   編輯單筆時該筆標「正在編輯」、其餘降低視覺強度;編輯改日期需經「確認修改造訪日期」確認,
+   新日期若已有紀錄再接續提醒;手機 ≤480px 三鍵同列不裁字、彈窗左右留白。
  V22L8.1(2026-07-22,APP_RELEASE=22L8.1):卡片新增常駐「✅ 記錄造訪」入口,
    今日完成後也不消失、不停用;「查看紀錄」與「記錄造訪」各自成鈕、獨立一列、觸控 ≥44px;
    同一天已有紀錄時不再默默重複新增,改詢問是否編輯原紀錄;
@@ -345,6 +352,41 @@
   .vdCheck input{width:1.3rem;height:1.3rem}
   /* v22L8:說明文字與勾選補充說明 */
   .vdIntro{font-size:.92em;color:var(--ink-soft);line-height:1.7;margin-top:.2rem}
+  /* v22L10 §1:新增(綠)/編輯單筆(橘)識別 */
+  .vdCard.vdKindAdd .vdHead{border-bottom-color:var(--sign-green)}
+  .vdCard.vdKindAdd #vdTitle{color:var(--sign-green-dark)}
+  .vdCard.vdKindAdd .vdIntro{color:var(--sign-green-dark)}
+  .vdCard.vdKindEdit .vdHead{border-bottom-color:#C9791B}
+  .vdCard.vdKindEdit #vdTitle{color:#A65B0C}
+  .vdCard.vdKindEdit .vdIntro{color:#A65B0C}
+  /* v22L10 §3:同日次數標示 */
+  .vdHOcc{font-size:.88em;font-weight:800;color:var(--ink-soft);
+    background:var(--paper);border:1px solid var(--line);border-radius:.4rem;padding:0 .35rem}
+  /* v22L10 §5:正在編輯的那一筆突顯,其餘降低視覺強度 */
+  .vdHistItem.vdHCurrent{border-color:#C9791B;box-shadow:0 0 0 2px rgba(201,121,27,.18)}
+  .vdHistItem.vdHDim{opacity:.55}
+  .vdHNow{display:inline-block;font-size:.82em;font-weight:800;color:#fff;background:#C9791B;
+    border-radius:.4rem;padding:.1rem .45rem;margin-bottom:.3rem}
+  /* v22L10 §4:新增畫面的「查看過去紀錄」入口 */
+  .vdPastRow{margin-top:.2rem}
+  .vdPastBtn{font:inherit;font-size:.92em;font-weight:800;color:var(--sign-green-dark);
+    background:none;border:none;border-bottom:2px solid var(--sign-green-dark);
+    padding:0 .1rem;min-height:2.75rem;cursor:pointer}
+  /* v22L10 §7:心得最多兩行 */
+  .vdHistItem .vdHNote{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden}
+  /* v22L10 §2:第三選項不得使用主要綠色 + 說明文字 */
+  #cdThird{background:var(--card);color:var(--ink);border:2px solid var(--line)}
+  .cdNote{width:100%;font-size:.86em;color:var(--ink-soft);line-height:1.6;margin-top:.35rem}
+  /* v22L10 §8:手機三鍵同列不裁字、彈窗左右留白 */
+  @media (max-width:480px){
+    .vdCard,.cdCard{max-width:calc(100vw - 2rem)}
+    .vdHOps{flex-wrap:nowrap;gap:.4rem}
+    .vdHistItem button{padding:0 .5rem;font-size:.88em;min-height:2.75rem;white-space:nowrap}
+  }
+  @media (max-width:360px){
+    .vdHistItem button{padding:0 .38rem;font-size:.82em}
+  }
   .vdIntro[hidden]{display:none}
   .vdDoneWrap{flex-direction:column;align-items:flex-start;gap:.15rem}
   .vdCheckNote{font-size:.86em;color:var(--ink-soft);line-height:1.6;padding-left:1.75rem}
@@ -715,7 +757,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L9</span>
+    <span class="verChip" id="verChip">V22L10</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -855,6 +897,7 @@
     <button class="btn" id="cdOk">確定</button>
     <button class="btn btn-ghost" id="cdThird" hidden></button>
     <button class="btn btn-ghost" id="cdCancel">取消</button>
+    <div class="cdNote" id="cdNote" hidden></div>
   </div>
 </div></div>
 <div id="toast" hidden></div>
@@ -884,6 +927,8 @@
     <div class="vdRow"><label for="vdNote">心得</label>
       <input type="text" id="vdNote" maxlength="80" placeholder="例:兒子很喜歡,座位寬敞(選填,最多 80 字)">
       <span class="vdCount" id="vdCount">0/80</span></div>
+    <div class="vdRow vdPastRow" id="vdPastRow" hidden>
+      <button type="button" class="vdPastBtn" id="vdPastBtn"></button></div>
   </div>
   <div id="vdHistWrap" hidden>
     <div class="vdSortBar"><span class="vdMeta">全部造訪紀錄</span>
@@ -1294,7 +1339,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L9";         /* v22L9:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L10";        /* v22L10:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2020,7 +2065,7 @@ function renderCards(now){
       ${(vh&&vh.note)?`<div class="meta vhNote" data-vhopen="${p.uid}" role="button" tabindex="0" title="查看造訪紀錄">💬 ${esc(vh.note)}</div>`:""}
       ${done?`<div class="meta">✓ 今天已完成</div>`:""}
       <div class="meta vhActions">
-        ${hist?`<button class="vhOpen" data-vhopen="${p.uid}" title="查看這個景點的造訪紀錄" aria-label="查看紀錄:${esc(p.name)}(共 ${hist} 筆)">查看紀錄(${hist})</button>`:""}
+        ${hist?`<button class="vhOpen" data-vhopen="${p.uid}" title="查看這個景點的造訪紀錄" aria-label="查看紀錄:${esc(p.name)}(共 ${hist} 筆)">查看紀錄（${hist}）</button>`:""}
         <button class="vhAdd" data-vhadd="${p.uid}" title="新增一筆造訪日期與評價" aria-label="記錄造訪:${esc(p.name)}">✅ 記錄造訪</button>
       </div>
       ${p.note?`<div class="note">⭐ ${esc(p.note)}</div>`:""}
@@ -4060,6 +4105,8 @@ function askConfirm(opt){
       thirdBtn.textContent=opt.thirdText||"";
     }
     document.getElementById("cdCancel").textContent=opt.cancelText||"取消";
+    const noteEl=document.getElementById("cdNote");    /* v22L10 §2:補充說明 */
+    if(noteEl){noteEl.hidden=!opt.note;noteEl.textContent=opt.note||""}
     box.hidden=false;
     try{okBtn.focus()}catch(_){}
   });
@@ -4159,11 +4206,17 @@ function vdRenderHistory(){
   if(btnOld)btnOld.setAttribute("aria-pressed",vhSortOldFirst?"true":"false");
   if(vdMode==="edit"&&vdUid&&byUid[vdUid])vdRefreshSummary();   /* v22L9:排序切換時同步「最新/最舊紀錄在前」 */
   const tot=vdEl("vdTotal");
-  if(tot){tot.textContent=`共 ${rec?rec.count:0} 筆`;tot.hidden=(vdMode!=="edit")}
+  if(tot){tot.textContent=`共 ${rec?rec.count:0} 筆`;tot.hidden=false}   /* v22L10 §4:新增畫面也顯示總筆數 */
+  const occ=vhOccurrenceLabels(h);                     /* v22L10 §3 */
+  const focusing=(vdMode==="edit"&&vdEditIndex!==null);
   box.innerHTML=h.length
-    ?order.map(i=>{const r=h[i],d=r.date.replace(/-/g,"/");return `<div class="vdHistItem">`
+    ?order.map(i=>{const r=h[i],d=r.date.replace(/-/g,"/");
+      const isCur=(focusing&&i===vdEditIndex);
+      return `<div class="vdHistItem${isCur?" vdHCurrent":""}${(focusing&&!isCur)?" vdHDim":""}">`
+        +(isCur?`<div class="vdHNow">正在編輯</div>`:"")           /* v22L10 §5 */
         +`<div class="vdHRow1">`
         +`<span class="vdHDate">${esc(d)}</span>`
+        +(occ[i]?`<span class="vdHOcc">${esc(occ[i])}</span>`:"")   /* v22L10 §3 */
         +`<span class="vdHRate">${r.rating?esc(VH_RATINGS[r.rating]):"(未評價)"}</span>`
         +`</div>`
         +`<div class="vdHNote${r.note?"":" vdHNoteEmpty"}">${r.note?"「"+esc(r.note)+"」":"未填心得"}</div>`   /* v22L9 §5 */
@@ -4173,6 +4226,36 @@ function vdRenderHistory(){
         +`<button data-vdel="${i}" title="刪除 ${esc(d)} 這筆" aria-label="刪除 ${esc(d)} 這筆紀錄">🗑 刪除</button>`
         +`</div></div>`}).join("")
     :`<div class="vdMeta">目前沒有帶日期的造訪紀錄${rec&&rec.count?`(舊資料僅有次數 ${rec.count} 次)`:""}。</div>`;
+}
+function vdSetMode(kind,dateStr){                      /* v22L10 §1:新增=綠、編輯單筆=橘,標題與說明同步 */
+  const card=document.querySelector("#visitDlg .vdCard");
+  const intro=vdEl("vdIntro");
+  if(card){card.classList.remove("vdKindAdd","vdKindEdit");
+    if(kind==="add")card.classList.add("vdKindAdd");
+    else if(kind==="editOne")card.classList.add("vdKindEdit");}
+  if(!intro)return;
+  if(kind==="add"){intro.hidden=false;intro.textContent="這會新增一筆紀錄,不會修改原有紀錄。"}
+  else if(kind==="editOne"){intro.hidden=false;
+    intro.textContent=`正在修改 ${(dateStr||"").replace(/-/g,"/")} 的紀錄。`}
+  else{intro.hidden=true;intro.textContent=""}
+}
+function vhOccurrenceLabels(h){
+  /* v22L10 §3:同一天多筆時標示「第 N 次」。
+     儲存順序在同日內為「較晚建立者在前」(v22L6 排序規則),
+     因此同日群組中位置越前面 = 建立越晚 = 次數越大。純顯示,不寫入資料。 */
+  const bucket={},total={};
+  h.forEach(r=>{total[r.date]=(total[r.date]||0)+1});
+  return h.map(r=>{
+    if(total[r.date]<2)return "";
+    bucket[r.date]=(bucket[r.date]||0)+1;
+    return `第 ${total[r.date]-bucket[r.date]+1} 次`;
+  });
+}
+function vhSummaryLines(r){                           /* v22L10 §2:同日提醒顯示原紀錄摘要 */
+  const note=r.note?(r.note.length>30?r.note.slice(0,30)+"……":r.note):"未填心得";
+  return [`日期:${r.date.replace(/-/g,"/")}`,
+          `評價:${r.rating?VH_RATINGS[r.rating]:"(未評價)"}`,
+          `心得:${note}`];
 }
 function vdSyncMarkDone(){
   /* v22L2:日期=今天→預設勾選;非今天→預設不勾。
@@ -4209,19 +4292,23 @@ function openVisitDialog(uid,mode,editIndex,prefill){
     vdEl("vdSkip").textContent="關閉";
     vdEl("vdClearAll").hidden=false;
     vdEl("vdDoneRow").hidden=true;                   /* 編輯既有紀錄不涉及今日完成 */
+    {const row=vdEl("vdPastRow");if(row)row.hidden=true}   /* v22L10 §4:編輯模式本來就有清單 */
     if(vdEditIndex!==null&&rec&&rec.history[vdEditIndex]){
       const r=rec.history[vdEditIndex];
-      vdEl("vdTitle").textContent="編輯這筆造訪紀錄";
+      vdEl("vdTitle").textContent="✏️ 編輯這筆造訪紀錄";           /* v22L10 §1 */
+      vdSetMode("editOne",r.date);
       vdEl("vdDate").value=r.date;vdSetRating(r.rating);vdEl("vdNote").value=r.note;
       vdShowForm(true);
     }else{
       vdEditIndex=null;
       vdEl("vdTitle").textContent="編輯去過紀錄";
+      vdSetMode("editList");
       vdShowForm(false);                             /* 先看清單,按「✏️ 編輯」才展開表單 */
     }
   }else{
     sum.hidden=true;
-    vdEl("vdTitle").textContent="記錄這次造訪";
+    vdEl("vdTitle").textContent="＋ 新增造訪紀錄";                 /* v22L10 §1 */
+    vdSetMode("add");
     vdEl("vdIntro").hidden=false;                     /* v22L8:一句話說明用途 */
     vdEl("vdDate").value=vdTodayStr();               /* v22L6:複製時日期一律今天 */
     vdSetRating(prefill?vhRating(prefill.rating):"");
@@ -4232,6 +4319,9 @@ function openVisitDialog(uid,mode,editIndex,prefill){
     vdEl("vdClearAll").hidden=true;
     vdEl("vdDoneRow").hidden=false;vdSyncMarkDone();  /* 預設依日期是否為今天 */
     vdShowForm(true);
+    {const n=vhCount(uid),row=vdEl("vdPastRow"),btn=vdEl("vdPastBtn"),tot=vdEl("vdTotal");
+     if(row&&btn){row.hidden=(n<=0);btn.textContent=`查看這個景點的過去紀錄(共 ${n} 筆)`}
+     if(tot){tot.textContent=`共 ${n} 筆`;tot.hidden=false}   /* v22L10 §4:新增畫面顯示目前總紀錄數 */}
   }
   vdEl("vdCount").textContent=`${vdEl("vdNote").value.length}/${VH_NOTE_MAX}`;
   vdEl("visitDlg").hidden=false;
@@ -4313,12 +4403,33 @@ async function vdSaveClick(){
   if(noteRaw.length>VH_NOTE_MAX){alert(`心得最多 ${VH_NOTE_MAX} 字,已超過。`);return}
   const rating=vdGetRating(),note=vhNote(noteRaw);
   const cur=vhOf(uid);
+  /* v22L10 §6:編輯既有紀錄且日期有變動→先確認「這筆紀錄將移到新的日期」 */
+  if(vdMode==="edit"&&vdEditIndex!==null&&cur&&cur.history[vdEditIndex]){
+    const oldDate=cur.history[vdEditIndex].date;
+    if(oldDate!==date){
+      const okMove=await askConfirm({title:"確認修改造訪日期",
+        lines:[`原日期:${oldDate.replace(/-/g,"/")}`,`新日期:${date.replace(/-/g,"/")}`,
+               "這筆紀錄將移到新的日期。"],
+        okText:"確認修改",cancelText:"返回檢查"});
+      if(!okMove)return;                               /* 返回檢查:不儲存,表單內容保留 */
+      /* 新日期若已有其他紀錄,接續顯示同日提醒(排除自己那一筆) */
+      const clash=cur.history.findIndex((r,idx)=>idx!==vdEditIndex&&r.date===date);
+      if(clash>=0){
+        const ans2=await askConfirm({title:"這一天已經有造訪紀錄",
+          lines:vhSummaryLines(cur.history[clash]),
+          note:"這筆紀錄仍會移到這一天,該日將有兩筆紀錄。",
+          okText:"仍要移到這一天",cancelText:"返回檢查"});
+        if(!ans2)return;
+      }
+    }
+  }
   /* v22L8.1(工單七):同一天已有紀錄時不默默再建一筆,改問使用者是否編輯原紀錄 */
   if(vdMode==="add"&&cur&&cur.history.some(r=>r.date===date)&&!vdDupConfirmed){
     const dupIdx=cur.history.findIndex(r=>r.date===date);
-    const ans=await askConfirm({title:"這個日期已有紀錄",
-      lines:[`這個景點在 ${date.replace(/-/g,"/")} 已有紀錄。`,"你可以編輯原本那一筆,或仍然新增一筆。"],
-      okText:"編輯原紀錄",thirdText:"仍要新增一筆",cancelText:"取消"});
+    const ans=await askConfirm({title:"這一天已經有造訪紀錄",
+      lines:vhSummaryLines(cur.history[dupIdx]),
+      note:"「＋ 另外新增一筆」只有同一天確實去過兩次時才使用。",
+      okText:"✏️ 編輯原紀錄",thirdText:"＋ 另外新增一筆",cancelText:"取消"});
     if(ans===true){openVisitDialog(uid,"edit",dupIdx);return}
     if(ans!=="third")return;                          /* 取消:不新增 */
     vdDupConfirmed=true;                              /* 使用者明確選擇仍要新增 */
@@ -4357,6 +4468,18 @@ async function vdSaveClick(){
                       :`已新增 ${date.replace(/-/g,"/")} 的造訪紀錄`,
     {label:"查看紀錄",onClick:()=>openVisitDialog(uid,"edit")},6000);
 }
+/* v22L10 §4:從新增畫面切到歷史清單;表單已填內容先問,且不會儲存 */
+document.getElementById("vdPastBtn").addEventListener("click",async()=>{
+  const uid=vdUid;if(!uid)return;
+  const dirty=(vdGetRating()!=="")||vdEl("vdNote").value.trim()!==""
+    ||vdEl("vdDate").value!==vdTodayStr();
+  if(dirty){
+    if(!await askConfirm({title:"尚未儲存這次輸入",
+      lines:["尚未儲存這次輸入,確定離開嗎?"],
+      okText:"離開並查看紀錄",cancelText:"繼續填寫"}))return;
+  }
+  openVisitDialog(uid,"edit");                        /* 不儲存任何內容 */
+});
 document.getElementById("vdSave").addEventListener("click",async()=>{
   /* v22L9 §8:防重複儲存——按下即停用並顯示「儲存中…」,流程結束才還原 */
   const sv=document.getElementById("vdSave");
