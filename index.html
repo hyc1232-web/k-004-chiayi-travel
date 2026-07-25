@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L7.3 桌面定位修正)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L8 記錄造訪文字與流程優化)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -102,6 +102,11 @@
    偵測可捲動容器,必要時捲容器而非 window;
    捲動後驗證位置(容差 24px),未到位最多重試 2 次且改用 behavior:"auto" 直接跳;
    確認到位後才給焦點——修正桌面 focus 打斷 smooth 動畫導致停在中段的問題。
+ V22L8(2026-07-22,APP_RELEASE=22L8):「記錄這次造訪」加一句用途說明與「景點:名稱」標示;
+   勾選項補充「勾選後,今天的行程會標記為已完成」,日期非今天時停用並註明「僅限今天的造訪紀錄」;
+   按鈕改「儲存造訪紀錄」「略過,不記錄」;心得欄位改示例式 placeholder;
+   儲存成功提示「造訪紀錄已儲存」、略過提示「已略過造訪紀錄」;
+   略過不新增紀錄但仍套用勾選狀態的今日完成。
    卡片「管理」改淺底膠囊、字級小於景點名稱(修正 font-size 被覆蓋的問題);
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
@@ -322,6 +327,13 @@
   .vdCheck{display:inline-flex;align-items:center;gap:.45rem;min-height:2.75rem;
     font-weight:400;min-width:0;cursor:pointer}
   .vdCheck input{width:1.3rem;height:1.3rem}
+  /* v22L8:說明文字與勾選補充說明 */
+  .vdIntro{font-size:.92em;color:var(--ink-soft);line-height:1.7;margin-top:.2rem}
+  .vdIntro[hidden]{display:none}
+  .vdDoneWrap{flex-direction:column;align-items:flex-start;gap:.15rem}
+  .vdCheckNote{font-size:.86em;color:var(--ink-soft);line-height:1.6;padding-left:1.75rem}
+  #vdDoneRow.vdDoneDisabled .vdCheck{opacity:.55;cursor:not-allowed}
+  #vdSave,#vdSkip{min-height:2.75rem}
   /* v22L4.1:每筆獨立區塊,三列固定版面——①日期+評價 ②心得 ③編輯/刪除並排 */
   .vdHistItem{display:block;border:1px solid var(--line);border-radius:.6rem;
     background:var(--paper);padding:.55rem .65rem;margin-top:.5rem;font-size:.92em}
@@ -686,7 +698,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L7.3</span>
+    <span class="verChip" id="verChip">V22L8</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -832,6 +844,7 @@
   <div class="vdHead">
     <div class="vdHeadText">
       <b id="vdTitle">記錄這次造訪</b>
+      <div id="vdIntro" class="vdIntro" hidden>記錄你這次去過的日期、評價與心得</div>
       <div id="vdPlace" class="vdMeta"></div>
     </div>
     <button id="vdClose" title="關閉" aria-label="關閉">✕</button>
@@ -840,8 +853,9 @@
   <div id="vdSummary" class="vdMeta" hidden></div>
   <div id="vdForm">
     <div class="vdRow"><label for="vdDate">日期</label><input type="date" id="vdDate"></div>
-    <div class="vdRow" id="vdDoneRow">
-      <label class="vdCheck"><input type="checkbox" id="vdMarkDone">同時標記今天行程已完成</label></div>
+    <div class="vdRow vdDoneWrap" id="vdDoneRow">
+      <label class="vdCheck"><input type="checkbox" id="vdMarkDone">同時標記今天行程已完成</label>
+      <div class="vdCheckNote" id="vdDoneNote">勾選後,今天的行程會標記為已完成</div></div>
     <div class="vdRow"><span class="vdLbl">評價</span>
       <span class="vdRadios" id="vdRating">
         <label><input type="radio" name="vdR" value="again">👍 值得再去</label>
@@ -850,7 +864,7 @@
         <label><input type="radio" name="vdR" value="">暫不評價</label>
       </span></div>
     <div class="vdRow"><label for="vdNote">心得</label>
-      <input type="text" id="vdNote" maxlength="80" placeholder="選填,最多 80 字">
+      <input type="text" id="vdNote" maxlength="80" placeholder="例:兒子很喜歡,座位寬敞(選填,最多 80 字)">
       <span class="vdCount" id="vdCount">0/80</span></div>
   </div>
   <div id="vdHistWrap" hidden>
@@ -863,8 +877,8 @@
   </div>
   </div>
   <div class="vdOps">
-    <button class="btn btn-loc" id="vdSave">儲存</button>
-    <button class="btn btn-ghost" id="vdSkip">略過</button>
+    <button class="btn btn-loc" id="vdSave">儲存造訪紀錄</button>
+    <button class="btn btn-ghost" id="vdSkip">略過,不記錄</button>
     <span class="vdTotal" id="vdTotal" hidden></span>
   </div>
 </div></div>
@@ -1262,7 +1276,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L7.3";       /* v22L7.3:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L8";         /* v22L8:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2963,7 +2977,7 @@ document.getElementById("main").addEventListener("click",e=>{
     const wasDone=completedToday.has(vb.dataset.v);
     if(togglePlaceCompleted(vb.dataset.v)){
       renderAll();                                    /* 工單15#1:整組交易,成功才重繪 */
-      if(!wasDone)openVisitDialog(vb.dataset.v,"add");/* v22L:剛完成→記錄日期/評價/心得(可略過) */
+      if(!wasDone){vdTrigger=vb;openVisitDialog(vb.dataset.v,"add")}/* v22L:剛完成→記錄;v22L8:記住來源卡片按鈕 */
     }
     return}
 });
@@ -4118,9 +4132,19 @@ function vdRenderHistory(){
         +`</div></div>`}).join("")
     :`<div class="vdMeta">目前沒有帶日期的造訪紀錄${rec&&rec.count?`(舊資料僅有次數 ${rec.count} 次)`:""}。</div>`;
 }
-function vdSyncMarkDone(){                           /* v22L2:日期=今天→預設勾選;非今天→預設不勾 */
-  const cb=vdEl("vdMarkDone");if(!cb)return;
-  cb.checked=(vdEl("vdDate").value===vdTodayStr());
+function vdSyncMarkDone(){
+  /* v22L2:日期=今天→預設勾選;非今天→預設不勾。
+     v22L8:日期非今天時停用此選項並加註「僅限今天的造訪紀錄」,
+     避免「記錄過去日期」與「標記今天完成」混在一起造成誤解。 */
+  const cb=vdEl("vdMarkDone"),row=vdEl("vdDoneRow"),note=vdEl("vdDoneNote");
+  if(!cb)return;
+  const isToday=(vdEl("vdDate").value===vdTodayStr());
+  cb.checked=isToday;
+  cb.disabled=!isToday;
+  if(row)row.classList.toggle("vdDoneDisabled",!isToday);
+  if(note)note.textContent=isToday
+    ?"勾選後,今天的行程會標記為已完成"
+    :"僅限今天的造訪紀錄";
 }
 function vdShowForm(show){
   vdEl("vdForm").hidden=!show;
@@ -4131,7 +4155,7 @@ function openVisitDialog(uid,mode,editIndex,prefill){
   vdUid=uid;vdMode=mode||"add";
   vdEditIndex=(vdMode==="edit"&&Number.isInteger(editIndex))?editIndex:null;
   const p=byUid[uid],rec=vhOf(uid);
-  vdEl("vdPlace").textContent=p.name;
+  vdEl("vdPlace").textContent=`景點:${p.name}`;   /* v22L8:明確標示這是哪個景點 */
   const sum=vdEl("vdSummary");
   if(vdMode==="edit"){
     sum.hidden=false;
@@ -4139,6 +4163,8 @@ function openVisitDialog(uid,mode,editIndex,prefill){
       +`<br>最新評價:<b>${rec&&rec.rating?esc(VH_RATINGS[rec.rating]):"尚未評價"}</b>`
       +`<br>心得:<b>${rec&&rec.note?esc(rec.note):"—"}</b>`;
     vdEl("vdHistWrap").hidden=false;vdRenderHistory();
+    vdEl("vdIntro").hidden=true;                     /* v22L8:說明文字僅用於「記錄這次造訪」 */
+    vdEl("vdSave").textContent="儲存修改";
     vdEl("vdSkip").textContent="關閉";
     vdEl("vdClearAll").hidden=false;
     vdEl("vdDoneRow").hidden=true;                   /* 編輯既有紀錄不涉及今日完成 */
@@ -4155,11 +4181,13 @@ function openVisitDialog(uid,mode,editIndex,prefill){
   }else{
     sum.hidden=true;
     vdEl("vdTitle").textContent="記錄這次造訪";
+    vdEl("vdIntro").hidden=false;                     /* v22L8:一句話說明用途 */
     vdEl("vdDate").value=vdTodayStr();               /* v22L6:複製時日期一律今天 */
     vdSetRating(prefill?vhRating(prefill.rating):"");
     vdEl("vdNote").value=prefill?vhNote(prefill.note):"";
     vdEl("vdHistWrap").hidden=true;
-    vdEl("vdSkip").textContent="略過";
+    vdEl("vdSave").textContent="儲存造訪紀錄";        /* v22L8 */
+    vdEl("vdSkip").textContent="略過,不記錄";
     vdEl("vdClearAll").hidden=true;
     vdEl("vdDoneRow").hidden=false;vdSyncMarkDone();  /* 預設依日期是否為今天 */
     vdShowForm(true);
@@ -4257,12 +4285,21 @@ function vdSaveClick(){
   vhSyncFromHistory(rec,base);
   if(!vhCommit(uid,rec))return;
   if(vdMode==="add")vdApplyMarkDone(uid,vdEl("vdMarkDone").checked);   /* v22L2:造訪日期與今日完成分離 */
-  showToast("紀錄已更新");                            /* v22L5 */
+  showToast(vdMode==="add"?"造訪紀錄已儲存":"紀錄已更新");   /* v22L8 */
   if(vdMode==="edit"){openVisitDialog(uid,"edit");renderAll();return}  /* 編輯完回清單 */
   closeVisitDialog();renderAll();
 }
 document.getElementById("vdSave").addEventListener("click",vdSaveClick);
-document.getElementById("vdSkip").addEventListener("click",closeVisitDialog);
+/* v22L8:略過=不新增造訪紀錄,但仍尊重「同時標記今天行程已完成」的勾選狀態 */
+document.getElementById("vdSkip").addEventListener("click",()=>{
+  if(vdMode==="add"){
+    const uid=vdUid,cb=vdEl("vdMarkDone");
+    if(uid&&cb&&!cb.disabled)vdApplyMarkDone(uid,cb.checked);
+    closeVisitDialog();renderAll();showToast("已略過造訪紀錄");
+    return;
+  }
+  closeVisitDialog();
+});
 document.getElementById("vdNote").addEventListener("input",e=>{
   vdEl("vdCount").textContent=`${e.target.value.length}/${VH_NOTE_MAX}`;
 });
