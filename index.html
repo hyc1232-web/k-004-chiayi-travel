@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L10 造訪紀錄介面簡化與同日防呆)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L10.1 手機提示與按鈕間距)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -114,6 +114,11 @@
    新增畫面不再展開全部歷史,改以「查看這個景點的過去紀錄(共 N 筆)」切換,未儲存內容會先詢問;
    編輯單筆時該筆標「正在編輯」、其餘降低視覺強度;編輯改日期需經「確認修改造訪日期」確認,
    新日期若已有紀錄再接續提醒;手機 ≤480px 三鍵同列不裁字、彈窗左右留白。
+ V22L10.1(2026-07-22,APP_RELEASE=22L10.1):修正黑色提示框在手機逐字斷行——
+   根因是 position:fixed 只設 left:50%,收縮寬度上限被算成 50vw 而 max-width:92vw 失效;
+   改為 left/right 同時指定 + margin auto 置中,訊息最多兩行、按鈕不換字;
+   拉開卡片「查看紀錄」與「記錄造訪」間距(桌面 1.6rem、手機 1.1rem)並允許換行;
+   統一數量文字:卡片「查看紀錄（N）」、視窗底部「共 N 筆」、抽屜「編輯去過紀錄　N 筆」。
  V22L8.1(2026-07-22,APP_RELEASE=22L8.1):卡片新增常駐「✅ 記錄造訪」入口,
    今日完成後也不消失、不停用;「查看紀錄」與「記錄造訪」各自成鈕、獨立一列、觸控 ≥44px;
    同一天已有紀錄時不再默默重複新增,改詢問是否編輯原紀錄;
@@ -254,7 +259,13 @@
   @media (min-width:760px){ .sopList{columns:2;column-gap:1.6rem} }
   /* v22L3:卡片「查看紀錄」入口 */
   /* v22L8.1:造訪入口固定一列——查看紀錄(既有)與記錄造訪(常駐,今日完成後也不消失) */
-  .vhActions{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;margin-top:.2rem}
+  /* v22L10.1 §2:拉開「查看紀錄」與「記錄造訪」,避免誤按;
+     寬度不足時換行,仍維持查看紀錄在左、記錄造訪在右或下一行。 */
+  .vhActions{display:flex;flex-wrap:wrap;align-items:center;
+    gap:.55rem 1.6rem;margin-top:.35rem;max-width:100%}
+  @media (max-width:480px){
+    .vhActions{gap:.6rem 1.1rem}
+  }
   .vhOpen{font:inherit;font-size:.95em;font-weight:800;color:var(--sign-green-dark);
     background:none;border:none;border-bottom:2px solid var(--sign-green-dark);
     padding:0 .15rem;cursor:pointer;min-height:2.75rem;flex:0 0 auto;white-space:nowrap}
@@ -276,14 +287,24 @@
   .cdOps .btn{min-height:2.75rem;flex:1 1 auto}
   #cdOk{background:var(--sign-green);color:#fff}
   #cdOk.cdDanger{background:var(--closed);color:#fff}
-  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tripbar-space) + 1.2rem);
-    z-index:70;max-width:92vw;background:rgba(20,28,25,.94);color:#fff;font-size:1rem;font-weight:700;
-    padding:.6rem 1rem;border-radius:.6rem;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+  /* v22L10.1:修正逐字斷行——原本 position:fixed 只設 left:50%,
+     收縮寬度上限被算成「容器寬 − left」=50vw,max-width:92vw 形同無效,
+     訊息被壓到僅數十 px 而每行只剩 2–3 個中文字。
+     改為 left/right 同時指定 + margin auto 置中,可用寬度回到整個視窗扣邊距。 */
+  #toast{position:fixed;left:1rem;right:1rem;margin-inline:auto;transform:none;
+    bottom:calc(var(--tripbar-space) + 1.2rem + env(safe-area-inset-bottom));
+    z-index:70;width:auto;max-width:34rem;
+    background:rgba(20,28,25,.94);color:#fff;font-size:1rem;font-weight:700;
+    padding:.6rem 1rem;border-radius:.6rem;box-shadow:0 4px 18px rgba(0,0,0,.3);
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:.5rem .9rem;line-height:1.6}
   #toast[hidden]{display:none}
-  #toast{display:flex;align-items:center;gap:.7rem}
-  .toastMsg{flex:1 1 auto;min-width:0}
+  .toastMsg{flex:1 1 12rem;min-width:8rem;                 /* 保底寬度,避免被按鈕壓成窄條 */
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;word-break:normal;overflow-wrap:break-word}
   .toastBtn{flex:0 0 auto;min-height:2.4rem;padding:0 .8rem;font:inherit;font-weight:800;
-    border:2px solid #fff;border-radius:.5rem;background:transparent;color:#fff;cursor:pointer}
+    white-space:nowrap;border:2px solid #fff;border-radius:.5rem;
+    background:transparent;color:#fff;cursor:pointer}
   /* v22B:搜尋列(觸控 ≥44px,不擠區域/分類)+ 補座標按鈕 */
   .searchBar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.4rem 1rem 0}
   #qInput{flex:1;min-width:0;min-height:44px;font-size:1.05rem;padding:.4rem .7rem;
@@ -757,7 +778,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L10</span>
+    <span class="verChip" id="verChip">V22L10.1</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -1339,7 +1360,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L10";        /* v22L10:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L10.1";      /* v22L10.1:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2065,7 +2086,7 @@ function renderCards(now){
       ${(vh&&vh.note)?`<div class="meta vhNote" data-vhopen="${p.uid}" role="button" tabindex="0" title="查看造訪紀錄">💬 ${esc(vh.note)}</div>`:""}
       ${done?`<div class="meta">✓ 今天已完成</div>`:""}
       <div class="meta vhActions">
-        ${hist?`<button class="vhOpen" data-vhopen="${p.uid}" title="查看這個景點的造訪紀錄" aria-label="查看紀錄:${esc(p.name)}(共 ${hist} 筆)">查看紀錄（${hist}）</button>`:""}
+        ${hist?`<button class="vhOpen" data-vhopen="${p.uid}" title="查看這個景點的造訪紀錄" aria-label="查看 ${esc(p.name)} 的造訪紀錄,目前 ${hist} 筆">查看紀錄（${hist}）</button>`:""}
         <button class="vhAdd" data-vhadd="${p.uid}" title="新增一筆造訪日期與評價" aria-label="記錄造訪:${esc(p.name)}">✅ 記錄造訪</button>
       </div>
       ${p.note?`<div class="note">⭐ ${esc(p.note)}</div>`:""}
@@ -3116,7 +3137,7 @@ function renderPlaceSheet(){
     +(ph?`<img class="sheetPhotoPreview" src="${esc(ph)}" alt="目前照片預覽" loading="lazy">`:"")
     +`<div class="sheetGroup"><div class="sheetGroupTitle">景點資料</div>
       <button class="sheetAction" data-sheet-action="edit" title="開啟景點編輯表單" aria-label="開啟景點編輯表單">✏️ 開啟景點編輯表單</button>
-      <button class="sheetAction" data-sheet-action="visit">📝 編輯去過紀錄　${vhCount(p.uid)}筆</button>
+      <button class="sheetAction" data-sheet-action="visit">📝 編輯去過紀錄　${vhCount(p.uid)} 筆</button>
       <button class="sheetAction" data-sheet-action="copy">📄 複製景點</button></div>
     <div class="sheetGroup"><div class="sheetGroupTitle">位置與照片</div>
       <button class="sheetAction" data-sheet-action="coord">📌 座標校正</button>
