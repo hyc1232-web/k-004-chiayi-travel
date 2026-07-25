@@ -214,6 +214,18 @@
     background:none;border:none;border-bottom:2px solid var(--sign-green-dark);
     padding:0 .1rem;margin-left:.15rem;cursor:pointer;min-height:2.2rem}
   /* v22L3:短提示(非阻斷,不佔版面) */
+  /* v22L5:自訂確認框 */
+  #confirmDlg{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.45);
+    display:flex;align-items:center;justify-content:center;padding:1rem}
+  #confirmDlg[hidden]{display:none}
+  .cdCard{width:100%;max-width:26rem;background:var(--card);border-radius:.8rem;
+    padding:1rem;box-shadow:0 8px 32px rgba(0,0,0,.35)}
+  .cdCard>b{font-size:1.1em}
+  .cdLine{font-size:.98em;line-height:1.8;color:var(--ink);margin-top:.3rem}
+  .cdOps{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.9rem}
+  .cdOps .btn{min-height:2.75rem;flex:1 1 auto}
+  #cdOk{background:var(--sign-green);color:#fff}
+  #cdOk.cdDanger{background:var(--closed);color:#fff}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tripbar-space) + 1.2rem);
     z-index:70;max-width:92vw;background:rgba(20,28,25,.94);color:#fff;font-size:1rem;font-weight:700;
     padding:.6rem 1rem;border-radius:.6rem;box-shadow:0 4px 18px rgba(0,0,0,.3)}
@@ -256,6 +268,10 @@
     border-radius:.5rem;padding:0 .5rem;background:var(--card);color:var(--ink)}
   #vdNote{flex:1;min-width:8rem}
   .vdCount{font-size:.85em;color:var(--ink-soft)}
+  /* v22L5:清除全部置於歷史清單最底部,與單筆刪除明顯分開 */
+  .vdClearWrap{margin-top:.9rem;padding-top:.7rem;border-top:2px dashed var(--line)}
+  .vdClearBtn{width:100%;min-height:2.75rem;border-color:#e0a6a6;color:var(--closed)}
+  .vdClearNote{font-size:.86em;color:var(--ink-soft);margin-top:.35rem;line-height:1.6}
   .vdOps{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem}
   .vdOps .btn{min-height:2.75rem}
   .vdCheck{display:inline-flex;align-items:center;gap:.45rem;min-height:2.75rem;
@@ -512,9 +528,12 @@
     background:rgba(20,28,25,.48);backdrop-filter:blur(2px);
     opacity:0;transition:opacity .2s ease}
   #placeSheet{position:fixed;left:0;right:0;bottom:0;z-index:90;
-    max-height:min(85vh,48rem);overflow-y:auto;background:#fff;
+    max-height:min(85vh,48rem);
+    max-height:min(85dvh,48rem);                     /* v22L5:dvh 對應手機工具列伸縮 */
+    overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    background:#fff;
     border-radius:1.4rem 1.4rem 0 0;
-    padding:.6rem 1rem calc(1rem + env(safe-area-inset-bottom));
+    padding:.6rem 1rem calc(2.2rem + env(safe-area-inset-bottom));   /* v22L5:底部留白,最後一顆按鈕不被工具列吃掉 */
     box-shadow:0 -10px 35px rgba(0,0,0,.22);
     transform:translateY(100%);transition:transform .24s ease}
   body.sheet-open #placeSheetOverlay{opacity:1}
@@ -526,8 +545,15 @@
   }
   .sheetHandle{width:3.5rem;height:.35rem;margin:.1rem auto .8rem;
     border-radius:999px;background:#cfd7d2}
-  .sheetHeader{display:flex;align-items:flex-start;gap:1rem;margin-bottom:.8rem}
-  .sheetHeader h2{margin:0;font-size:1.15em;line-height:1.4}
+  /* v22L5:抽屜頂部固定,下方內容獨立捲動;長名最多兩行且不遮關閉鈕 */
+  .sheetTop{position:sticky;top:0;z-index:3;background:#fff;
+    margin:-.6rem -1rem 0;padding:.6rem 1rem .2rem;
+    border-bottom:1px solid var(--line)}
+  .sheetHeader{display:flex;align-items:flex-start;gap:1rem;margin-bottom:.55rem}
+  .sheetTitleWrap{flex:1 1 auto;min-width:0}
+  .sheetHeader h2{margin:0;font-size:1.15em;line-height:1.4;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;overflow-wrap:anywhere}
   .sheetLabel{color:var(--ink-soft);font-size:.75em}
   #closePlaceSheet{margin-left:auto;width:2.8rem;height:2.8rem;border:none;
     border-radius:50%;background:var(--paper);font:inherit;cursor:pointer;flex:0 0 auto}
@@ -589,7 +615,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L4.1</span>
+    <span class="verChip" id="verChip">V22L5</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -721,6 +747,14 @@
 
 <div class="reco" id="reco" hidden></div>
 
+<div id="confirmDlg" hidden><div class="cdCard" role="dialog" aria-modal="true" aria-labelledby="cdTitle">
+  <b id="cdTitle">確認</b>
+  <div id="cdBody"></div>
+  <div class="cdOps">
+    <button class="btn" id="cdOk">確定</button>
+    <button class="btn btn-ghost" id="cdCancel">取消</button>
+  </div>
+</div></div>
 <div id="toast" hidden></div>
 <div id="visitDlg" hidden><div class="vdCard" role="dialog" aria-modal="true" aria-labelledby="vdTitle">
   <b id="vdTitle">記錄這次造訪</b>
@@ -741,11 +775,13 @@
       <input type="text" id="vdNote" maxlength="80" placeholder="選填,最多 80 字">
       <span class="vdCount" id="vdCount">0/80</span></div>
   </div>
-  <div id="vdHistWrap" hidden><div class="vdMeta">全部造訪紀錄(新→舊)</div><div id="vdHist"></div></div>
+  <div id="vdHistWrap" hidden><div class="vdMeta">全部造訪紀錄(新→舊)</div><div id="vdHist"></div>
+    <div class="vdClearWrap"><button class="btn btn-ghost vdClearBtn" id="vdClearAll">🗑 清除這個景點的全部去過紀錄</button>
+      <div class="vdClearNote">只清除造訪紀錄,不會刪除景點、照片、座標或今日行程。</div></div>
+  </div>
   <div class="vdOps">
     <button class="btn btn-loc" id="vdSave">儲存</button>
     <button class="btn btn-ghost" id="vdSkip">略過</button>
-    <button class="btn btn-ghost" id="vdClearAll" hidden>🗑 清除全部去過紀錄</button>
   </div>
 </div></div>
 <div id="backupNotice" hidden></div>
@@ -794,13 +830,15 @@
 <!-- 共用底部管理抽屜(全頁唯一) -->
 <div id="placeSheetOverlay" hidden></div>
 <section id="placeSheet" hidden role="dialog" aria-modal="true" aria-labelledby="placeSheetTitle">
-  <div class="sheetHandle"></div>
-  <div class="sheetHeader">
-    <div>
-      <div class="sheetLabel">管理景點</div>
-      <h2 id="placeSheetTitle"></h2>
+  <div class="sheetTop">
+    <div class="sheetHandle"></div>
+    <div class="sheetHeader">
+      <div class="sheetTitleWrap">
+        <div class="sheetLabel">管理景點</div>
+        <h2 id="placeSheetTitle"></h2>
+      </div>
+      <button id="closePlaceSheet" aria-label="關閉">✕</button>
     </div>
-    <button id="closePlaceSheet" aria-label="關閉">✕</button>
   </div>
   <div id="placeSheetMain"></div>
   <div id="placeSheetSub" hidden></div>
@@ -1136,7 +1174,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L4.1";       /* v22L4.1:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L5";         /* v22L5:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2179,7 +2217,7 @@ function copyPlace(uid){
   if(!saveCustom()){customPlaces.pop();
     alert("複製景點失敗,未新增複製資料(見儲存提醒)。");return false}  /* 工單17#7 加提示 */
   rebuildAndRender();
-  alert(`已複製為自訂景點:「${rec.name}」`);
+  showToast(`景點已複製:${rec.name}`);                /* v22L5 */
   return true;
 }
 function deletePlace(uid){
@@ -2327,7 +2365,7 @@ F("fClearFix").addEventListener("click",()=>{
   const p=byUid[editingUid];
   if(p){F("fLat").value=p.lat;F("fLng").value=p.lng}
   F("fClearFix").hidden=true;renderAll();
-  alert("已恢復內建座標。");
+  showToast("座標已更新(已恢復內建)");                 /* v22L5 */
 });
 F("fGPS").addEventListener("click",()=>{
   if(!("geolocation"in navigator)){alert("此環境不支援GPS。");return}
@@ -2477,7 +2515,7 @@ F("fSave").addEventListener("click",()=>{
         customPlaces[index]=oldRecord;
         alert("景點更新失敗,資料已還原;表單內容已保留。");
         return}                                      /* 工單18#3+19-C:保留表單,失敗不立即重繪(防捲動跳動) */
-      alert(`已更新「${name}」。`);
+      showToast("景點已更新");                          /* v22L5 */
     }else{
       /* 工單18#2:內建覆蓋+座標校正整組交易——不再出現「只保存一半」 */
       const oldOverride=overrides[editingUid]===undefined
@@ -2508,7 +2546,7 @@ F("fSave").addEventListener("click",()=>{
           ?"景點更新失敗,資料已還原;表單內容已保留。"
           :"景點更新失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
         return}                                      /* 工單18#3+19-C:失敗不立即重繪 */
-      alert(`已更新「${name}」。${coordNote}`);
+      showToast("景點已更新"+(coordNote?"(座標未變更)":""));   /* v22L5 */
     }
   }else{
     const uid=createCustomUid();                    /* 工單16#7:共用產生器 */
@@ -2520,7 +2558,7 @@ F("fSave").addEventListener("click",()=>{
       customPlaces=customPlaces.filter(p=>p.uid!==newPlace.uid); /* 工單18#4:依 uid 移除,不靠 pop */
       alert("新增景點失敗,尚未加入。表單內容保留,請先匯出備份或檢查瀏覽器儲存空間。");
       return}                                        /* 工單18#3 */
-    alert(`已新增「${name}」。`);
+    showToast(`景點已新增:${name}`);                   /* v22L5 */
   }
   maybeAddRegionForCity(cityVal);                    /* v22:city 不在本次旅行地區→詢問加入(景點已存,拒絕不影響) */
   editingUid=null;fillForm(null);autofillAddCity();  /* 工單18#3:清表單退出編輯;v22B 下次新增預帶目前縣市 */
@@ -2657,7 +2695,13 @@ function openPlaceSheet(uid,trigger){
   renderPlaceSheet();
   $sheetOv.hidden=false;$sheet.hidden=false;
   /* 動畫(群組#6):先解除 hidden,下一幀再掛 class 讓 transition 生效 */
-  requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add("sheet-open")));
+  /* v22L5:真正的可捲動容器是 #placeSheet 本身(它自帶 overflow-y:auto),
+     不是內層容器;因此對 $sheet 歸零。顯示後再設一次,避免瀏覽器還原上次位置。 */
+  $sheet.scrollTop=0;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.body.classList.add("sheet-open");
+    $sheet.scrollTop=0;                              /* 完成顯示後再歸零一次 */
+  }));
   const c=document.getElementById("closePlaceSheet");
   if(c)c.focus();                                    /* 焦點入抽屜(工單十五) */
 }
@@ -2678,6 +2722,7 @@ function closePlaceSheet(){
 }
 function renderPlaceSheet(){
   const p=activeManageUid?byUid[activeManageUid]:null;
+  if($sheet)$sheet.scrollTop=0;                      /* v22L5:切換主頁/子頁也回到最上方 */
   if(!p){closePlaceSheet();return}
   document.getElementById("placeSheetTitle").textContent=p.name;
   $sheetMain.hidden=sheetView!=="main";
@@ -2698,7 +2743,7 @@ function renderPlaceSheet(){
     +(ph?`<img class="sheetPhotoPreview" src="${esc(ph)}" alt="目前照片預覽" loading="lazy">`:"")
     +`<div class="sheetGroup"><div class="sheetGroupTitle">景點資料</div>
       <button class="sheetAction" data-sheet-action="edit">✏️ 編輯景點</button>
-      <button class="sheetAction" data-sheet-action="visit">📝 編輯去過紀錄</button>
+      <button class="sheetAction" data-sheet-action="visit">📝 編輯去過紀錄　${vhCount(p.uid)}筆</button>
       <button class="sheetAction" data-sheet-action="copy">📄 複製景點</button></div>
     <div class="sheetGroup"><div class="sheetGroupTitle">位置與照片</div>
       <button class="sheetAction" data-sheet-action="coord">📌 座標校正</button>
@@ -2759,7 +2804,7 @@ function sheetCoordGPS(uid){
     coordFix[uid]=[gla,gln];
     if(saveCoordFix()){
       buildAll();renderAll();backToSheetMain();     /* 儲存成功回主畫面(工單八) */
-      alert(`已校正「${byUid[uid]?byUid[uid].name:uid}」(誤差約 ±${acc} 公尺)。`);
+      showToast(`座標已更新(誤差約 ±${acc} 公尺)`);      /* v22L5 */
     }else{old!==undefined?coordFix[uid]=old:delete coordFix[uid];
       alert("GPS 座標校正儲存失敗,未變更(見儲存提醒)。")} /* 工單19-E */
   },()=>alert("GPS 取得失敗(http 環境會被擋),改貼 Google 座標。"),
@@ -2776,7 +2821,7 @@ function sheetCoordSave(uid){
   if(!inTaiwan(la,ln)&&!confirm("此座標不在台灣範圍,仍要儲存?(海外景點可保存)"))return;  /* v22:軟警告不硬拒 */
   const old=coordFix[uid];                           /* 存成功才生效(群組#3) */
   coordFix[uid]=[+la.toFixed(6),+ln.toFixed(6)];
-  if(saveCoordFix()){buildAll();renderAll();backToSheetMain()}
+  if(saveCoordFix()){buildAll();renderAll();backToSheetMain();showToast("座標已更新")}   /* v22L5 */
   else{old!==undefined?coordFix[uid]=old:delete coordFix[uid];
     alert("座標儲存失敗,未變更(見儲存提醒)。")}       /* 工單19-E */
 }
@@ -3666,6 +3711,33 @@ document.getElementById("qClear").addEventListener("click",()=>{
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
+/* ═══ v22L5:自訂確認對話框(原生 confirm 無法自訂按鈕文字)═══ */
+let cdResolve=null;
+function askConfirm(opt){
+  return new Promise(res=>{
+    const box=document.getElementById("confirmDlg");
+    if(!box){res(window.confirm(opt.title||"確定?"));return}
+    cdResolve=res;
+    document.getElementById("cdTitle").textContent=opt.title||"確認";
+    document.getElementById("cdBody").innerHTML=(opt.lines||[])
+      .map(l=>`<div class="cdLine">${esc(l)}</div>`).join("");
+    const okBtn=document.getElementById("cdOk");
+    okBtn.textContent=opt.okText||"確定";
+    okBtn.classList.toggle("cdDanger",!!opt.danger);
+    document.getElementById("cdCancel").textContent=opt.cancelText||"取消";
+    box.hidden=false;
+    try{okBtn.focus()}catch(_){}
+  });
+}
+function cdClose(v){
+  const box=document.getElementById("confirmDlg");if(box)box.hidden=true;
+  const r=cdResolve;cdResolve=null;if(r)r(v);
+}
+document.getElementById("cdOk").addEventListener("click",()=>cdClose(true));
+document.getElementById("cdCancel").addEventListener("click",()=>cdClose(false));
+document.getElementById("confirmDlg").addEventListener("click",e=>{
+  if(e.target.id==="confirmDlg")cdClose(false);      /* 點背景=取消 */
+});
 /* ═══ v22L3:首頁、SOP、短提示 ═══ */
 let sopOpen=false;                                   /* 僅記憶體,不新增 localStorage 鍵 */
 let toastTimer=null;
@@ -3734,8 +3806,8 @@ function vdRenderHistory(){
         +`</div>`
         +(r.note?`<div class="vdHNote">「${esc(r.note)}」</div>`:"")
         +`<div class="vdHOps">`
-        +`<button data-vedit="${i}" title="編輯這筆">✏️ 編輯</button>`
-        +`<button data-vdel="${i}" title="刪除這筆">🗑 刪除</button>`
+        +`<button data-vedit="${i}" title="編輯 ${esc(r.date.replace(/-/g,"/"))} 這筆" aria-label="編輯 ${esc(r.date.replace(/-/g,"/"))} 這筆紀錄">✏️ 編輯</button>`
+        +`<button data-vdel="${i}" title="刪除 ${esc(r.date.replace(/-/g,"/"))} 這筆" aria-label="刪除 ${esc(r.date.replace(/-/g,"/"))} 這筆紀錄">🗑 刪除</button>`
         +`</div></div>`).join("")
     :`<div class="vdMeta">目前沒有帶日期的造訪紀錄${rec&&rec.count?`(舊資料僅有次數 ${rec.count} 次)`:""}。</div>`;
 }
@@ -3810,6 +3882,25 @@ function vhCommit(uid,newRec,failMsg){               /* 交易式:存成功才�
   }
   return true;
 }
+function deleteVisitRecord(uid,i){                    /* v22L5:純資料變更(確認 UI 另行處理),回傳是否成功 */
+  const cur=vhOf(uid);
+  if(!cur||!cur.history[i])return false;
+  const base=vhLegacyBase(cur);
+  const rec={...cur,history:cur.history.filter((_,k)=>k!==i)};
+  vhSyncFromHistory(rec,base);                       /* 重算 count/最近日期/評價/心得 */
+  const next=rec.count>0?rec:null;
+  if(!vhCommit(uid,next,"刪除紀錄儲存失敗,資料已還原。"))return false;
+  /* 刪除造訪紀錄不動 completedToday(v22L1 解耦原則) */
+  if(!next)closeVisitDialog();else openVisitDialog(uid,"edit");
+  renderAll();showToast("紀錄已刪除");
+  return true;
+}
+function clearAllVisitRecords(uid){                   /* v22L5:純資料變更 */
+  if(!vhOf(uid))return false;
+  if(!vhCommit(uid,null,"清除去過紀錄儲存失敗,資料已還原。"))return false;
+  closeVisitDialog();renderAll();showToast("紀錄已刪除");
+  return true;
+}
 function vdSaveClick(){
   const uid=vdUid;if(!uid)return;
   const date=vhDate(vdEl("vdDate").value);
@@ -3832,6 +3923,7 @@ function vdSaveClick(){
   vhSyncFromHistory(rec,base);
   if(!vhCommit(uid,rec))return;
   if(vdMode==="add")vdApplyMarkDone(uid,vdEl("vdMarkDone").checked);   /* v22L2:造訪日期與今日完成分離 */
+  showToast("紀錄已更新");                            /* v22L5 */
   if(vdMode==="edit"){openVisitDialog(uid,"edit");renderAll();return}  /* 編輯完回清單 */
   closeVisitDialog();renderAll();
 }
@@ -3843,14 +3935,22 @@ document.getElementById("vdNote").addEventListener("input",e=>{
 document.getElementById("vdDate").addEventListener("change",()=>{
   if(vdMode==="add")vdSyncMarkDone();                /* 改日期→重設預設值;使用者仍可手動勾選 */
 });
-document.getElementById("vdClearAll").addEventListener("click",()=>{
+document.getElementById("vdClearAll").addEventListener("click",async()=>{
   const uid=vdUid;if(!uid)return;
-  const p=byUid[uid];
-  if(!confirm(`將清除「${p?p.name:uid}」的全部去過日期、評價與心得。\n\n不會刪除景點資料。\n確定嗎?`))return;
-  if(!vhCommit(uid,null,"清除去過紀錄儲存失敗,資料已還原。"))return;
-  closeVisitDialog();renderAll();
+  const p=byUid[uid],rec=vhOf(uid);
+  const n=rec?rec.count:0;
+  if(!n){showToast("這個景點目前沒有去過紀錄");return}
+  /* v22L5:二次確認——第一次說明範圍,第二次要求最終確認 */
+  if(!await askConfirm({title:"清除全部去過紀錄",
+    lines:[`景點:${p?p.name:uid}`,`將清除全部 ${n} 筆造訪日期、評價與心得。`,
+           "不會刪除景點、照片、座標或今日行程。"],
+    okText:"繼續",cancelText:"取消",danger:true}))return;
+  if(!await askConfirm({title:"最終確認",
+    lines:[`確定要清除「${p?p.name:uid}」的全部去過紀錄嗎?`,"清除後無法復原。"],
+    okText:"確定清除",cancelText:"取消",danger:true}))return;
+  clearAllVisitRecords(uid);
 });
-document.getElementById("vdHist").addEventListener("click",e=>{
+document.getElementById("vdHist").addEventListener("click",async e=>{
   const uid=vdUid;if(!uid)return;
   const eb=e.target.closest("[data-vedit]");
   if(eb){openVisitDialog(uid,"edit",+eb.dataset.vedit);return}   /* v22L2:逐筆編輯 */
@@ -3858,16 +3958,15 @@ document.getElementById("vdHist").addEventListener("click",e=>{
   const i=+b.dataset.vdel,cur=vhOf(uid);
   if(!cur||!cur.history[i])return;
   const r=cur.history[i];
-  if(!confirm(`只刪除此筆造訪紀錄,不會刪除景點。\n\n日期:${r.date.replace(/-/g,"/")}`
-    +`\n評價:${r.rating?VH_RATINGS[r.rating]:"(未評價)"}${r.note?`\n心得:${r.note}`:""}\n\n確定刪除嗎?`))return;
-  const base=vhLegacyBase(cur);
-  const rec={...cur,history:cur.history.filter((_,k)=>k!==i)};
-  vhSyncFromHistory(rec,base);                       /* 重算 count/最近日期/評價/心得 */
-  const next=rec.count>0?rec:null;
-  if(!vhCommit(uid,next,"刪除紀錄儲存失敗,資料已還原。"))return;
-  /* 刪除造訪紀錄不動 completedToday(v22L1 解耦原則) */
-  if(!next)closeVisitDialog();else openVisitDialog(uid,"edit");
-  renderAll();
+  /* v22L5:自訂確認框——明確顯示日期/評價/心得,按鈕文字為「刪除這筆」「取消」 */
+  const okDel=await askConfirm({title:"刪除這筆造訪紀錄",
+    lines:[`日期:${r.date.replace(/-/g,"/")}`,
+           `評價:${r.rating?VH_RATINGS[r.rating]:"(未評價)"}`,
+           `心得:${r.note||"(無)"}`,
+           "只刪除此筆造訪紀錄,不會刪除景點。"],
+    okText:"刪除這筆",cancelText:"取消",danger:true});
+  if(!okDel)return;
+  deleteVisitRecord(uid,i);
 });
 document.getElementById("visitDlg").addEventListener("click",e=>{
   if(e.target.id==="visitDlg")closeVisitDialog();     /* 點背景關閉 */
