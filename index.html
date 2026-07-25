@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L11 操作提示不再一閃而過)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L11.1 彈窗提示定位修正)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -125,6 +125,14 @@
    (原 70 低於彈窗 95/抽屜 90,彈窗開啟時提示會被遮罩蓋住);
    彈窗開啟時自動把提示移到彈窗卡片下方,不遮住「儲存修改」「關閉」;
    文案統一:已新增造訪紀錄／造訪紀錄已更新／已刪除 日期 的造訪紀錄／已復原這筆造訪紀錄。
+ V22L11.1(2026-07-22,APP_RELEASE=22L11.1):修正彈窗開啟時提示定位——
+   原公式 h-r.bottom+8 未計入提示自身高度,等於把提示壓在彈窗內、蓋住底部按鈕列;
+   改為先顯示再量測提示實際高度,依三段優先序定位:
+   下方放得下→放下方(設 top);下方不夠、上方夠→放上方(設 top);
+   兩者皆不夠→提示留在螢幕底部並替彈窗加底部留白,讓主要按鈕捲得到;
+   無彈窗維持原本底部位置;提示與彈窗一律保留至少 8px;
+   顯示後以 requestAnimationFrame 量測定位,定位完成才啟動倒數與進度條;
+   視窗尺寸改變/旋轉時整合進既有 resize 處理重新定位。
  V22L8.1(2026-07-22,APP_RELEASE=22L8.1):卡片新增常駐「✅ 記錄造訪」入口,
    今日完成後也不消失、不停用;「查看紀錄」與「記錄造訪」各自成鈕、獨立一列、觸控 ≥44px;
    同一天已有紀錄時不再默默重複新增,改詢問是否編輯原紀錄;
@@ -322,9 +330,11 @@
     background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden}
   .toastBar i{display:block;height:100%;width:100%;background:#fff;
     transform-origin:left center;animation-name:toastCountdown;
-    animation-timing-function:linear;animation-fill-mode:forwards}
+    animation-timing-function:linear;animation-fill-mode:forwards;
+    animation-play-state:paused}                      /* v22L11.1 §五:定位完成後才開跑 */
+  #toast.toastReady .toastBar i{animation-play-state:running}
   @keyframes toastCountdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-  #toast.toastHold .toastBar i{animation-play-state:paused}   /* §3:暫停時進度條同步停住 */
+  #toast.toastHold .toastBar i{animation-play-state:paused!important}   /* §3:暫停時進度條同步停住 */
   #toast.toastErr{background:rgba(90,20,20,.96)}
   @media (max-width:420px){
     .toastOps{margin-left:0;width:100%;justify-content:flex-end}   /* §6:太窄改上下兩列 */
@@ -802,7 +812,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L11</span>
+    <span class="verChip" id="verChip">V22L11.1</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -1384,7 +1394,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L11";        /* v22L11:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L11.1";      /* v22L11.1:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -4183,7 +4193,10 @@ function hideToast(){
   const el=document.getElementById("toast");
   if(toastTimer){clearTimeout(toastTimer);toastTimer=null}
   toastRemain=0;toastRunStart=0;
-  if(el){el.hidden=true;el.innerHTML="";el.classList.remove("toastHold");el.style.bottom=""}
+  if(el){el.hidden=true;el.innerHTML="";
+    el.classList.remove("toastHold","toastReady");
+    el.style.top="";el.style.bottom=""}
+  clearToastDialogReserve();                          /* v22L11.1 §七:還原彈窗底部留白 */
 }
 function toastPause(){                                /* §3:暫停,保留剩餘時間(不重頭計) */
   if(!toastTimer)return;
@@ -4199,14 +4212,66 @@ function toastResume(){                               /* §3:接續剩餘時間 
   toastRunStart=Date.now();
   toastTimer=setTimeout(hideToast,toastRemain);
 }
-function toastAnchorBottom(){
-  /* §5:彈窗開啟時,把提示移到彈窗卡片下方,避免蓋住「儲存修改」「關閉」等按鈕 */
+const TOAST_GAP=8;                                    /* v22L11.1:提示與彈窗之間的最小間距 */
+const TOAST_DEFAULT_BOTTOM="calc(var(--tripbar-space) + .5rem + env(safe-area-inset-bottom))";
+function toastMeasuredHeight(el){
+  /* v22L11.1 §三:必須實際量測提示列高度,不可用固定值猜。
+     (getBoundingClientRect → offsetHeight;兩者皆回 0 的無版面環境才退回保守值) */
+  if(!el)return 0;
+  let hh=0;
+  try{const rr=el.getBoundingClientRect();hh=rr&&rr.height?rr.height:0}catch(_){}
+  if(!hh)hh=el.offsetHeight||0;
+  return hh||56;
+}
+function toastDialogOverlay(){
+  const cd=document.getElementById("confirmDlg"),vd=document.getElementById("visitDlg");
+  if(cd&&!cd.hidden)return cd;
+  if(vd&&!vd.hidden)return vd;
+  return null;
+}
+function clearToastDialogReserve(){                   /* §七:還原彈窗底部留白 */
+  ["confirmDlg","visitDlg"].forEach(id=>{
+    const o=document.getElementById(id);
+    if(o&&o.style)o.style.paddingBottom="";
+  });
+}
+function positionToastAroundDialog(){
+  /* v22L11.1 §二 定位規則(與彈窗至少 8px):
+       1. 彈窗下方放得下 → 放彈窗下方
+       2. 下方放不下、上方放得下 → 放彈窗上方
+       3. 上下都放不下 → 靠近螢幕底部,並替彈窗加底部留白,讓主要按鈕捲得到、不被遮住
+       4. 沒有彈窗 → 維持原本底部位置 */
+  const toast=document.getElementById("toast");
+  if(!toast||toast.hidden)return;
+  toast.style.top="";toast.style.bottom="";
+  clearToastDialogReserve();
   const card=document.querySelector("#confirmDlg:not([hidden]) .cdCard, #visitDlg:not([hidden]) .vdCard");
-  if(!card||!card.getBoundingClientRect)return "";
-  const r=card.getBoundingClientRect();
-  const h=(window.innerHeight||document.documentElement.clientHeight||0);
-  if(!h||!r.height)return "";
-  return Math.max(8,Math.round(h-r.bottom+8))+"px";   /* 與彈窗底部至少 8px */
+  if(!card){                                          /* ④ 沒有彈窗 */
+    toast.style.top="auto";
+    toast.style.bottom=TOAST_DEFAULT_BOTTOM;
+    return;
+  }
+  const gap=TOAST_GAP;
+  const viewportH=window.innerHeight||document.documentElement.clientHeight||0;
+  const cardRect=card.getBoundingClientRect();
+  const toastH=toastMeasuredHeight(toast);
+  const spaceBelow=viewportH-cardRect.bottom;         /* §三:彈窗下方剩餘空間 */
+  const spaceAbove=cardRect.top;                      /* §三:彈窗上方剩餘空間 */
+  if(spaceBelow>=toastH+gap){                         /* ① 下方 */
+    toast.style.top=Math.round(cardRect.bottom+gap)+"px";
+    toast.style.bottom="auto";
+    return;
+  }
+  if(spaceAbove>=toastH+gap){                         /* ② 上方 */
+    toast.style.top=Math.max(gap,Math.round(cardRect.top-toastH-gap))+"px";
+    toast.style.bottom="auto";
+    return;
+  }
+  /* ③ 上下皆不足:提示留在螢幕底部,改讓彈窗讓出空間 */
+  toast.style.top="auto";
+  toast.style.bottom=TOAST_DEFAULT_BOTTOM;
+  const overlay=toastDialogOverlay();
+  if(overlay&&overlay.style)overlay.style.paddingBottom=Math.round(toastH+gap*2)+"px";
 }
 function showToast(msg,action,ms,kind){
   const el=document.getElementById("toast");if(!el)return;
@@ -4219,15 +4284,23 @@ function showToast(msg,action,ms,kind){
     +`</span>`
     +`<span class="toastBar"><i style="animation-duration:${dur}ms"></i></span>`;
   el.classList.toggle("toastErr",kind==="error");
-  el.hidden=false;
-  el.style.bottom=toastAnchorBottom();                /* §5 */
+  el.classList.remove("toastReady");                  /* v22L11.1 §五:定位完成後才啟動進度條 */
+  el.style.top="";el.style.bottom="";
+  el.hidden=false;                                    /* ② 先顯示,才量得到高度 */
   const btn=document.getElementById("toastAction");
   if(btn&&action&&typeof action.onClick==="function")
     btn.addEventListener("click",()=>{hideToast();action.onClick()});   /* §2:按下即關閉 */
   const cls=document.getElementById("toastClose");
   if(cls)cls.addEventListener("click",hideToast);      /* §4:只關閉,不執行其他操作 */
-  toastRemain=dur;toastRunStart=Date.now();
-  toastTimer=setTimeout(hideToast,dur);
+  const startCountdown=()=>{
+    positionToastAroundDialog();                      /* ④ 定位 */
+    el.classList.add("toastReady");                   /* ⑤ 再啟動倒數與進度條 */
+    toastRemain=dur;toastRunStart=Date.now();
+    if(toastTimer)clearTimeout(toastTimer);
+    toastTimer=setTimeout(hideToast,dur);
+  };
+  if(typeof requestAnimationFrame==="function")requestAnimationFrame(startCountdown);  /* ③ */
+  else startCountdown();
 }
 { /* §3:滑鼠停留 / 手指按住 → 暫停倒數;離開或放開 → 接續 */
   const el=document.getElementById("toast");
@@ -4792,7 +4865,11 @@ function initTripBarSpace(){
     _tripSpaceRO.observe(bar);
   }
   /* fallback:無 ResizeObserver 時靠 resize/旋轉/每次 renderTripBar 後量測 */
-  window.addEventListener("resize",syncTripBarSpace);
+  window.addEventListener("resize",()=>{                /* v22L11.1 §六:整合進既有 resize 處理 */
+  syncTripBarSpace();
+  const t=document.getElementById("toast");
+  if(t&&!t.hidden)positionToastAroundDialog();
+});
   window.addEventListener("orientationchange",()=>setTimeout(syncTripBarSpace,150));
   syncTripBarSpace();
 }
