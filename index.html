@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L6 抽屜底部列與紀錄操作優化)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L7 編輯流程方向感)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -86,6 +86,10 @@
    歷史排序可切「最新在前/最舊在前」(僅記憶體,關閉後回預設,索引綁原始位置);
    卡片顯示最新心得摘要(💬,單行截斷,可點=查看紀錄);
    刪除單筆後 8 秒內可「復原」(僅記憶體,完整還原並重算摘要);
+ V22L7(2026-07-22,APP_RELEASE=22L7):管理抽屜入口改「✏️ 前往編輯景點資料」(含 title/aria-label);
+   進入編輯顯示「正在編輯:名稱」、儲存鈕改「💾 儲存修改」、新增「取消編輯,返回景點列表」;
+   進入前記住 uid 與捲動位置,儲存或取消後回到原景點卡並短暫高亮(找不到→原捲動位置→最後才頂部);
+   篩選條件完全不動,若因篩選看不到則提供一次性「顯示這個景點」;儲存鈕防連點;
    卡片「管理」改淺底膠囊、字級小於景點名稱(修正 font-size 被覆蓋的問題);
    不新增鍵、不升資料格式、搜尋字串僅記憶體
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
@@ -466,6 +470,19 @@
     background:var(--paper);color:var(--ink-soft);
     font:inherit;font-size:.85rem;font-weight:800}
   .moreBtn:active{background:var(--card)}
+  /* v22L7:返回原景點時的短暫高亮(柔和,不閃爍) */
+  .card.cardBack{animation:cardBack 1.8s ease-out 1}
+  @keyframes cardBack{
+    0%{box-shadow:0 0 0 3px var(--sign-green);background:#F2F8F4}
+    70%{box-shadow:0 0 0 3px var(--sign-green);background:#F2F8F4}
+    100%{box-shadow:0 0 0 0 rgba(0,0,0,0);background:transparent}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .card.cardBack{animation:none;box-shadow:0 0 0 3px var(--sign-green)}
+  }
+  /* v22L7:編輯狀態標題 */
+  #formTitle.formTitle-edit{color:var(--sign-green-dark)}
+  #fSave,#fCancel{min-height:2.75rem}
   .noCoord{color:var(--closed);font-weight:800;font-size:.8em}
   /* 管理面板 */
   .mtabs{display:flex;gap:.4rem;margin:.3rem 0 .5rem;flex-wrap:wrap}
@@ -649,7 +666,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L6</span>
+    <span class="verChip" id="verChip">V22L7</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -770,7 +787,7 @@
     <div class="frow"><label for="fNote">備註</label><input type="text" id="fNote" style="flex:1;min-width:12rem"></div>
     <div class="frow">
       <button class="btn btn-loc" id="fSave">💾 儲存景點</button>
-      <button class="btn btn-ghost" id="fCancel" hidden>取消編輯</button>
+      <button class="btn btn-ghost" id="fCancel" hidden>取消編輯,返回景點列表</button>
     </div>
   </div>
 
@@ -1224,7 +1241,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L6";         /* v22L6:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L7";         /* v22L7:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -1514,6 +1531,7 @@ let curTab="all",sortMode="order",ref=null,pendingUid=null;
 let tripListOpen=true,segClicked=-1,segWarn=-1,lastGos=[];   /* v22D:展開面板即顯示全部站點 */
 let filters={customOnly:false,hideDone:false,showExcluded:false};
 let manageTab="add",editingUid=null;
+let editReturn=null,editBaseline=null;   /* v22L7:返回位置與表單初始值(僅記憶體) */
 let renderedPts=[];
 
 /* ═══ 6. 抬頭:標題/日期/第幾天(工單二) ═══ */
@@ -2439,7 +2457,10 @@ function parseRange(s){
 }
 function fillForm(p){
   const isHotel=!!(p&&p.type==="hotel");
-  F("formTitle").textContent=p?`編輯:${p.name}${p.source==="builtin"?"(內建,存為覆蓋)":""}`:"新增自訂景點";
+  /* v22L7:新增/編輯狀態以標題與按鈕文字明確區分,不只靠顏色 */
+  F("formTitle").textContent=p?`正在編輯:${p.name}${p.source==="builtin"?"(內建,存為覆蓋)":""}`:"新增自訂景點";
+  F("formTitle").classList.toggle("formTitle-edit",!!p);
+  F("fSave").textContent=p?"💾 儲存修改":"💾 儲存景點";
   F("fCancel").hidden=!p;
   F("fName").value=p?p.name:"";
   F("fMain").value=p?(p.mainCat||"其他"):"點心";
@@ -2477,13 +2498,78 @@ function fillForm(p){
 }
 function startEdit(uid){
   const p=byUid[uid];if(!p)return;
+  editReturn={uid,scrollY:window.scrollY||0};        /* v22L7:記住返回位置(篩選狀態本來就不動,自然保留) */
   editingUid=uid;
   document.getElementById("managePanel").hidden=false;
   document.querySelector('.mtabs button[data-mt="add"]').click();
   fillForm(p);
-  document.getElementById("managePanel").scrollIntoView({behavior:"smooth",block:"start"});
+  editBaseline=formSnapshot();                        /* v22L7:記錄初始表單值,供「是否已修改」判斷 */
+  pushEditHistory();                                  /* v22L7(七-7):讓手機返回鍵先回到列表而非離站 */
+  const panel=document.getElementById("managePanel");
+  try{panel.scrollIntoView({behavior:"smooth",block:"start"})}catch(_){}
+  try{F("fName").focus({preventScroll:true})}catch(_){try{F("fName").focus()}catch(__){}}
+  showToast(`已開啟「${p.name}」編輯畫面`);
 }
-F("fCancel").addEventListener("click",()=>{editingUid=null;fillForm(null)});
+/* ═══ v22L7:編輯流程的返回位置、變更偵測與高亮 ═══ */
+const EDIT_FIELDS=["fName","fMain","fSub","fCity","fArea","fAddr","fNav","fPhone","fStay",
+  "fSched","fOpen","fClose","fOpen2","fClose2","fDays","fPhoto","fNote","fIcon"];
+function formSnapshot(){                              /* 只讀取存在的欄位,缺欄位不影響 */
+  const o={};
+  EDIT_FIELDS.forEach(id=>{const el=document.getElementById(id);if(el)o[id]=el.value});
+  return JSON.stringify(o);
+}
+function formDirty(){return editBaseline!==null&&formSnapshot()!==editBaseline}
+function highlightPlaceCard(uid){                     /* 返回時短暫高亮,讓使用者知道回到哪 */
+  const card=document.querySelector(`#main .card[data-uid="${uid}"]`);
+  if(!card)return false;
+  try{card.scrollIntoView({behavior:"smooth",block:"center"})}catch(_){}
+  card.classList.remove("cardBack");
+  void card.offsetWidth;                              /* 重啟動畫 */
+  card.classList.add("cardBack");
+  setTimeout(()=>card.classList.remove("cardBack"),1800);
+  return true;
+}
+function returnToPlace(uid){                          /* ⑦ 找卡片→原捲動位置→最後才回頂部 */
+  if(uid&&highlightPlaceCard(uid))return "card";
+  if(editReturn&&typeof editReturn.scrollY==="number"){
+    try{window.scrollTo({top:editReturn.scrollY,behavior:"smooth"})}catch(_){window.scrollTo(0,editReturn.scrollY)}
+    return "scroll";
+  }
+  try{window.scrollTo({top:0,behavior:"smooth"})}catch(_){window.scrollTo(0,0)}
+  return "top";
+}
+function exitEditMode(){                              /* 統一離開編輯:清狀態、關表單 */
+  editingUid=null;editBaseline=null;
+  fillForm(null);autofillAddCity();
+  document.getElementById("managePanel").hidden=true;
+}
+async function cancelEdit(){                          /* ⑤ 取消編輯,返回景點列表 */
+  const uid=editReturn?editReturn.uid:editingUid;
+  if(formDirty()){
+    if(!await askConfirm({title:"放棄未儲存的修改",
+      lines:["尚有未儲存的修改,確定放棄並返回嗎?"],
+      okText:"放棄並返回",cancelText:"繼續編輯",danger:true}))return false;
+  }
+  exitEditMode();                                     /* 不寫入任何 localStorage */
+  renderAll();
+  returnToPlace(uid);
+  editReturn=null;
+  return true;
+}
+F("fCancel").addEventListener("click",cancelEdit);
+/* v22L7(七-7):手機返回鍵——編輯中先攔截;有修改先詢問,無修改直接退出。
+   進入編輯時 push 一個歷史狀態,離開時不主動 back(避免與「更新」的 location.replace 互相干擾)。 */
+let editHistoryPushed=false;
+function pushEditHistory(){
+  if(editHistoryPushed)return;
+  try{history.pushState({tnEdit:1},"");editHistoryPushed=true}catch(_){}
+}
+window.addEventListener("popstate",async()=>{
+  if(!editingUid){editHistoryPushed=false;return}
+  editHistoryPushed=false;
+  const done=await cancelEdit();                     /* 有修改會先問;取消放棄則留在編輯 */
+  if(!done)pushEditHistory();                        /* 使用者選擇繼續編輯→補回攔截點 */
+});
 function buildTags(rec){
   const t=[];
   if(rec.airConditioned)t.push(["tag-cool","❄️ 冷氣"]);
@@ -2495,7 +2581,13 @@ function buildTags(rec){
   }
   return t;
 }
-F("fSave").addEventListener("click",()=>{
+document.getElementById("fSave").addEventListener("click",()=>{
+  /* v22L7:防連點重複提交——以 try/finally 在流程結束時同步還原,
+     不依賴 setTimeout(計時器若延後執行會讓按鈕卡在 disabled)。 */
+  const sv=document.getElementById("fSave");
+  if(sv.disabled)return;
+  sv.disabled=true;sv.textContent="儲存中…";
+  try{
   const name=F("fName").value.trim(),addr=F("fAddr").value.trim(),
         navKW=F("fNav").value.trim();
   if(!name){alert("景點名稱不可為空。");return}
@@ -2611,9 +2703,37 @@ F("fSave").addEventListener("click",()=>{
     showToast(`景點已新增:${name}`);                   /* v22L5 */
   }
   maybeAddRegionForCity(cityVal);                    /* v22:city 不在本次旅行地區→詢問加入(景點已存,拒絕不影響) */
-  editingUid=null;fillForm(null);autofillAddCity();  /* 工單18#3:清表單退出編輯;v22B 下次新增預帶目前縣市 */
+  const wasEditing=!!editingUid,savedUid=editingUid||rec.uid||(editReturn&&editReturn.uid);
+  editingUid=null;editBaseline=null;
+  fillForm(null);autofillAddCity();                  /* 工單18#3:清表單退出編輯;v22B 下次新增預帶目前縣市 */
   rebuildAndRender();
+  if(wasEditing){                                    /* v22L7:編輯完成→回到原景點並高亮 */
+    document.getElementById("managePanel").hidden=true;
+    showToast("景點資料已儲存");
+    afterEditReturn(savedUid);
+    editReturn=null;
+  }
+  }finally{                                          /* v22L7:任何路徑(含 return/例外)都還原按鈕 */
+    sv.disabled=false;
+    sv.textContent=editingUid?"💾 儲存修改":"💾 儲存景點";
+  }
 });
+/* v22L7:儲存後返回;若因篩選看不到,提供一次性「顯示這個景點」 */
+function afterEditReturn(uid){
+  if(!uid)return;
+  if(document.querySelector(`#main .card[data-uid="${uid}"]`)){returnToPlace(uid);return}
+  showToast("景點已儲存,但目前篩選條件未顯示這個景點",
+    {label:"顯示這個景點",onClick:()=>{
+      /* 只在使用者主動點擊時才暫時放寬篩選,不自動改動 */
+      searchStr="";const qi=document.getElementById("qInput");if(qi)qi.value="";
+      curTab="all";vhFilter="";
+      filters.customOnly=false;filters.hideDone=false;filters.showExcluded=true;
+      const p=byUid[uid];
+      if(p&&settings.currentRegion&&settings.currentRegion!==(p.city||""))settings.currentRegion="";
+      renderAll();renderSearchStat();
+      setTimeout(()=>returnToPlace(uid),0);
+    }},8000);
+}
 
 /* ═══ 14b. 照片三選配(v9):現場拍(壓縮存本機)/貼網址/無圖 ═══ */
 let pendingPhotoUid=null,photoPickerActive=false,photoPickerTimer=null;
@@ -2792,7 +2912,7 @@ function renderPlaceSheet(){
     /* 工單H:照片預覽——拍完照/存網址後主畫面重繪,立即可見(原本只有文字狀態) */
     +(ph?`<img class="sheetPhotoPreview" src="${esc(ph)}" alt="目前照片預覽" loading="lazy">`:"")
     +`<div class="sheetGroup"><div class="sheetGroupTitle">景點資料</div>
-      <button class="sheetAction" data-sheet-action="edit">✏️ 編輯景點</button>
+      <button class="sheetAction" data-sheet-action="edit" title="前往編輯景點資料" aria-label="前往編輯景點資料">✏️ 前往編輯景點資料</button>
       <button class="sheetAction" data-sheet-action="visit">📝 編輯去過紀錄　${vhCount(p.uid)}筆</button>
       <button class="sheetAction" data-sheet-action="copy">📄 複製景點</button></div>
     <div class="sheetGroup"><div class="sheetGroupTitle">位置與照片</div>
@@ -3767,6 +3887,9 @@ function askConfirm(opt){
   return new Promise(res=>{
     const box=document.getElementById("confirmDlg");
     if(!box){res(window.confirm(opt.title||"確定?"));return}
+    /* v22L7:若前一個確認尚未回應就被新的取代,先以「取消」收掉,
+       避免舊呼叫端永遠等不到結果而卡住流程。 */
+    if(cdResolve){const prev=cdResolve;cdResolve=null;try{prev(false)}catch(_){}}
     cdResolve=res;
     document.getElementById("cdTitle").textContent=opt.title||"確認";
     document.getElementById("cdBody").innerHTML=(opt.lines||[])
