@@ -956,6 +956,35 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvEmpty{padding:1rem 0;line-height:1.8}
 .tvDanger{margin:2.4rem 0 1.2rem;padding-top:1rem;border-top:1px dashed var(--line)}  /* 與其他操作拉開,避免誤觸 */
 .tvDanger .meta{margin-top:.4rem;line-height:1.6}
+.tvEdit{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}   /* v23 E4 追加4:改名稱/日期 */
+/* v23 E4-2:排進行程小視窗 */
+#planDlg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
+#planDlg[hidden]{display:none}
+.pdCard{background:#fff;border-radius:.8rem;max-width:32rem;width:100%;max-height:85dvh;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.pdHead{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  padding:.8rem 1rem;border-bottom:1px solid var(--line)}
+.pdHead b{font-size:1.1rem}
+#pdClose{min-width:44px;min-height:44px;font-size:1.2rem;border:none;background:transparent;cursor:pointer}
+#pdBody{padding:.8rem 1rem calc(1rem + env(safe-area-inset-bottom));overflow-y:auto}
+.pdPlace{font-weight:800;font-size:1.05rem;margin-bottom:.5rem;line-height:1.5}
+.pdDays{display:flex;flex-direction:column;gap:.5rem;margin:.6rem 0}
+.pdDays button{min-height:3rem;font-size:1.05rem;font-weight:700;text-align:left;padding:0 .9rem;
+  border:1px solid var(--line);border-radius:.6rem;background:var(--paper);color:var(--ink);cursor:pointer}
+.pdDays button[disabled]{opacity:.5;cursor:default}
+.pdRow{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.5rem 0}
+.pdRow select{min-height:44px;font-size:1.05rem;flex:1;min-width:10rem}
+/* v23 E4-3:勾選多個 → 一次多點導航(臨時路線,不存檔) */
+.navSel{display:inline-flex;align-items:center;gap:.35rem;min-height:2.75rem;font-size:.95rem;color:var(--ink-soft)}
+.navSel input{width:1.4rem;height:1.4rem}
+#multiNavBar{position:sticky;top:0;z-index:60;background:var(--paper);border:1px solid var(--line);
+  border-radius:.6rem;padding:.6rem .7rem;margin:.5rem 0;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+#multiNavBar[hidden]{display:none}
+#multiNavBar .mnMsg{font-weight:800;flex:1 1 10rem}
+#multiNavBar a,#multiNavBar button{min-height:2.75rem;line-height:2.75rem;padding:0 .9rem;border-radius:.5rem;
+  font-weight:800;font-size:1rem;text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+#multiNavBar a{background:var(--open);color:#fff;border-color:var(--open)}
+#multiNavBar .mnNote{flex:1 1 100%;font-size:.95rem;color:var(--ink-soft);line-height:1.5}
 @media (max-width:759px){
   .tvStopName{flex:1 1 100%}
   .homeTabs button{font-size:1rem}
@@ -1137,6 +1166,12 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   </div>
 </div></div>
 <div id="toast" hidden></div>
+<!-- v23 E4-2:排進行程小視窗。直接列第 N 天;多趟旅行時上方才多一列選趟數 -->
+<div id="planDlg" hidden><div class="pdCard" role="dialog" aria-modal="true" aria-labelledby="pdTitle">
+  <div class="pdHead"><b id="pdTitle">排進行程</b>
+    <button id="pdClose" title="關閉" aria-label="關閉">✕</button></div>
+  <div id="pdBody"></div>
+</div></div>
 <div id="visitDlg" hidden><div class="vdCard" role="dialog" aria-modal="true" aria-labelledby="vdTitle">
   <div class="vdHead">
     <div class="vdHeadText">
@@ -1184,7 +1219,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <button class="vdSortBtn" id="vdSortOld" aria-pressed="false">最舊在前</button></div>
     <div id="vdHist"></div>
     <div class="vdClearWrap"><button class="btn btn-ghost vdClearBtn" id="vdClearAll">🗑 清除這個景點的全部造訪紀錄</button>
-      <div class="vdClearNote">只清除造訪紀錄,不會刪除景點、照片、座標或今日行程。</div></div>
+      <div class="vdClearNote">只清除造訪紀錄,不會刪除景點、照片、座標或想去清單。</div></div>
   </div>
   </div>
   <div class="vdOps">
@@ -1211,7 +1246,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 <div id="sopBox" hidden>
   <ol class="sopList">
     <li>選擇想去的景點</li>
-    <li>按 ＋ 加入今日行程</li>
+    <li>按 ＋ 加入想去清單</li>
     <li>到達後按「完成?」並記錄評價</li>
     <li>景點去過後,點卡片上的「查看紀錄」修改日期、評價或心得</li>
     <li>要修改景點、照片或座標,按卡片右上角「管理」</li>
@@ -1221,6 +1256,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 <nav id="tabs" aria-label="主分類"></nav>
 <div class="sorts" id="sorts"></div>
 <div class="sorts" id="filters"></div>
+<div id="multiNavBar" hidden></div>
 <main id="main"></main>
 
 <!-- v23 E3:旅行分頁。建立表單為靜態(重繪不會清掉輸入),下方 travelBody 才是動態內容 -->
@@ -1239,16 +1275,16 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 
 <div id="tripBar">
   <div class="row">
-    <b id="tripSum">今日行程 0 站</b>
+    <b id="tripSum">想去清單 0 站</b>
     <button class="btn btn-dark" id="btnTripExpand" title="進入專注編輯模式">✏️ 編輯行程</button>
     <button class="btn btn-dark" id="btnCopyTrip">📋 複製給家人</button>
     <div id="tripCtl">
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
     <button class="btn btn-dark" id="btnFarNear">先遠後近</button>
-    <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 清空今日行程</button>
+    <button class="btn" id="btnClearTrip" style="background:transparent;color:#ccc;border:1px solid #555">🗑 清空想去清單</button>
     <div id="tripWarn"></div>
     </div>
-    <button id="btnTripMin" class="tbArrow" aria-expanded="true" title="收合今日行程" aria-label="收合今日行程">▼</button>
+    <button id="btnTripMin" class="tbArrow" aria-expanded="true" title="收合想去清單" aria-label="收合想去清單">▼</button>
   </div>
   <div id="tripUndo" hidden></div>
   <div id="tripGo"></div>
@@ -1646,7 +1682,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="23b";          /* v23 段2:施工中版本代號,段4 完成後改回 "23" */
+const APP_RELEASE="23c";          /* v23 段3:施工中版本代號,段4 完成後改回 "23" */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2410,7 +2446,9 @@ function renderCards(now){
       <div class="actions">
         <a class="go" href="${dirURL(p.nav)}" target="_blank" rel="noopener">🧭 導航</a>
         <a class="info" href="${infoURL(p.name,p.city)}" target="_blank" rel="noopener">🏪 店家頁</a>
-        <button class="pick" data-k="${p.uid}" aria-pressed="${inTrip}" ${exc?"disabled":""} title="加入今日行程">${inTrip?"✓":"＋"}</button>
+        <button class="pick" data-k="${p.uid}" aria-pressed="${inTrip}" ${exc?"disabled":""} title="加入想去清單">${inTrip?"✓":"＋"}</button>
+        <button class="planBtn" data-plan="${p.uid}" title="把這個景點排進旅行的某一天">📅 排進行程</button>
+        <label class="navSel" title="勾選多個景點,可在下方一次導航跑完"><input type="checkbox" data-navsel="${p.uid}"${navSel.has(p.uid)?" checked":""}>一起導航</label>
       </div>
     </div>`;
   }).join("")+`</div>`;
@@ -2558,12 +2596,12 @@ function renderTripBar(now){
 function updateTripSummary(now){
   if(!trip.length)return;
   if(tripBarCollapsed){                              /* v22E:整體縮小只留「今日行程 N 站」 */
-    document.getElementById("tripSum").textContent=`今日行程 ${trip.length} 站`;return}
+    document.getElementById("tripSum").textContent=`想去清單 ${trip.length} 站`;return}
   if(tripEditMode){                                  /* v22G:專注編輯模式標題 */
-    document.getElementById("tripSum").textContent=`編輯今日行程 ${trip.length} 站`;return}
+    document.getElementById("tripSum").textContent=`編輯想去清單 ${trip.length} 站`;return}
   const{total}=tripTotal();
   document.getElementById("tripSum").textContent=
-    `今日行程 ${trip.length} 站`+(ref?`｜總車程估 ${total} 分(不含停留)`:`｜未定位,無法估車程`)
+    `想去清單 ${trip.length} 站`+(ref?`｜總車程估 ${total} 分(不含停留)`:`｜未定位,無法估車程`)
     +(tripManual?"｜✋ 已手動調整順序":"");
   const warn=trip.map(k=>byUid[k]).filter(p=>p&&stateOf(p,now).badge==="今日公休").map(p=>p.name);
   document.getElementById("tripWarn").textContent=
@@ -2581,14 +2619,14 @@ document.getElementById("btnFarNear").addEventListener("click",()=>{if(!confirmS
 document.getElementById("btnClearTrip").addEventListener("click",()=>{
   const n=trip.length;
   if(!n){alert("目前尚未加入行程");return}
-  if(!confirm(`將移除今日行程中的全部 ${n} 站。\n景點資料、照片、座標及去過紀錄都會保留。\n確定清空行程嗎?`))return;
+  if(!confirm(`將移除想去清單中的全部 ${n} 站。\n景點資料、照片、座標及去過紀錄都會保留。\n確定清空想去清單嗎?`))return;
   const oldT=[...trip],oldM=tripManual;              /* 存成功才生效(工單I) */
   trip=[];tripManual=false;
   if(![saveTrip(),saveTripManual()].every(Boolean)){ /* 工單14#6 */
     rollbackTripState(oldT,oldM,"清空未完成(儲存失敗),行程已還原。");return; /* 工單17#5 */
   }
   tripUnchecked.clear();
-  setTripUndo(oldT,oldM,"今日行程已清空");            /* v22D:8 秒復原 */
+  setTripUndo(oldT,oldM,"想去清單已清空");            /* v22D:8 秒復原 */
   segClicked=-1;renderAll();
 });
 document.getElementById("tripGo").addEventListener("click",e=>{
@@ -2633,7 +2671,7 @@ function excludePlace(uid){
   /* 整組交易(群組v12#1):行程移除與剔除必須一起成功或一起還原 */
   const oldTrip=[...trip],oldExcluded=new Set(excluded);
   if(trip.includes(uid)){
-    if(!confirm(`「${place.name}」已在今日行程中,要同時從行程移除嗎?`))return false;
+    if(!confirm(`「${place.name}」已在想去清單中,要同時從想去清單移除嗎?`))return false;
     trip=trip.filter(id=>id!==uid);
   }
   excluded.add(uid);
@@ -3672,12 +3710,25 @@ function renderTravelPanel(){
   if(list.length>1){                        /* 只有一趟時不顯示選單 */
     h+=`<div class="frow"><label for="tvSelect">選擇旅行</label><select id="tvSelect">`
       +list.map(x=>`<option value="${esc(x.id)}"${x.id===t.id?" selected":""}>`
-        +`${esc(x.name)}${x.startDate?`（${esc(x.startDate)}起）`:"（未定日期）"}</option>`).join("")
+        +`${esc(travelOptionLabel(x))}</option>`).join("")   /* v23 追加5:名稱｜出發｜天數｜建立日 */
       +`</select></div>`;
   }
   h+=`<div class="tvHead"><span class="tvName">${esc(t.name)}</span>`
     +`<span class="tvDates">${t.startDate?esc(t.startDate)+(t.endDate?" ～ "+esc(t.endDate):""):"未設定日期"}`
-    +`｜共 ${t.days.length} 天</span></div>`;
+    +`｜共 ${t.days.length} 天</span>`
+    +`<button class="btn btn-ghost" id="tvEditOpen">✏️ 修改名稱／日期</button></div>`;
+  if(travelEditing){                        /* v23 追加4:建立後可改名稱與起訖日期 */
+    h+=`<div class="tvEdit"><b>修改旅行資料</b>
+      <div class="frow"><label for="tvEditName">名稱*</label>
+        <input type="text" id="tvEditName" maxlength="80" value="${esc(t.name)}" style="flex:1;min-width:10rem"></div>
+      <div class="frow"><label for="tvEditStart">開始</label>
+        <input type="date" id="tvEditStart" value="${esc(t.startDate)}">
+        <label for="tvEditEnd">結束</label>
+        <input type="date" id="tvEditEnd" value="${esc(t.endDate)}"></div>
+      <div class="meta">改日期只會補天數;要減天數請用「－ 減一天」,才會先確認那天的景點。</div>
+      <div class="tvOps"><button class="btn btn-loc" id="tvEditSave">儲存修改</button>
+        <button class="btn btn-ghost" id="tvEditCancel">取消</button></div></div>`;
+  }
   h+=`<div class="tvDayBar" role="tablist" aria-label="第幾天">`
     +t.days.map((d,i)=>`<button type="button" data-day="${i}" aria-pressed="${i===curDayIdx}">`
       +`${esc(dayLabel(t,i))}${d.uids.length?`・${d.uids.length} 站`:""}</button>`).join("")
@@ -3699,7 +3750,9 @@ function renderTravelPanel(){
       +`<button type="button" data-down="${i}" title="下移" aria-label="下移"${i===stops.length-1?" disabled":""}>↓</button>`
       +`<button type="button" data-del="${i}" title="從這一天移除" aria-label="從這一天移除">✕</button>`
       +`</span></div>`).join("")+`</div>`
-    :`<div class="meta tvEmpty">這一天還沒有景點。用下面的「＋ 從想去清單加入」把景點排進來。</div>`;
+    :`<div class="meta tvEmpty">這一天還沒有安排景點。<br>`
+      +`兩種加法:①按下方「＋ 從想去清單加入」,從想去清單挑;`
+      +`②到「📋 想去清單」分頁,在景點卡片上按「📅 排進行程」。</div>`;
   /* 加入景點:來源就是想去清單(cy_trip_v5),只讀不寫 */
   const already=new Set(day.uids);
   const cand=trip.map(u=>byUid[u]).filter(p=>p&&!already.has(p.uid));
@@ -3756,6 +3809,9 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.dataset.down!==undefined){const i=+b.dataset.down;travelMoveStop(i,i+1);return}
   if(b.dataset.del!==undefined){travelRemoveStop(+b.dataset.del);return}
   if(b.id==="tvDelete"){travelDelete();return}
+  if(b.id==="tvEditOpen"){travelEditing=!travelEditing;renderTravelPanel();return}   /* v23 追加4 */
+  if(b.id==="tvEditCancel"){travelEditing=false;renderTravelPanel();return}
+  if(b.id==="tvEditSave"){travelSaveEdit();return}
 });
 document.getElementById("travelPanel").addEventListener("change",e=>{
   if(e.target&&e.target.id==="tvSelect")switchTravel(e.target.value);
@@ -3789,6 +3845,124 @@ document.addEventListener("dragend",()=>{
   document.querySelectorAll("#travelBody .tvDragOver").forEach(x=>x.classList.remove("tvDragOver"));
 });
 
+/* ═══ 14-D. v23 E4:排進行程與一次導航(段 3)═══
+   想去清單仍是 cy_trip_v5,本段只讀不寫;排進行程只寫 cy_travels_v6;
+   一次導航是臨時路線,不寫入任何鍵。 */
+let navSel=new Set();        /* 僅記憶體:勾選要一次導航的 uid */
+let planUid="";              /* 僅記憶體:小視窗正在處理的景點 */
+/* ── E4-2:排進行程小視窗 ── */
+function openPlanDlg(uid){
+  if(!byUid[uid])return;
+  planUid=uid;
+  document.getElementById("planDlg").hidden=false;
+  renderPlanDlg();
+}
+function closePlanDlg(){
+  document.getElementById("planDlg").hidden=true;
+  planUid="";
+}
+function renderPlanDlg(){
+  const box=document.getElementById("pdBody");if(!box)return;
+  const p=byUid[planUid];if(!p){closePlanDlg();return}
+  const list=sortedTravels(),t=currentTravel();
+  let h=`<div class="pdPlace">${p.icon?esc(p.icon)+" ":""}${esc(p.name)}</div>`;
+  if(!t){
+    box.innerHTML=h+`<div class="meta">還沒有任何旅行。請先到「🧳 旅行」分頁建立一趟,`
+      +`才能把景點排進某一天。</div>`;
+    return;
+  }
+  if(list.length>1){          /* 同時有多趟旅行時,上方才多一列選趟數 */
+    h+=`<div class="pdRow"><label for="pdTravel">哪一趟</label><select id="pdTravel">`
+      +list.map(x=>`<option value="${esc(x.id)}"${x.id===t.id?" selected":""}>`
+        +`${esc(travelOptionLabel(x))}</option>`).join("")+`</select></div>`;
+  }else{
+    h+=`<div class="meta">旅行:${esc(t.name)}</div>`;
+  }
+  h+=`<div class="pdDays">`+t.days.map((d,i)=>{
+    const has=d.uids.includes(planUid);
+    return`<button type="button" data-planday="${i}"${has?" disabled":""}>`
+      +`${esc(dayLabel(t,i))}　${d.uids.length} 站${has?"（已在這一天）":""}</button>`;
+  }).join("")+`</div>`;
+  h+=`<div class="meta">排進去只會改這趟旅行的安排,不會動到想去清單、景點或造訪紀錄。</div>`;
+  box.innerHTML=h;
+}
+function planAddToDay(dayIdx){
+  const t=currentTravel();if(!t||!planUid)return;
+  const next=cloneTravels(),nt=next.travels.find(x=>x.id===t.id);
+  const d=nt&&nt.days[dayIdx];if(!d)return;
+  if(d.uids.includes(planUid)){alert("這個景點已經在這一天了。");return}
+  d.uids.push(planUid);
+  if(!commitTravels(next,"排進行程失敗,未變更(見儲存提醒)。"))return;
+  const nm=byUid[planUid]?byUid[planUid].name:planUid;
+  showToast(`已把「${nm}」排進${dayLabel(t,dayIdx)}`);
+  closePlanDlg();
+  if(homeTab==="travel")renderTravelPanel();
+}
+document.getElementById("planDlg").addEventListener("click",e=>{
+  if(e.target&&e.target.id==="planDlg"){closePlanDlg();return}   /* 點遮罩關閉 */
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="pdClose"){closePlanDlg();return}
+  if(b.dataset.planday!==undefined){planAddToDay(+b.dataset.planday);return}
+});
+document.getElementById("planDlg").addEventListener("change",e=>{
+  if(e.target&&e.target.id==="pdTravel"){switchTravel(e.target.value);renderPlanDlg();}
+});
+/* ── E4-3:勾選多個 → 一次多點導航(臨時路線,不存檔) ── */
+function renderMultiNavBar(){
+  const bar=document.getElementById("multiNavBar");if(!bar)return;
+  const uids=[...navSel].filter(u=>byUid[u]);
+  if(uids.length!==navSel.size)navSel=new Set(uids);      /* 景點被刪就同步清掉 */
+  if(!uids.length){bar.hidden=true;bar.innerHTML="";return}
+  const segs=segURLsOf(uids);                             /* 沿用既有 SEG_MAX 分段 */
+  bar.innerHTML=`<span class="mnMsg">已勾選 ${uids.length} 個景點</span>`
+    +segs.map((s,i)=>`<a href="${s.url}" target="_blank" rel="noopener">`
+      +`${segs.length===1?`🗺 一次導航跑完`:`🗺 第 ${i+1}/${segs.length} 段`}</a>`).join("")
+    +`<button type="button" id="mnClear">清除勾選</button>`
+    +`<span class="mnNote">臨時路線,不會存檔,也不會排進任何旅行。`
+    +(segs.length>1?`Google 地圖單次最多 ${SEG_MAX} 站,已分成 ${segs.length} 段。`:"")+`</span>`;
+  bar.hidden=false;
+}
+document.getElementById("multiNavBar").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="mnClear"){navSel=new Set();renderMultiNavBar();renderAll();}
+});
+/* ── 追加 4:建立後修改旅行名稱與起訖日期 ── */
+let travelEditing=false;     /* 僅記憶體:編輯區是否展開 */
+function travelSaveEdit(){
+  const t=currentTravel();if(!t)return;
+  const $=id=>document.getElementById(id);
+  const name=$("tvEditName").value.trim().slice(0,80);
+  if(!name){alert("旅行名稱必填。");return}
+  const s=$("tvEditStart").value.trim(),e=$("tvEditEnd").value.trim();
+  if(s&&!validDateString(s)){alert("開始日期不是有效日期。");return}
+  if(e&&!validDateString(e)){alert("結束日期不是有效日期。");return}
+  if(s&&e&&s>e){alert("結束日期不可以早於開始日期。");return}
+  const next=cloneTravels(),nt=next.travels.find(x=>x.id===t.id);
+  nt.name=name;nt.startDate=s||"";nt.endDate=e||"";
+  let note="";
+  const want=(s&&e)?daysBetween(s,e):0;      /* 有完整起訖才依日期調天數 */
+  if(want>0&&want>nt.days.length){
+    while(nt.days.length<want)nt.days.push({uids:[],reviewed:null});
+    note=`,天數補到 ${want} 天`;
+  }else if(want>0&&want<nt.days.length){
+    /* 只有多出來的天全都沒有站,才自動縮減;有站一律保留,交給「－ 減一天」處理 */
+    const extra=nt.days.slice(want);
+    if(extra.every(d=>!d.uids.length)){nt.days=nt.days.slice(0,want);note=`,天數縮到 ${want} 天`}
+    else note=`;日期算出 ${want} 天,但多出來的天還有景點,天數維持 ${nt.days.length} 天(要減請用「－ 減一天」)`;
+  }
+  if(!commitTravels(next,"修改旅行失敗,未變更(見儲存提醒)。"))return;
+  travelEditing=false;
+  clampDayIdx(currentTravel());
+  showToast(`已更新旅行資料${note}`);
+  renderTravelPanel();
+}
+/* ── 追加 5:選擇旅行下拉加辨識(建立日期),避免同名分不出來 ── */
+function travelOptionLabel(x){
+  const created=(x.createdAt||"").slice(0,10).replace(/-/g,"/");
+  return`${x.name}｜${x.startDate?x.startDate.replace(/-/g,"/")+" 出發":"未定日期"}`
+    +`｜${x.days.length} 天${created?`｜建立 ${created}`:""}`;
+}
+
 /* ═══ 15. 卡片事件委派 ═══ */
 document.getElementById("tabs").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;curTab=b.dataset.t;renderAll();
@@ -3809,6 +3983,11 @@ document.getElementById("filters").addEventListener("click",e=>{
   else filters[f]=!filters[f];
   renderAll();
 });
+document.getElementById("main").addEventListener("change",e=>{   /* v23 E4-3:卡片「一起導航」勾選 */
+  const cb=e.target.closest?e.target.closest("[data-navsel]"):null;if(!cb)return;
+  cb.checked?navSel.add(cb.dataset.navsel):navSel.delete(cb.dataset.navsel);
+  renderMultiNavBar();
+});
 document.getElementById("main").addEventListener("click",e=>{
   const more=e.target.closest(".moreBtn");
   if(more){
@@ -3818,6 +3997,8 @@ document.getElementById("main").addEventListener("click",e=>{
     return}
   const fx=e.target.closest("[data-fixcoord]");   /* v22B:卡片「📌 補座標」直達座標校正 */
   if(fx){openCoordSheetFor(fx.dataset.fixcoord);return}
+  const pl=e.target.closest("[data-plan]");       /* v23 E4-2:卡片「📅 排進行程」 */
+  if(pl){openPlanDlg(pl.dataset.plan);return}
   const pk=e.target.closest(".pick");
   if(pk&&!pk.disabled){
     const k=pk.dataset.k,p=byUid[k];
@@ -4411,7 +4592,7 @@ function renderAll(){
   const now=new Date();
   renderHeader();renderRegionBar();renderTabs();renderSorts();renderFilters();renderSearchStat();
   renderCards(now);renderReco(now);renderTripBar(now);
-  renderSelect();renderLocExtras();
+  renderSelect();renderLocExtras();renderMultiNavBar();   /* v23 E4-3 */
   if(ref){
     $st.innerHTML=`目前位置:<b>${esc(ref.label)}</b>`
       +(ref.acc!=null?`(±${ref.acc}m)`:"")
@@ -4716,7 +4897,7 @@ function reloadLatestWithAllRegions(){
   return true;
 }
 const RELOAD_CONFIRM_MSG="將重新下載網站最新版,並切換為顯示全部地區。\n\n"
-  +"不會刪除:\n・景點\n・今日行程\n・照片\n・座標\n・去過紀錄\n\n確定更新嗎?";
+  +"不會刪除:\n・景點\n・想去清單\n・照片\n・座標\n・去過紀錄\n\n確定更新嗎?";
 document.getElementById("btnReload").addEventListener("click",()=>{
   if(confirm(RELOAD_CONFIRM_MSG))reloadLatestWithAllRegions();
 });
@@ -4866,12 +5047,12 @@ function copyTodayTrip(){                               /* 複製今日行程文
   if(!trip.length){alert("目前尚未加入行程");return}
   const title=(settings.title&&settings.title.trim())||"今日旅遊行程";
   const now=new Date();
-  const dateLine=`${pad(now.getMonth()+1)}/${pad(now.getDate())} 今日行程`;
+  const dateLine=`${pad(now.getMonth()+1)}/${pad(now.getDate())} 想去清單`;
   const lines=trip.map((u,i)=>`${i+1}. ${byUid[u]?byUid[u].name:u}`);
   let text=title+"\n"+dateLine+"\n\n"+lines.join("\n");
   if(settings.hotelName&&settings.hotelName.trim())text+="\n\n住宿:"+settings.hotelName.trim();
   const finish=ok=>{
-    if(ok){alert("已複製今日行程,可貼到 LINE");return}
+    if(ok){alert("已複製想去清單,可貼到 LINE");return}
     const box=document.getElementById("ioBox");         /* 最終 fallback:顯示於資料交換區手動複製 */
     if(box){box.style.display="block";box.value=text;box.focus();box.select();}
     alert("複製失敗,請手動選取文字");
@@ -5522,7 +5703,7 @@ document.getElementById("vdClearAll").addEventListener("click",async()=>{
   /* v22L5:二次確認——第一次說明範圍,第二次要求最終確認 */
   if(!await askConfirm({title:"清除這個景點的全部造訪紀錄",
     lines:[`將清除 ${n} 筆造訪日期、評價與心得。`,
-           "不會刪除景點、照片、座標或今日行程。"],
+           "不會刪除景點、照片、座標或想去清單。"],
     okText:"繼續",cancelText:"取消",danger:true}))return;
   if(!await askConfirm({title:"最終確認",
     lines:[`確定要清除「${p?p.name:uid}」的全部造訪紀錄嗎?`,"清除後無法復原。"],
@@ -5725,7 +5906,7 @@ function applyTripBarModes(bar){
        與頂部(在上方,▲收合/▼展開)相反是刻意的;aria-expanded 仍依實際展開狀態,不隨箭頭反向而錯。 */
     b.textContent=tripBarCollapsed?"▲":"▼";
     b.setAttribute("aria-expanded",tripBarCollapsed?"false":"true");
-    b.title=tripBarCollapsed?"展開今日行程":(tripEditMode?"結束編輯並回一般展開":"收合今日行程");
+    b.title=tripBarCollapsed?"展開想去清單":(tripEditMode?"結束編輯並回一般展開":"收合想去清單");
     b.setAttribute("aria-label",b.title);
   }
 }
@@ -5763,7 +5944,7 @@ function undoTripChange(){                            /* 復原:完整舊 trip �
 function removeUncheckedFromTrip(){                   /* 批次移除:只改 trip */
   const drop=trip.filter(u=>tripUnchecked.has(u));
   if(!drop.length){alert("目前沒有未勾選的站點。");return false}
-  if(!confirm(`將從今日行程移除 ${drop.length} 站。\n景點資料、照片、座標與去過紀錄都不會刪除。\n確定嗎?`))return false;
+  if(!confirm(`將從想去清單移除 ${drop.length} 站。\n景點資料、照片、座標與去過紀錄都不會刪除。\n確定嗎?`))return false;
   const oldT=[...trip],oldM=tripManual;
   trip=trip.filter(u=>!tripUnchecked.has(u));
   if(!saveTrip()){
