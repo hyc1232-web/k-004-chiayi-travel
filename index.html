@@ -916,6 +916,50 @@
   .bulkTable{font-size:.95rem}
   #bulkInput{min-height:12rem}
 }
+/* ═══ v23 E3:首頁分頁列與旅行畫面(GS-P11:字級 ≥1rem、觸控 ≥44px、360px 不爆版)═══ */
+.homeTabs{display:flex;gap:.5rem;margin:.6rem 0 .2rem;border-bottom:2px solid var(--line)}
+.homeTabs button{flex:1 1 0;min-height:3rem;font-size:1.05rem;font-weight:800;cursor:pointer;
+  background:transparent;border:none;border-bottom:3px solid transparent;color:var(--ink-soft);padding:.4rem .6rem}
+.homeTabs button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--open)}
+/* 切到「旅行」時只用 CSS 隱藏想去清單區,完全不動這些元素自己的 hidden 狀態與既有邏輯 */
+body.homeTravel #regionBar,body.homeTravel #searchBar,body.homeTravel .sopBar,
+body.homeTravel #sopBox,body.homeTravel #tabs,body.homeTravel #sorts,
+body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:none!important}
+#travelPanel .tvNew{margin-bottom:.8rem}
+#travelPanel input[type="text"],#travelPanel input[type="date"],#travelPanel select{min-height:44px;font-size:1.05rem}
+#travelPanel .btn{min-height:2.75rem}
+.tvHead{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.2rem 0 .6rem}
+.tvName{font-size:1.15rem;font-weight:800}
+.tvDates{color:var(--ink-soft);font-size:1rem}
+.tvDayBar{display:flex;gap:.45rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:.3rem 0 .5rem}
+.tvDayBar button{flex:0 0 auto;min-height:2.75rem;padding:0 .9rem;font-size:1rem;font-weight:700;
+  border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink);cursor:pointer;white-space:nowrap}
+.tvDayBar button[aria-pressed="true"]{background:var(--open);color:#fff;border-color:var(--open)}
+.tvOps{display:flex;flex-wrap:wrap;gap:.5rem;margin:.5rem 0}
+.tvStops{display:flex;flex-direction:column;gap:.5rem;margin:.5rem 0}
+.tvStop{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.55rem .6rem;
+  border:1px solid var(--line);border-radius:.6rem;background:var(--paper)}
+.tvStop.tvDragOver{border-color:var(--open);box-shadow:0 0 0 2px var(--open) inset}
+.tvGrip{cursor:grab;font-size:1.2rem;min-width:2rem;text-align:center;color:var(--ink-soft)}
+.tvNo{font-weight:800;min-width:1.8rem}
+.tvStopName{flex:1 1 8rem;font-size:1.05rem;font-weight:700}
+.tvStopOps{display:flex;gap:.35rem}
+.tvStopOps button{min-width:2.75rem;min-height:2.75rem;font-size:1rem;border:1px solid var(--line);
+  border-radius:.5rem;background:#fff;cursor:pointer}
+.tvPick{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}
+.tvPickList{display:flex;flex-direction:column;gap:.4rem;max-height:18rem;overflow-y:auto;margin:.5rem 0}
+.tvPickItem{display:flex;align-items:center;gap:.5rem;min-height:2.75rem;font-size:1.05rem}
+.tvPickItem input{width:1.5rem;height:1.5rem}
+.tvGo{display:flex;flex-direction:column;gap:.5rem;margin:.8rem 0 1.2rem}
+.tvGo a{display:inline-block;text-align:center;min-height:3rem;line-height:3rem;padding:0 1rem;
+  border-radius:.6rem;background:var(--open);color:#fff;font-weight:800;font-size:1.05rem;text-decoration:none}
+.tvEmpty{padding:1rem 0;line-height:1.8}
+.tvDanger{margin:2.4rem 0 1.2rem;padding-top:1rem;border-top:1px dashed var(--line)}  /* 與其他操作拉開,避免誤觸 */
+.tvDanger .meta{margin-top:.4rem;line-height:1.6}
+@media (max-width:759px){
+  .tvStopName{flex:1 1 100%}
+  .homeTabs button{font-size:1rem}
+}
 </style>
 </head>
 <body>
@@ -1150,6 +1194,11 @@
   </div>
 </div></div>
 <div id="backupNotice" hidden></div>
+<!-- v23 E3:首頁分頁列。「想去清單」沿用現有景點清單畫面,一個字未動 -->
+<div class="homeTabs" id="homeTabs" role="tablist" aria-label="首頁分頁">
+  <button type="button" data-ht="wish" aria-pressed="true">📋 想去清單</button>
+  <button type="button" data-ht="travel" aria-pressed="false">🧳 旅行</button>
+</div>
 <div class="regionBar" id="regionBar"></div>
 <div class="searchBar" id="searchBar">
   <input type="search" id="qInput" placeholder="🔍 搜尋景點、地址或備註" aria-label="搜尋景點、地址或備註">
@@ -1173,6 +1222,20 @@
 <div class="sorts" id="sorts"></div>
 <div class="sorts" id="filters"></div>
 <main id="main"></main>
+
+<!-- v23 E3:旅行分頁。建立表單為靜態(重繪不會清掉輸入),下方 travelBody 才是動態內容 -->
+<section id="travelPanel" hidden>
+  <div class="panel tvNew">
+    <h2>🧳 旅行</h2>
+    <div class="frow"><label for="tvNewName">新旅行名稱*</label>
+      <input type="text" id="tvNewName" maxlength="80" placeholder="例:台南三日遊" style="flex:1;min-width:10rem"></div>
+    <div class="frow"><label for="tvNewStart">開始</label><input type="date" id="tvNewStart">
+      <label for="tvNewEnd">結束</label><input type="date" id="tvNewEnd">
+      <span class="meta">日期可以留空;填了就自動算天數</span></div>
+    <div class="frow"><button class="btn btn-loc" id="tvCreate">＋ 建立旅行</button></div>
+  </div>
+  <div id="travelBody"></div>
+</section>
 
 <div id="tripBar">
   <div class="row">
@@ -2413,8 +2476,9 @@ function tripTotal(){
   }
   return{total,legs};
 }
-function segURLs(){
-  const pts=trip.map(k=>byUid[k]).filter(Boolean);
+function segURLs(){return segURLsOf(trip)}   /* v23 E3:改為薄包裝,今日行程行為完全不變 */
+function segURLsOf(uidList){                /* v23 E3:同一套 SEG_MAX 分段給旅行的「某一天」共用,內容未改 */
+  const pts=(uidList||[]).map(k=>byUid[k]).filter(Boolean);
   const segs=[];
   for(let i=0;i<pts.length;i+=SEG_MAX)segs.push(pts.slice(i,i+SEG_MAX));
   return segs.map((seg,si)=>{
@@ -3452,6 +3516,277 @@ $pf.addEventListener("change",()=>{
     }else{old!==undefined?photos[uid]=old:delete photos[uid];
       alert("照片儲存失敗,原照片未變更。可能是瀏覽器儲存空間不足,可先刪其他現場照或先匯出備份。")} /* 工單19-E */
   });
+});
+
+/* ═══ 14-C. v23 E3:旅行與天的畫面(段 2)═══
+   資料結構沿用段 1 的 cy_travels_v6,格式不改;
+   多點導航沿用既有 segURLsOf()/SEG_MAX=9,不另寫一套;
+   想去清單仍是 cy_trip_v5,本段只讀不寫;不碰「完成今日行程」。 */
+let homeTab="wish";          /* 僅記憶體:wish|travel */
+let curDayIdx=0;             /* 僅記憶體:目前看第幾天(索引 0 = 第 1 天) */
+let travelPicking=false;     /* 僅記憶體:加入景點的挑選區是否展開 */
+let tvDragFrom=-1;           /* 僅記憶體:拖曳來源索引 */
+/* 每次都整包重建再指派,絕不就地改動 travelsData,失敗才能原樣還原 */
+const cloneTravels=()=>({
+  travels:travelsData.travels.map(t=>({...t,
+    days:t.days.map(d=>({uids:[...d.uids],reviewed:d.reviewed}))})),
+  currentTravelId:travelsData.currentTravelId});
+function commitTravels(next,failMsg){       /* 交易式:存成功才換記憶體,失敗一個字都不留 */
+  const prev=travelsData;
+  travelsData=next;
+  if(saveTravels())return true;
+  travelsData=prev;
+  alert(failMsg||"旅行資料儲存失敗,未變更(見儲存提醒)。");
+  return false;
+}
+/* 依 startDate 排序,無日期者排最後;不做封存狀態。抽成獨立比較器,刪除時可直接排「新清單」 */
+const travelSortCmp=(a,b)=>{
+  if(!a.startDate&&!b.startDate)return(a.createdAt||"")<(b.createdAt||"")?-1:1;
+  if(!a.startDate)return 1;
+  if(!b.startDate)return -1;
+  return a.startDate<b.startDate?-1:(a.startDate>b.startDate?1:0);
+};
+function sortedTravels(){return[...travelsData.travels].sort(travelSortCmp)}
+function currentTravel(){
+  if(!travelsData.travels.length)return null;
+  return travelsData.travels.find(t=>t.id===travelsData.currentTravelId)||sortedTravels()[0];
+}
+function daysBetween(s,e){                  /* 起訖都合法才算,含頭含尾;上限 TRAVEL_MAX_DAYS */
+  if(!validDateString(s)||!validDateString(e))return 0;
+  const n=Math.round((new Date(e+"T00:00:00")-new Date(s+"T00:00:00"))/86400000)+1;
+  return n>=1?Math.min(n,TRAVEL_MAX_DAYS):0;
+}
+function dayLabel(t,i){                     /* 有 startDate 才顯示日期 */
+  if(!t.startDate)return`第 ${i+1} 天`;
+  const d=new Date(t.startDate+"T00:00:00");d.setDate(d.getDate()+i);
+  return`第 ${i+1} 天 ${d.getMonth()+1}/${d.getDate()}`;
+}
+function clampDayIdx(t){
+  if(!t||!t.days.length){curDayIdx=0;return}
+  if(curDayIdx<0)curDayIdx=0;
+  if(curDayIdx>=t.days.length)curDayIdx=t.days.length-1;
+}
+function createTravelFromForm(){            /* 名稱必填,起訖可留空 */
+  const $=id=>document.getElementById(id);
+  const name=$("tvNewName").value.trim().slice(0,80);
+  if(!name){alert("旅行名稱必填。");return}
+  const s=$("tvNewStart").value.trim(),e=$("tvNewEnd").value.trim();
+  if(s&&!validDateString(s)){alert("開始日期不是有效日期。");return}
+  if(e&&!validDateString(e)){alert("結束日期不是有效日期。");return}
+  if(s&&e&&s>e){alert("結束日期不可以早於開始日期。");return}
+  let id=createCustomUid().replace(/^custom-/,"travel-");   /* 重用既有 uid 產生器,只換前綴 */
+  const used=new Set(travelsData.travels.map(t=>t.id));
+  while(used.has(id)||!TRAVEL_ID_RE.test(id))id=createCustomUid().replace(/^custom-/,"travel-");
+  const n=(s&&e)?daysBetween(s,e):1;        /* 有起訖就自動算天數,否則先給 1 天 */
+  const next=cloneTravels();
+  next.travels.push({id,name,startDate:s||"",endDate:e||"",
+    days:Array.from({length:Math.max(1,n)},()=>({uids:[],reviewed:null})),
+    createdAt:new Date().toISOString()});
+  next.currentTravelId=id;
+  if(!commitTravels(next,"建立旅行失敗,未新增(見儲存提醒)。"))return;
+  curDayIdx=0;travelPicking=false;
+  $("tvNewName").value="";$("tvNewStart").value="";$("tvNewEnd").value="";
+  showToast(`已建立旅行:${name}`);
+  renderTravelPanel();
+}
+function travelAddDay(){
+  const t=currentTravel();if(!t)return;
+  if(t.days.length>=TRAVEL_MAX_DAYS){alert(`天數上限 ${TRAVEL_MAX_DAYS} 天。`);return}
+  const next=cloneTravels();
+  next.travels.find(x=>x.id===t.id).days.push({uids:[],reviewed:null});
+  if(!commitTravels(next,"加一天失敗,未變更(見儲存提醒)。"))return;
+  curDayIdx=currentTravel().days.length-1;
+  renderTravelPanel();
+}
+function travelRemoveDay(){                 /* 減天前若該天有站,必須先確認 */
+  const t=currentTravel();if(!t)return;
+  if(t.days.length<=1){alert("至少要保留 1 天。");return}
+  const last=t.days[t.days.length-1];
+  if(last.uids.length&&!confirm(
+    `第 ${t.days.length} 天還有 ${last.uids.length} 個景點,減掉這一天會連景點一起移除。\n\n確定要減掉嗎?`))return;
+  const next=cloneTravels();
+  next.travels.find(x=>x.id===t.id).days.pop();
+  if(!commitTravels(next,"減一天失敗,未變更(見儲存提醒)。"))return;
+  clampDayIdx(currentTravel());
+  renderTravelPanel();
+}
+function travelDayOf(next,t){const nt=next.travels.find(x=>x.id===t.id);return nt?nt.days[curDayIdx]:null}
+function travelMoveStop(from,to){
+  const t=currentTravel();if(!t)return;
+  const next=cloneTravels(),d=travelDayOf(next,t);
+  if(!d||from<0||to<0||from>=d.uids.length||to>=d.uids.length||from===to)return;
+  const[u]=d.uids.splice(from,1);d.uids.splice(to,0,u);
+  if(!commitTravels(next,"調整順序失敗,未變更(見儲存提醒)。"))return;
+  renderTravelPanel();
+}
+function travelRemoveStop(i){
+  const t=currentTravel();if(!t)return;
+  const next=cloneTravels(),d=travelDayOf(next,t);
+  if(!d||i<0||i>=d.uids.length)return;
+  const uid=d.uids.splice(i,1)[0];
+  if(!commitTravels(next,"移除失敗,未變更(見儲存提醒)。"))return;
+  showToast(`已從第 ${curDayIdx+1} 天移除:${byUid[uid]?byUid[uid].name:uid}`);
+  renderTravelPanel();
+}
+function travelAddStops(uids){
+  const t=currentTravel();if(!t||!uids.length)return;
+  const next=cloneTravels(),d=travelDayOf(next,t);
+  if(!d)return;
+  const have=new Set(d.uids),add=uids.filter(u=>byUid[u]&&!have.has(u));
+  if(!add.length){alert("沒有可加入的景點(可能都已經在這一天了)。");return}
+  d.uids.push(...add);
+  if(!commitTravels(next,"加入景點失敗,未變更(見儲存提醒)。"))return;
+  travelPicking=false;
+  showToast(`已把 ${add.length} 個景點加到第 ${curDayIdx+1} 天`);
+  renderTravelPanel();
+}
+function travelDelete(){                    /* 只刪 cy_travels_v6 內這一趟;景點/想去清單/造訪紀錄一律不動 */
+  const t=currentTravel();if(!t)return;
+  const stops=t.days.reduce((n,d)=>n+d.uids.length,0);
+  if(!confirm(`將刪除「${t.name}」共 ${t.days.length} 天、${stops} 站的行程安排。\n`
+    +`景點本身、想去清單、造訪紀錄都不受影響。此動作無法復原。`))return;
+  const next=cloneTravels();
+  next.travels=next.travels.filter(x=>x.id!==t.id);
+  next.currentTravelId=next.travels.length      /* 刪完重新指向排序第一筆;一趟都沒有就留空 */
+    ?[...next.travels].sort(travelSortCmp)[0].id:"";
+  if(!commitTravels(next,"刪除旅行失敗,未變更(見儲存提醒)。"))return;
+  curDayIdx=0;travelPicking=false;
+  showToast(`已刪除旅行:${t.name}`);
+  renderTravelPanel();
+}
+function switchTravel(id){
+  if(!travelsData.travels.some(t=>t.id===id))return;
+  const next=cloneTravels();next.currentTravelId=id;
+  if(!commitTravels(next,"切換旅行失敗,未變更(見儲存提醒)。"))return;
+  curDayIdx=0;travelPicking=false;
+  renderTravelPanel();
+}
+function renderTravelPanel(){
+  const box=document.getElementById("travelBody");if(!box)return;
+  const t=currentTravel();
+  if(!t){box.innerHTML=`<div class="meta tvEmpty">目前還沒有旅行。<br>`
+    +`先在上面建立一趟,就可以開始安排每一天要去哪裡。</div>`;return}
+  clampDayIdx(t);
+  const list=sortedTravels();
+  let h="";
+  if(list.length>1){                        /* 只有一趟時不顯示選單 */
+    h+=`<div class="frow"><label for="tvSelect">選擇旅行</label><select id="tvSelect">`
+      +list.map(x=>`<option value="${esc(x.id)}"${x.id===t.id?" selected":""}>`
+        +`${esc(x.name)}${x.startDate?`（${esc(x.startDate)}起）`:"（未定日期）"}</option>`).join("")
+      +`</select></div>`;
+  }
+  h+=`<div class="tvHead"><span class="tvName">${esc(t.name)}</span>`
+    +`<span class="tvDates">${t.startDate?esc(t.startDate)+(t.endDate?" ～ "+esc(t.endDate):""):"未設定日期"}`
+    +`｜共 ${t.days.length} 天</span></div>`;
+  h+=`<div class="tvDayBar" role="tablist" aria-label="第幾天">`
+    +t.days.map((d,i)=>`<button type="button" data-day="${i}" aria-pressed="${i===curDayIdx}">`
+      +`${esc(dayLabel(t,i))}${d.uids.length?`・${d.uids.length} 站`:""}</button>`).join("")
+    +`</div>`;
+  h+=`<div class="tvOps"><button class="btn btn-ghost" id="tvAddDay">＋ 加一天</button>`
+    +`<button class="btn btn-ghost" id="tvDelDay">－ 減一天</button></div>`;
+  const day=t.days[curDayIdx]||{uids:[]};
+  const stops=day.uids.map(u=>byUid[u]).filter(Boolean);
+  h+=`<h3>${esc(dayLabel(t,curDayIdx))}（${stops.length} 站）</h3>`;
+  h+=stops.length
+    ?`<div class="tvStops">`+stops.map((p,i)=>`<div class="tvStop" draggable="true" data-i="${i}">`
+      +`<span class="tvGrip" title="拖曳排序" aria-hidden="true">⋮⋮</span>`
+      +`<span class="tvNo">${i+1}.</span>`
+      +`<span class="tvStopName">${p.icon?esc(p.icon)+" ":""}${esc(p.name)}`
+      +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}`
+      +`${p.hasCoord===false?`<span class="cityChip">無座標</span>`:""}</span>`
+      +`<span class="tvStopOps">`
+      +`<button type="button" data-up="${i}" title="上移" aria-label="上移"${i===0?" disabled":""}>↑</button>`
+      +`<button type="button" data-down="${i}" title="下移" aria-label="下移"${i===stops.length-1?" disabled":""}>↓</button>`
+      +`<button type="button" data-del="${i}" title="從這一天移除" aria-label="從這一天移除">✕</button>`
+      +`</span></div>`).join("")+`</div>`
+    :`<div class="meta tvEmpty">這一天還沒有景點。用下面的「＋ 從想去清單加入」把景點排進來。</div>`;
+  /* 加入景點:來源就是想去清單(cy_trip_v5),只讀不寫 */
+  const already=new Set(day.uids);
+  const cand=trip.map(u=>byUid[u]).filter(p=>p&&!already.has(p.uid));
+  if(!travelPicking){
+    h+=`<div class="tvOps"><button class="btn btn-ghost" id="tvPickOpen">＋ 從想去清單加入</button></div>`;
+  }else if(!cand.length){
+    h+=`<div class="tvPick"><div class="meta">想去清單目前沒有可加入的景點`
+      +`(可能都已排進這一天)。先回「📋 想去清單」分頁,用卡片的 ＋ 把景點加進清單。</div>`
+      +`<div class="tvOps"><button class="btn btn-ghost" id="tvPickClose">收起</button></div></div>`;
+  }else{
+    h+=`<div class="tvPick"><b>加到「${esc(dayLabel(t,curDayIdx))}」</b>`
+      +`<div class="tvPickList">`+cand.map(p=>`<label class="tvPickItem">`
+        +`<input type="checkbox" value="${esc(p.uid)}">${esc(p.name)}`
+        +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}</label>`).join("")+`</div>`
+      +`<div class="tvOps"><button class="btn btn-loc" id="tvPickAdd">加入所選</button>`
+      +`<button class="btn btn-ghost" id="tvPickClose">取消</button></div></div>`;
+  }
+  if(stops.length){                         /* 沿用既有分段:每段最多 SEG_MAX 站 */
+    const segs=segURLsOf(day.uids);
+    h+=`<div class="tvGo">`+segs.map((s,i)=>`<a href="${s.url}" target="_blank" rel="noopener">`
+      +`${segs.length===1?`🗺 開啟地圖 · ${stops.length} 站`
+        :`🗺 開啟地圖 第 ${i+1}/${segs.length} 段`}</a>`).join("")
+      +(segs.length>1?`<div class="meta">Google 地圖單次最多 ${SEG_MAX} 站,已自動分成 ${segs.length} 段。</div>`:"")
+      +`</div>`;
+  }
+  /* 刪除旅行:放面板最下方,與其他操作拉開距離,避免誤觸 */
+  h+=`<div class="tvDanger"><button class="btn btn-danger" id="tvDelete">🗑 刪除這趟旅行</button>`
+    +`<div class="meta">只會刪掉這趟的天數與站點安排;景點本身、想去清單、造訪紀錄都不受影響。</div></div>`;
+  box.innerHTML=h;
+}
+function setHomeTab(tab){
+  homeTab=tab==="travel"?"travel":"wish";
+  document.querySelectorAll("#homeTabs button").forEach(b=>
+    b.setAttribute("aria-pressed",b.dataset.ht===homeTab));
+  document.body.classList.toggle("homeTravel",homeTab==="travel");
+  document.getElementById("travelPanel").hidden=homeTab!=="travel";
+  if(homeTab==="travel")renderTravelPanel();
+}
+document.getElementById("homeTabs").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  setHomeTab(b.dataset.ht);
+});
+document.getElementById("travelPanel").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="tvCreate"){createTravelFromForm();return}
+  if(b.id==="tvAddDay"){travelAddDay();return}
+  if(b.id==="tvDelDay"){travelRemoveDay();return}
+  if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();return}
+  if(b.id==="tvPickClose"){travelPicking=false;renderTravelPanel();return}
+  if(b.id==="tvPickAdd"){
+    travelAddStops([...document.querySelectorAll("#travelBody .tvPickItem input:checked")].map(x=>x.value));return}
+  if(b.dataset.day!==undefined){curDayIdx=+b.dataset.day;travelPicking=false;renderTravelPanel();return}
+  if(b.dataset.up!==undefined){const i=+b.dataset.up;travelMoveStop(i,i-1);return}
+  if(b.dataset.down!==undefined){const i=+b.dataset.down;travelMoveStop(i,i+1);return}
+  if(b.dataset.del!==undefined){travelRemoveStop(+b.dataset.del);return}
+  if(b.id==="tvDelete"){travelDelete();return}
+});
+document.getElementById("travelPanel").addEventListener("change",e=>{
+  if(e.target&&e.target.id==="tvSelect")switchTravel(e.target.value);
+});
+/* 拖曳排序(桌機);手機用 ↑↓ 鈕,因為手機瀏覽器不支援 HTML5 拖放 */
+document.addEventListener("dragstart",e=>{
+  const el=e.target.closest?e.target.closest("#travelBody .tvStop"):null;if(!el)return;
+  tvDragFrom=+el.dataset.i;
+  if(e.dataTransfer){e.dataTransfer.effectAllowed="move";
+    try{e.dataTransfer.setData("text/plain",String(tvDragFrom))}catch(_){}}
+});
+document.addEventListener("dragover",e=>{
+  const el=e.target.closest?e.target.closest("#travelBody .tvStop"):null;
+  if(!el||tvDragFrom<0)return;
+  e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="move";
+  el.classList.add("tvDragOver");
+});
+document.addEventListener("dragleave",e=>{
+  const el=e.target.closest?e.target.closest("#travelBody .tvStop"):null;
+  if(el)el.classList.remove("tvDragOver");
+});
+document.addEventListener("drop",e=>{
+  const el=e.target.closest?e.target.closest("#travelBody .tvStop"):null;
+  if(!el||tvDragFrom<0)return;
+  e.preventDefault();el.classList.remove("tvDragOver");
+  const from=tvDragFrom,to=+el.dataset.i;tvDragFrom=-1;
+  travelMoveStop(from,to);
+});
+document.addEventListener("dragend",()=>{
+  tvDragFrom=-1;
+  document.querySelectorAll("#travelBody .tvDragOver").forEach(x=>x.classList.remove("tvDragOver"));
 });
 
 /* ═══ 15. 卡片事件委派 ═══ */
