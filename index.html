@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L18 景點批次匯入)｜2026-07-26
- 本檔最新版本:APP_RELEASE = 22L18(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十三版(V23 多旅程與多天行程)｜2026-07-26
+ 本檔最新版本:APP_RELEASE = 23(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -202,6 +202,32 @@
    批次 rec 的 nav 沿用單筆新增同一套回退(地址→座標→名稱),
    避免純店名記錄因 normalizeCustomPlace 要求「地址/關鍵字/座標至少一項」
    而在重整後被剔除;不動資料格式、不新增鍵、不寫入 PLACES/DEFAULT_PHOTOS。
+ ═══ V23(2026-07-26,APP_VERSION=23,APP_RELEASE=23,DATA_SCHEMA_VERSION=6):多旅程與多天行程 ═══
+   四段施工,一段一驗:
+   段1 E1/E2/E6——新增第十二鍵 cy_travels_v6
+     {travels:[{id:"travel-*",name,startDate,endDate,days:[{uids:[],reviewed:null}],createdAt}],currentTravelId};
+     days 是陣列(索引 0=第 1 天),日期不當鑰匙;reviewed 三態 null/"done"/"skipped";
+     壞資料一律回退成 {travels:[],currentTravelId:""},不炸開機;
+     既有 11 鍵原地不動、零搬移——想去清單仍是 cy_trip_v5,只是畫面正名;
+     匯出升 version 6 並含 travels 區塊,匯入相容 5 與 6、拒絕更新版本;
+     從 v22 升上來提醒備份一次(記在 settings.v23UpgradeNoticed,不新增鍵);
+     連帶修正:發布流程兩處寫死的 schema 5 改比 DATA_SCHEMA_VERSION 常數;
+   段2 E3——首頁分頁列(想去清單/旅行);旅行畫面可建立、加減天(減天有站先確認)、
+     站列表拖曳排序(桌機)與 ↑↓(手機)、移除、刪除旅行;
+     底部「開啟地圖」沿用既有 SEG_MAX=9 分段(segURLs 抽成 segURLsOf,分段主體一字未改);
+     旅行清單依 startDate 排序,無日期排最後,不做封存;
+   段3 E4——想去清單正名(只改文案,不動資料與邏輯,「完成今日行程」原樣保留);
+     卡片「📅 排進行程」小視窗直接列第 N 天,多趟旅行才多一列選趟數;
+     勾選多個景點可一次多點導航(臨時路線,不寫入任何鍵);
+     追加:旅行可改名稱/日期(改短且該天有站時不靜默刪站)、下拉加建立日辨識;
+   段4 E5/E7——隔天回顧兩步視窗(要記錄/不用記錄/晚點再問我);
+     有 startDate 才自動偵測「日期已過且 reviewed===null 且該天有站」,一次處理一天;
+     沒有 startDate 不自動跳,改由面板「📝 記錄這一天」手動觸發;
+     打勾的站批次寫進既有 visitedHistory(全成功才算,失敗整批不寫且 reviewed 不改);
+     修正:升級提醒改到 renderAll() 之後並改用 showToast(原本 alert 擋住重繪,
+     會看到「空白頁+錯版本號+對話框」);verChip 靜態預設值改中性「—」。
+     修正11:批次回顧的同日去重條件只擋空白筆,若那天已寫過評分/備註會被空白筆覆蓋
+     (次數多算一次、卡片評分備註變空);改為同日已有任何紀錄就略過,與單筆路徑判準一致。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -985,6 +1011,22 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   font-weight:800;font-size:1rem;text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
 #multiNavBar a{background:var(--open);color:#fff;border-color:var(--open)}
 #multiNavBar .mnNote{flex:1 1 100%;font-size:.95rem;color:var(--ink-soft);line-height:1.5}
+/* v23 E5:隔天回顧視窗(沿用 .pdCard 版型) */
+#reviewDlg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:96;display:flex;align-items:center;justify-content:center;padding:1rem}
+#reviewDlg[hidden]{display:none}
+#rvBody{padding:.8rem 1rem calc(1rem + env(safe-area-inset-bottom));overflow-y:auto}
+.rvWhen{font-weight:800;font-size:1.05rem;line-height:1.6;margin-bottom:.4rem}
+.rvOps{display:flex;flex-direction:column;gap:.5rem;margin-top:.9rem}
+.rvOps button{min-height:3rem;font-size:1.05rem;font-weight:800;border-radius:.6rem;cursor:pointer;
+  border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+.rvOps button.rvMain{background:var(--open);color:#fff;border-color:var(--open)}
+.rvList{display:flex;flex-direction:column;gap:.4rem;margin:.7rem 0;max-height:40dvh;overflow-y:auto}
+.rvItem{display:flex;align-items:center;gap:.6rem;min-height:2.75rem;font-size:1.05rem;
+  padding:.35rem .5rem;border:1px solid var(--line);border-radius:.5rem}
+.rvItem input{width:1.5rem;height:1.5rem;flex:0 0 auto}
+.rvDateRow{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.5rem 0}
+.rvDateRow input[type="date"]{min-height:44px;font-size:1.05rem}
+.tvDayNote{margin:.4rem 0 .2rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
 @media (max-width:759px){
   .tvStopName{flex:1 1 100%}
   .homeTabs button{font-size:1rem}
@@ -997,7 +1039,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L15</span>
+    <span class="verChip" id="verChip">—</span>   <!-- v23 修正10:中性預設,重繪前不顯示錯版本 -->
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -1171,6 +1213,11 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   <div class="pdHead"><b id="pdTitle">排進行程</b>
     <button id="pdClose" title="關閉" aria-label="關閉">✕</button></div>
   <div id="pdBody"></div>
+</div></div>
+<!-- v23 E5:隔天回顧(兩步)。第 1 步問要不要記錄,第 2 步才列站 -->
+<div id="reviewDlg" hidden><div class="pdCard" role="dialog" aria-modal="true" aria-labelledby="rvTitle">
+  <div class="pdHead"><b id="rvTitle">上次的行程要記錄嗎?</b></div>
+  <div id="rvBody"></div>
 </div></div>
 <div id="visitDlg" hidden><div class="vdCard" role="dialog" aria-modal="true" aria-labelledby="vdTitle">
   <div class="vdHead">
@@ -1682,7 +1729,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="23c";          /* v23 段3:施工中版本代號,段4 完成後改回 "23" */
+const APP_RELEASE="23";           /* v23:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -3738,6 +3785,16 @@ function renderTravelPanel(){
   const day=t.days[curDayIdx]||{uids:[]};
   const stops=day.uids.map(u=>byUid[u]).filter(Boolean);
   h+=`<h3>${esc(dayLabel(t,curDayIdx))}（${stops.length} 站）</h3>`;
+  /* v23 E5:回顧狀態與手動入口。沒有 startDate 的旅行不會自動跳,一律靠這顆按鈕 */
+  if(stops.length){
+    h+=`<div class="tvDayNote">`;
+    if(day.reviewed==="done")h+=`<span class="cityChip">✅ 這一天已記錄</span>`;
+    else if(day.reviewed==="skipped")
+      h+=`<span class="cityChip">已略過記錄</span><button class="btn btn-ghost" id="tvReview">📝 還是要記錄</button>`;
+    else h+=`<button class="btn btn-ghost" id="tvReview">📝 記錄這一天</button>`
+      +(t.startDate?"":`<span class="meta">這趟沒設起始日,不會自動提醒,要記錄請按左邊</span>`);
+    h+=`</div>`;
+  }
   h+=stops.length
     ?`<div class="tvStops">`+stops.map((p,i)=>`<div class="tvStop" draggable="true" data-i="${i}">`
       +`<span class="tvGrip" title="拖曳排序" aria-hidden="true">⋮⋮</span>`
@@ -3812,6 +3869,8 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.id==="tvEditOpen"){travelEditing=!travelEditing;renderTravelPanel();return}   /* v23 追加4 */
   if(b.id==="tvEditCancel"){travelEditing=false;renderTravelPanel();return}
   if(b.id==="tvEditSave"){travelSaveEdit();return}
+  if(b.id==="tvReview"){                                   /* v23 E5:手動記錄這一天 */
+    const t=currentTravel();if(t)openReviewFor(t.id,curDayIdx,true);return}
 });
 document.getElementById("travelPanel").addEventListener("change",e=>{
   if(e.target&&e.target.id==="tvSelect")switchTravel(e.target.value);
@@ -3961,6 +4020,160 @@ function travelOptionLabel(x){
   const created=(x.createdAt||"").slice(0,10).replace(/-/g,"/");
   return`${x.name}｜${x.startDate?x.startDate.replace(/-/g,"/")+" 出發":"未定日期"}`
     +`｜${x.days.length} 天${created?`｜建立 ${created}`:""}`;
+}
+
+/* ═══ 14-E. v23 E5:隔天回顧(段 4)═══
+   紀錄一律寫進既有 visitedHistory(沿用 vhBlank/vhSyncFromHistory/vhLegacyBase/saveVH),不另建系統。
+   自動觸發只用於「有 startDate」的旅行——沒有起始日就算不出哪一天過了,自動跳會亂跳,
+   改在該天面板放「📝 記錄這一天」由使用者自己按。 */
+let reviewQueue=[],reviewCur=null,reviewChecked=new Set(),reviewManual=false;
+function travelDayDate(t,i){                 /* 第 i 天的日期;沒有 startDate 回 "" */
+  if(!t||!t.startDate)return"";
+  const d=new Date(t.startDate+"T00:00:00");d.setDate(d.getDate()+i);
+  return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function pendingReviewDays(){                /* 有 startDate、日期已過、reviewed===null、且該天有站 */
+  const out=[],today=todayKey();
+  for(const t of sortedTravels()){
+    if(!t.startDate)continue;
+    t.days.forEach((d,i)=>{
+      if(d.reviewed!==null||!d.uids.length)return;   /* 沒有站的天不問:記錄不了東西 */
+      const date=travelDayDate(t,i);
+      if(date&&date<today)out.push({travelId:t.id,dayIdx:i,date});
+    });
+  }
+  return out;
+}
+function setDayReviewed(travelId,dayIdx,state){       /* 交易式:沿用 cloneTravels/commitTravels */
+  const next=cloneTravels(),nt=next.travels.find(x=>x.id===travelId);
+  const d=nt&&nt.days[dayIdx];if(!d)return false;
+  d.reviewed=state;
+  return commitTravels(next,"回顧狀態儲存失敗,未變更(見儲存提醒)。");
+}
+/* 批次寫入既有 visitedHistory:全部成功才算,任一失敗整批不寫 */
+function vhBatchAdd(uids,date){
+  const snap=JSON.parse(JSON.stringify(visitedHistory));   /* 整包快照,失敗照原樣還原 */
+  let added=0,dup=0;
+  for(const uid of uids){
+    if(!byUid[uid])continue;
+    const cur=visitedHistory[uid];
+    const base=cur?vhLegacyBase(cur):0;
+    const hist=cur?[...cur.history]:[];
+    if(hist.some(r=>r.date===date)){dup++;continue}  /* v23 修正11:同日已有任何紀錄就略過,判準與單筆路徑(L5820)一致 */
+    hist.push({date,rating:"",note:""});
+    visitedHistory[uid]=vhSyncFromHistory({...vhBlank(),history:hist},base);
+    added++;
+  }
+  if(!added){visitedHistory=snap;return{ok:true,added:0,dup}}
+  if(!saveVH()){
+    visitedHistory=snap;saveVH();                          /* 整批不寫,回存舊值 */
+    return{ok:false,added:0,dup};
+  }
+  return{ok:true,added,dup};
+}
+function openReviewFor(travelId,dayIdx,manual){
+  const t=travelsData.travels.find(x=>x.id===travelId);
+  const d=t&&t.days[dayIdx];if(!d||!d.uids.length)return;
+  reviewCur={travelId,dayIdx,date:travelDayDate(t,dayIdx)};
+  reviewManual=!!manual;
+  reviewChecked=new Set(d.uids);              /* 預設全部打勾 */
+  document.getElementById("reviewDlg").hidden=false;
+  renderReviewStep1();
+}
+function closeReviewDlg(){
+  document.getElementById("reviewDlg").hidden=true;
+  reviewCur=null;reviewChecked=new Set();
+}
+function reviewNext(){                        /* 一次只處理一天,處理完接著問下一天 */
+  closeReviewDlg();
+  if(reviewManual){reviewQueue=[];afterReviewRefresh();return}
+  reviewQueue.shift();
+  const nx=reviewQueue[0];
+  if(nx)openReviewFor(nx.travelId,nx.dayIdx,false);
+  else afterReviewRefresh();
+}
+function afterReviewRefresh(){
+  renderAll();
+  if(homeTab==="travel")renderTravelPanel();
+}
+function reviewDayTitle(){
+  const t=travelsData.travels.find(x=>x.id===reviewCur.travelId);
+  if(!t)return"";
+  return`${t.name}　${dayLabel(t,reviewCur.dayIdx)}`
+    +(reviewCur.date?`（${reviewCur.date.replace(/-/g,"/")}）`:"");
+}
+function renderReviewStep1(){
+  const box=document.getElementById("rvBody");if(!box||!reviewCur)return;
+  document.getElementById("rvTitle").textContent="上次的行程要記錄嗎?";
+  const t=travelsData.travels.find(x=>x.id===reviewCur.travelId);
+  const n=t?t.days[reviewCur.dayIdx].uids.length:0;
+  box.innerHTML=`<div class="rvWhen">${esc(reviewDayTitle())}</div>`
+    +`<div class="meta">這一天排了 ${n} 個景點。要把實際去過的記進造訪紀錄嗎?</div>`
+    +`<div class="rvOps">`
+    +`<button type="button" class="rvMain" id="rvYes">要記錄</button>`
+    +`<button type="button" id="rvNo">不用記錄</button>`
+    +`<button type="button" id="rvLater">晚點再問我</button></div>`
+    +`<div class="meta">「不用記錄」之後就不會再問這一天;「晚點再問我」下次開啟會再問。</div>`;
+}
+function renderReviewStep2(){
+  const box=document.getElementById("rvBody");if(!box||!reviewCur)return;
+  document.getElementById("rvTitle").textContent="這一天實際去了哪些?";
+  const t=travelsData.travels.find(x=>x.id===reviewCur.travelId);
+  const d=t&&t.days[reviewCur.dayIdx];if(!d)return;
+  const stops=d.uids.map(u=>byUid[u]).filter(Boolean);
+  box.innerHTML=`<div class="rvWhen">${esc(reviewDayTitle())}</div>`
+    +`<div class="meta">預設全部打勾,把沒去的取消就好。</div>`
+    +(reviewCur.date
+      ?`<div class="meta">紀錄日期:${esc(reviewCur.date.replace(/-/g,"/"))}</div>`
+      :`<div class="rvDateRow"><label for="rvDate">紀錄日期</label>`
+       +`<input type="date" id="rvDate" value="${esc(todayKey())}">`
+       +`<span class="meta">這趟沒有設定起始日,請選這一天實際的日期</span></div>`)
+    +`<div class="rvList">`+stops.map(p=>`<label class="rvItem">`
+      +`<input type="checkbox" data-rv="${esc(p.uid)}"${reviewChecked.has(p.uid)?" checked":""}>`
+      +`<span>${p.icon?esc(p.icon)+" ":""}${esc(p.name)}</span></label>`).join("")+`</div>`
+    +`<div class="rvOps"><button type="button" class="rvMain" id="rvSave">存成紀錄</button>`
+    +`<button type="button" id="rvBack">返回</button></div>`
+    +`<div class="meta">只會新增造訪紀錄,不會動到景點、想去清單或今日完成。</div>`;
+}
+function reviewSave(){
+  if(!reviewCur)return;
+  let date=reviewCur.date;
+  if(!date){
+    const el=document.getElementById("rvDate");
+    date=el?el.value.trim():"";
+    if(!validDateString(date)){alert("請先選一個有效的紀錄日期。");return}
+  }
+  const uids=[...document.querySelectorAll("#rvBody [data-rv]:checked")].map(x=>x.dataset.rv);
+  if(!uids.length){alert("一個都沒勾。如果這一天都沒去,請選「不用記錄」。");return}
+  const r=vhBatchAdd(uids,date);
+  if(!r.ok){alert("造訪紀錄儲存失敗,這一批一筆都沒有寫入,回顧狀態也維持不變。\n請先按「📦 匯出」備份或檢查瀏覽器儲存空間。");return}
+  if(!setDayReviewed(reviewCur.travelId,reviewCur.dayIdx,"done")){
+    showToast(`已記錄 ${r.added} 筆造訪,但回顧狀態沒存起來,下次可能會再問一次`,null,10000,"error");
+    reviewNext();return;
+  }
+  showToast(r.added
+    ?`已記錄 ${r.added} 筆造訪紀錄`+(r.dup?`(${r.dup} 筆同日已有,略過)`:"")
+    :`這一天的紀錄先前已經寫過了(${r.dup} 筆),沒有重複新增`);   /* v23 修正11:全數同日重複時不說「已記錄 0 筆」 */
+  reviewNext();
+}
+document.getElementById("reviewDlg").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b||!reviewCur)return;
+  if(b.id==="rvYes"){renderReviewStep2();return}
+  if(b.id==="rvBack"){renderReviewStep1();return}
+  if(b.id==="rvNo"){
+    if(!setDayReviewed(reviewCur.travelId,reviewCur.dayIdx,"skipped"))return;
+    showToast("好,這一天不再問了");reviewNext();return}
+  if(b.id==="rvLater"){reviewQueue=[];closeReviewDlg();afterReviewRefresh();return}  /* 不改狀態 */
+  if(b.id==="rvSave"){reviewSave();return}
+});
+document.getElementById("reviewDlg").addEventListener("change",e=>{
+  const cb=e.target.closest?e.target.closest("[data-rv]"):null;if(!cb)return;
+  cb.checked?reviewChecked.add(cb.dataset.rv):reviewChecked.delete(cb.dataset.rv);
+});
+function startReviewFlow(){                   /* 開機在畫面畫好之後才跑 */
+  reviewQueue=pendingReviewDays();
+  const first=reviewQueue[0];
+  if(first)openReviewFor(first.travelId,first.dayIdx,false);
 }
 
 /* ═══ 15. 卡片事件委派 ═══ */
@@ -5995,13 +6208,16 @@ const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
   savePermRemoved(),saveTravels()].every(Boolean);   /* v23:十二鍵(v21 的 11 鍵 + cy_travels_v6) */
 if((!bootBuildOK||!bootSaved)&&!lsFailWarned)        /* 工單16#5+18#7:失敗警告一次,lsSet 已提醒過就不重複跳 */
   alert("⚠️ 開機資料回存不完整(瀏覽器儲存異常)。畫面可正常操作,但請先按「📦 匯出完整旅遊資料」備份。");
-/* v23 E2:從 v22 升上來時強制提醒備份一次;記在 settings,不新增鍵。存檔失敗就不記,下次再提醒 */
+renderAll();
+/* v23 E2:從 v22 升上來時提醒備份一次;記在 settings,不新增鍵。存檔失敗就不記,下次再提醒。
+   v23 修正9:原本用 alert 且擺在 renderAll() 之前——升級後第一次開啟會看到
+   「空白頁＋錯版本號＋對話框」,讓人以為資料不見。改為畫面畫好之後才提示,並改用不阻斷的 showToast。 */
 if(v23FromV22&&!settings.v23UpgradeNoticed){
-  alert("已升級到 V23。建議現在按「📦 匯出完整旅遊資料」備份一次。");
+  showToast("已升級到 V23。建議現在按「📦 匯出完整旅遊資料」備份一次。",null,12000);
   settings.v23UpgradeNoticed=true;
   if(!saveSettings())settings.v23UpgradeNoticed=false;
 }
-renderAll();
+startReviewFlow();                                   /* v23 E5:畫面畫好之後才問隔天回顧 */
 backupTracking=true;                                 /* v22K:開機回存不計數,之後的使用者操作才計 */
 renderBackupUI();
 setInterval(updateDynamic,30000);
