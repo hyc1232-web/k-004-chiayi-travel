@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L15 造訪彈窗版面重整)｜2026-07-22
- 本檔最新版本:APP_RELEASE = 22L16(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十二版(V22L18 景點批次匯入)｜2026-07-26
+ 本檔最新版本:APP_RELEASE = 22L18(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -80,7 +80,14 @@
  V22L4.1(2026-07-22,APP_RELEASE=22L4.1):手機收合時系統名稱改用短名「旅遊導航」,
    並縮小收合列各按鈕內距/間距與版本字級,讓名稱保有 ≥4.5rem 且所有按鈕仍完整可見
    (原因:360px 螢幕收合列按鈕已佔約 325px,名稱只剩約 35px 而被截成「旅…」);
-   造訪紀錄每筆改為獨立區塊三列版面(日期+評價／心得／編輯+刪除並排,觸控 ≥44px);(V22L5 待確認)
+   造訪紀錄每筆改為獨立區塊三列版面(日期+評價／心得／編輯+刪除並排,觸控 ≥44px);
+ V22L5(2026-07-22,APP_RELEASE=22L5;內容由程式內註解回推,非原始紀錄):
+   自訂確認對話框取代原生 confirm(原生無法自訂按鈕文字);
+   刪除單筆造訪紀錄的確認框明確顯示日期/評價/心得,按鈕改「刪除這筆」「取消」;
+   清除全部改二次確認並移到歷史清單最底部,與單筆刪除明顯分開;
+   管理抽屜頂部固定、下方獨立捲動,長名最多兩行不遮關閉鈕,
+   max-height 改 dvh 對應手機工具列伸縮、底部留白避免最後一顆按鈕被吃掉;
+   提示統一改用 showToast(景點已複製/已更新/已新增、座標已更新含誤差公尺數)。
  V22L6(2026-07-22,APP_RELEASE=22L6):管理抽屜加固定底部列(關閉/回到頂部);
    歷史紀錄視窗改三段式(固定頭尾,只有中段捲動,底部顯示「共 N 筆」);
    每筆新增「複製」為新紀錄(日期今天、沿用評價與心得,不覆蓋原紀錄);
@@ -176,6 +183,25 @@
    #tripBar 子層一律改 rem 絕對值(≥0.9rem),父層 .70em 不動,觸控區維持 ≥44px;
    檔頭沿革重排(V22L8.1/V22L9 錯位歸位)並加註最新版本標記;
    純 CSS 與註解修改,不動 JS、不動資料格式、不新增鍵。
+ V22L17(2026-07-26,APP_RELEASE=22L17):儲存空間分級預警——
+   新增 STORAGE_YELLOW_BYTES(3.5MB)/STORAGE_RED_BYTES(4.6MB)
+   與 storageLevel()、photosRemaining();
+   存照片前於 compressPhoto callback 內攔截:黃燈照存並提示剩餘張數,
+   紅燈不寫入 photos 直接擋下;健康檢查改三級顯示並標示上限與可存張數;
+   刻意不用瀏覽器配額估算 API(localStorage 約 5MB 硬上限不在其數字內),
+   沿用 estimateAppStorageBytes 自算;
+   不動資料格式、不新增鍵,存成功才生效/失敗回滾機制原樣保留。
+ V22L18(2026-07-26,APP_RELEASE=22L18):景點批次匯入(三種格式混貼)——
+   景點管理新增「📥 批次匯入」分頁,逐行判型(只有店名／店名+地址／
+   Google 地圖完整連結),短連結與非 Google 連結標為無法解析並跳過,
+   全程不發任何網路請求;縣市順序 有地址→由地址推導、無地址→用畫面下拉、
+   留空→未分類;座標僅取完整連結(!3d!4d 優先於 @lat,lng)且須通過 validWorld;
+   查重涵蓋既有景點與同批重複;必須先解析預覽才可寫入,
+   寫入為交易式(全成功才算,失敗依 uid 整批還原);
+   提供記憶體級「復原這批」(不寫 localStorage、不新增鍵,重整後失效);
+   批次 rec 的 nav 沿用單筆新增同一套回退(地址→座標→名稱),
+   避免純店名記錄因 normalizeCustomPlace 要求「地址/關鍵字/座標至少一項」
+   而在重整後被剔除;不動資料格式、不新增鍵、不寫入 PLACES/DEFAULT_PHOTOS。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -870,6 +896,26 @@
 .regionChip{display:inline-flex;align-items:center;gap:.35rem;font-size:1rem;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:.25rem .7rem}
 .regionChip button{border:none;background:transparent;cursor:pointer;font-size:1.05rem;line-height:1;min-width:28px;min-height:28px;color:var(--closed)}
 #sRegionAdd,#fCity{min-height:44px;font-size:1.05rem}
+/* ═══ v22L18 D1:批次匯入面板(GS-P11:輸入框 ≥1rem、觸控 ≥44px、預覽表橫向捲動不縮字)═══ */
+#mBulk .bulkHelp{margin:.4rem 0 .7rem;line-height:1.7}
+#bulkInput{width:100%;min-height:11rem;font-size:1rem;line-height:1.7;padding:.6rem;
+  border:1px solid var(--line);border-radius:.5rem;font-family:inherit;resize:vertical}
+#mBulk select{min-height:44px;font-size:1.05rem}
+#mBulk .btn{min-height:2.75rem}
+#bulkPreview,#bulkResult{margin-top:.9rem}
+.bulkStat{font-weight:800;margin:.5rem 0;line-height:1.6}
+.bulkTableWrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:.5rem}
+.bulkTable{border-collapse:collapse;min-width:46rem}
+.bulkTable th,.bulkTable td{border-bottom:1px solid var(--line);padding:.5rem .6rem;text-align:left;white-space:nowrap}
+.bulkTable th{background:var(--paper);font-weight:800}
+.bulkTable tr.bulkSkip td{opacity:.55;text-decoration:line-through}
+.bulkTable tr.bulkSkip td.bulkWhy,.bulkTable td.bulkWhy{text-decoration:none;opacity:1;white-space:normal;min-width:15rem}
+.bulkTable tr.bulkSkip td.bulkWhy{color:var(--closed)}
+.bulkOps{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem}
+@media (max-width:759px){          /* v22L18:手機一律不縮字,靠橫向捲動處理寬度 */
+  .bulkTable{font-size:.95rem}
+  #bulkInput{min-height:12rem}
+}
 </style>
 </head>
 <body>
@@ -956,6 +1002,7 @@
     <button data-mt="list" aria-pressed="false">📋 管理景點</button>
     <button data-mt="excluded" aria-pressed="false">🚫 已暫時隱藏</button>
     <button data-mt="nocoord" id="mtNoCoord" aria-pressed="false">📍 尚未設定座標（0）</button>
+    <button data-mt="bulk" aria-pressed="false">📥 批次匯入</button>
   </div>
 
   <div id="mAdd">
@@ -1007,6 +1054,30 @@
   <div id="mList" hidden></div>
   <div id="mExcluded" hidden></div>
   <div id="mNoCoord" hidden></div>
+
+  <!-- v22L18 D1:批次匯入 -->
+  <div id="mBulk" hidden>
+    <h3>📥 批次匯入景點</h3>
+    <div class="meta bulkHelp">一行一筆,三種格式可以混著貼:<br>
+      ① 只有店名 —— 例:<b>阿明豬心冬粉</b><br>
+      ② 店名,地址 —— 例:<b>阿明豬心冬粉,台南市中西區保安路72號</b><br>
+      ③ 完整 Google 地圖連結(電腦版網址列複製的那種)<br>
+      短連結(maps.app.goo.gl)無法離線展開,會被跳過並告訴你怎麼處理。<br>
+      沒有座標的景點會自動進入「📍 尚未設定座標」,再用既有的「📌 補座標」補即可。</div>
+    <textarea id="bulkInput" rows="8" placeholder="阿明豬心冬粉&#10;邱家小卷米粉,台南市中西區國華街三段5號&#10;https://www.google.com/maps/place/..."></textarea>
+    <div class="frow"><label for="bulkCity">這批的縣市</label>
+      <select id="bulkCity"></select>
+      <span class="meta">地址裡讀得出縣市時以地址為準</span></div>
+    <div class="frow"><label for="bulkMain">這批的分類</label>
+      <select id="bulkMain"><option>正餐</option><option>點心</option><option>親子</option><option>景點</option><option>住宿</option><option>購物</option><option selected>其他</option></select>
+      <span class="meta">之後可個別編輯</span></div>
+    <div class="bulkOps">
+      <button class="btn btn-loc" id="bulkParse">🔍 解析預覽</button>
+      <button class="btn btn-ghost" id="bulkClearInput">清空輸入框</button>
+    </div>
+    <div id="bulkPreview" hidden></div>
+    <div id="bulkResult" hidden></div>
+  </div>
 </div>
 
 <div class="reco" id="reco" hidden></div>
@@ -1472,7 +1543,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L16";        /* v22L16:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L18";        /* v22L18:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -1851,7 +1922,7 @@ document.getElementById("btnClearToday").addEventListener("click",()=>{
     alert("清除今日完成失敗,未變更(見儲存提醒)。");return}
   renderAll();
 });
-/* 工單20#4:只統計本專案十鍵(同網域其他工具不混入);UTF-16 每字 2 bytes,估算值 */
+/* 工單20#4:只統計本專案十一鍵(同網域其他工具不混入);UTF-16 每字 2 bytes,估算值 */
 const APP_STORAGE_KEYS=["cy_trip_settings_v5","cy_custom_places_v5","cy_place_overrides_v5",
   "cy_excluded_places_v5","cy_trip_v5","cy_trip_manual_v5","cy_completed_today_v5",
   "cy_visited_history_v5","cy_photos_v5","cy_coords3","cy_perm_removed_v5"];
@@ -1864,6 +1935,26 @@ function estimateAppStorageBytes(){
     }
   }catch(_){}
   return total;
+}
+/* ═══ v22L17 C1:儲存空間分級門檻(推定值,只調這兩個常數,不改結構)═══
+   依據:localStorage 常見約 5MB 硬上限、單張照片上限約 300KB(UTF-16 計約 600KB)。
+   刻意不用瀏覽器的配額估算 API——它不含 localStorage 自己的上限,
+   會回報「還有幾百 MB」但照片照樣存不進去(工單禁止事項#1)。 */
+const STORAGE_YELLOW_BYTES=3.5*1024*1024;   /* 黃燈:沿用現行 3.5MB 門檻,不變 */
+const STORAGE_RED_BYTES=4.6*1024*1024;      /* 紅燈:約 5MB 上限下留約 0.4MB 安全邊際 */
+const PHOTO_AVG_FALLBACK_BYTES=600*1024;    /* 一張現場照都沒有時的保守預設 */
+/* v22L17 C1:回傳 {bytes,mb,level};estimateAppStorageBytes() 讀取失敗回 0 → 判綠燈,不擋人存照片 */
+function storageLevel(){
+  const bytes=estimateAppStorageBytes();
+  const mb=Number((bytes/1024/1024).toFixed(2));
+  const level=bytes>=STORAGE_RED_BYTES?"red":bytes>=STORAGE_YELLOW_BYTES?"yellow":"green";
+  return {bytes,mb,level};
+}
+/* v22L17 C1:用「實際平均照片大小」換算還能存幾張(不用固定值);UTF-16 每字 2 bytes */
+function photosRemaining(){
+  const shots=Object.values(photos).filter(v=>typeof v==="string"&&v.startsWith("data:"));
+  const avg=shots.length?shots.reduce((s,v)=>s+v.length*2,0)/shots.length:PHOTO_AVG_FALLBACK_BYTES;
+  return Math.max(0,Math.floor((STORAGE_RED_BYTES-estimateAppStorageBytes())/avg));
 }
 /* 工單20#2:舊 http 照即時計算(改網址/移除/匯入後健檢立即準確,不存全域計數) */
 function legacyHttpPhotoPlaces(){
@@ -1885,16 +1976,17 @@ document.getElementById("sHealth").addEventListener("click",()=>{
         phNone=phVals.filter(v=>v==="").length;      /* v21:明確無照計數 */
   document.getElementById("healthOut").innerHTML=(()=>{  /* 工單20#3:三級健康狀態 */
     const legacyNames=legacyHttpPhotoPlaces(),legacyN=legacyNames.length;
-    const mb=Number((estimateAppStorageBytes()/1024/1024).toFixed(2));
+    const lv=storageLevel(),mb=lv.mb,remainN=photosRemaining();   /* v22L17 C3:三級狀態＋剩餘張數 */
     const hasDataError=!!(dup||badFix||tripDup||orphanHist);
-    const hasWarning=legacyN>0||mb>3.5;
+    const hasWarning=legacyN>0||lv.level!=="green";
     const nameLine=legacyN?legacyNames.slice(0,5).join("、")+(legacyN>5?`…等 ${legacyN-5} 個景點`:""):"";
     return `內建景點:${PLACES.length}｜自訂景點:${customPlaces.length}｜已暫時隱藏:${excluded.size}｜無座標:${noCoord}<br>`
     +`自訂重複uid:${dup}｜異常座標校正:${badFix}｜行程站點:${trip.length}｜行程重複:${tripDup}<br>`
     +`無效歷史紀錄:${orphanHist}｜去過紀錄異常:${vhAnomalies}｜今日完成:${completedToday.size}｜曾去過:${Object.keys(visitedHistory).length} 筆｜座標校正:${Object.keys(coordFix).length} 筆｜發布移除標記:${permanentRemovedUids.length}<br>`
-    +`照片:${phAll.length} 張(拍攝 ${phD}/網址 ${phAll.length-phD}/明確無照 ${phNone})｜內建預設 ${Object.keys(DEFAULT_PHOTOS).length} 張｜本機旅遊資料:約 ${mb.toFixed(2)}MB(估算,僅本專案十鍵)｜程式版本:v${APP_VERSION}｜資料格式:v${DATA_SCHEMA_VERSION}`
+    +`照片:${phAll.length} 張(拍攝 ${phD}/網址 ${phAll.length-phD}/明確無照 ${phNone})｜內建預設 ${Object.keys(DEFAULT_PHOTOS).length} 張｜本機旅遊資料:約 ${mb.toFixed(2)} MB／上限約 ${(STORAGE_RED_BYTES/1024/1024).toFixed(1)}MB(估算,僅本專案十一鍵)｜還能存約 ${remainN} 張照片｜程式版本:v${APP_VERSION}｜資料格式:v${DATA_SCHEMA_VERSION}`
     +(legacyN?`<br><span style="color:var(--closed)">⚠️ 舊HTTP圖片:${legacyN} 張——${nameLine}(HTTPS頁可能不顯示、不會被匯出;開該景點「貼圖片網址」換 https)</span>`:"")
-    +(mb>3.5?`<br><span style="color:var(--closed)">⚠️ 本機儲存量偏高(>3.5MB),建議刪除部分現場照片或先「📦 匯出」備份。</span>`:"")
+    +(lv.level==="red"?`<br><span style="color:var(--closed)">⛔ 空間已滿(約 ${mb.toFixed(2)} MB),新照片將無法儲存。請先刪除現場照片或匯出後刪除。</span>`
+      :lv.level==="yellow"?`<br><span style="color:var(--closed)">⚠️ 空間快滿(約 ${mb.toFixed(2)} MB),還能存約 ${remainN} 張,建議先匯出備份或刪除部分照片。</span>`:"")   /* v22L17 C3:三級,綠燈不顯示 */
     +`<br><b style="color:${hasDataError?"var(--closed)":"var(--open)"}">${
       hasDataError?"⚠️ 發現資料異常——請「📦 匯出完整旅遊資料」貼給群組排查。"
       :hasWarning?"⚠️ 基本資料正常,但有上列提醒需處理。"
@@ -2575,6 +2667,8 @@ document.querySelector(".mtabs").addEventListener("click",e=>{
   document.getElementById("mList").hidden=manageTab!=="list";
   document.getElementById("mExcluded").hidden=manageTab!=="excluded";
   document.getElementById("mNoCoord").hidden=manageTab!=="nocoord";
+  document.getElementById("mBulk").hidden=manageTab!=="bulk";   /* v22L18 D1 */
+  if(manageTab==="bulk")bulkOnOpen();                           /* v22L18 D1:預帶縣市＋重畫復原區 */
   if(manageTab==="add")autofillAddCity();
   renderManage();
 });
@@ -2648,6 +2742,174 @@ document.getElementById("managePanel").addEventListener("click",e=>{
       rebuildAndRender();
     }
   }
+});
+
+/* ═══ 13-B. v22L18:景點批次匯入(D1–D5)═══
+   全程離線,不發任何網路請求;短連結一律標為無法解析並跳過(瀏覽器跨網域讀不到轉址結果)。
+   uid / 縣市 / 區域 / 標籤 / 存檔一律重用既有函式:
+   createCustomUid、canonCity、deriveCityFromAddr、deriveAreaFromAddr、buildTags、saveCustom、
+   maybeAddRegionForCity、rebuildAndRender —— 不另造同功能新函式。 */
+let bulkRows=null;             /* D3:預覽結果;null=尚未預覽 → 一律不准寫入 */
+let lastBulkImportUids=[];     /* D5:本批 uid,僅記憶體,不寫 localStorage、不新增鍵 */
+const BULK_SHORT_URL_MSG="短連結無法離線展開,請在電腦版瀏覽器開啟該地點後,複製網址列的完整連結再貼一次";
+/* D2:連結型細則——只認完整 google 的 /maps/place/;短連結與其他網域一律跳過 */
+function bulkParseLink(line){
+  const u=(line.match(/https?:\/\/\S+/i)||[""])[0];
+  if(/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(u))return{skip:BULK_SHORT_URL_MSG,src:"短連結"};
+  if(!/google\.[^/]*\/maps\/place\//i.test(u))return{skip:"非 Google 地圖連結",src:"連結"};
+  let name="";
+  const pm=u.match(/\/maps\/place\/([^/@?#]+)/i);
+  if(pm){try{name=decodeURIComponent(pm[1].replace(/\+/g," ")).trim()}
+         catch(_){name=pm[1].replace(/\+/g," ").trim()}}
+  if(!name)return{skip:"連結內找不到地點名稱",src:"Google 連結"};
+  let lat=null,lng=null;                              /* 先 !3d!4d,再退 @lat,lng;都要過 validWorld */
+  const pick=u.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
+           ||u.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if(pick){const la=Number(pick[1]),ln=Number(pick[2]);if(validWorld(la,ln)){lat=la;lng=ln}}
+  return{name,addr:"",lat,lng,src:"Google 連結"};
+}
+/* D2:逐行判型——順序固定(空行→連結→名稱+地址→只有名稱),先判到哪型就用哪型 */
+function bulkParseLine(line){
+  const s=(line||"").trim();
+  if(!s)return null;                                   /* 0:空行,不計入統計 */
+  if(/https?:\/\//i.test(s))return bulkParseLink(s);   /* 1:連結型 */
+  const seg=s.split(/[,，]/);                           /* 2:名稱＋地址 */
+  if(seg.length>1){
+    const name=seg[0].trim(),addr=seg.slice(1).join(",").trim();
+    return name?{name,addr,lat:null,lng:null,src:"名稱+地址"}:{skip:"名稱為空,跳過",src:"名稱+地址"};
+  }
+  return{name:s,addr:"",lat:null,lng:null,src:"只有名稱"};   /* 3:只有名稱 */
+}
+/* D2:整批解析(含縣市決定順序與查重),回傳預覽用列陣列 */
+function bulkParseAll(){
+  const text=document.getElementById("bulkInput").value||"";
+  const fbCity=canonCity(document.getElementById("bulkCity").value);   /* 重用 canonCity */
+  const mainCat=document.getElementById("bulkMain").value;
+  const existing=new Set(ALLP.map(p=>String(p.name||"").trim()));      /* 查重:與現有景點比名稱 */
+  const seen=new Set(),rows=[];
+  text.split(/\r?\n/).forEach(line=>{
+    const r=bulkParseLine(line);
+    if(!r)return;
+    const row={n:rows.length+1,src:r.src,name:r.name||"",addr:r.addr||"",city:"",area:"",
+      lat:r.lat==null?null:r.lat,lng:r.lng==null?null:r.lng,mainCat,ok:false,kind:"",why:""};
+    if(r.skip){row.kind="bad";row.why=r.skip;rows.push(row);return}
+    row.city=deriveCityFromAddr(row.addr)||fbCity||"";  /* 固定順序:地址→下拉→""(未分類) */
+    row.area=deriveAreaFromAddr(row.addr,row.city);
+    const key=row.name.trim();
+    if(existing.has(key)){row.kind="dupExist";row.why="已存在,跳過";rows.push(row);return}
+    if(seen.has(key)){row.kind="dupBatch";row.why="本批重複,跳過";rows.push(row);return}
+    seen.add(key);row.ok=true;row.why="將新增";rows.push(row);
+  });
+  return rows;
+}
+/* D3:預覽表——沒有預覽就沒有「確認新增」這顆按鈕,結構上擋住直接寫入 */
+function renderBulkPreview(){
+  const box=document.getElementById("bulkPreview");if(!box)return;
+  if(!bulkRows){box.hidden=true;box.innerHTML="";return}
+  const add=bulkRows.filter(r=>r.ok).length;
+  const x=bulkRows.filter(r=>r.kind==="dupExist").length;
+  const y=bulkRows.filter(r=>r.kind==="dupBatch").length;
+  const z=bulkRows.filter(r=>r.kind==="bad").length;
+  const body=bulkRows.map(r=>`<tr class="${r.ok?"":"bulkSkip"}">
+      <td>${r.n}</td><td>${r.name?esc(r.name):"—"}</td><td>${r.addr?esc(r.addr):"—"}</td>
+      <td>${r.city?esc(r.city):"未分類"}</td>
+      <td>${r.lat!=null?esc(r.lat.toFixed(5)+","+r.lng.toFixed(5)):"—"}</td>
+      <td>${esc(r.src)}</td><td class="bulkWhy">${esc(r.why)}</td></tr>`).join("");
+  box.innerHTML=`<div class="bulkStat">將新增 ${add} 筆｜跳過 ${bulkRows.length-add} 筆`
+    +`(已存在 ${x}／本批重複 ${y}／無法解析 ${z})</div>`
+    +`<div class="bulkTableWrap"><table class="bulkTable">`
+    +`<thead><tr><th>#</th><th>名稱</th><th>地址</th><th>縣市</th><th>座標</th><th>來源</th><th>結果</th></tr></thead>`
+    +`<tbody>${body||`<tr><td colspan="7">沒有可解析的內容。</td></tr>`}</tbody></table></div>`
+    +`<div class="bulkOps">`
+    +`<button class="btn btn-loc" id="bulkCommit"${add?"":" disabled"}>✅ 確認新增 ${add} 筆</button>`
+    +`<button class="btn btn-ghost" id="bulkCancel">取消</button></div>`;
+  box.hidden=false;
+}
+/* D5:本批復原區(重整頁面後失效是刻意設計,不做持久化) */
+function renderBulkResult(){
+  const box=document.getElementById("bulkResult");if(!box)return;
+  const n=lastBulkImportUids.length;
+  if(!n){box.hidden=true;box.innerHTML="";return}
+  box.innerHTML=`<div class="bulkStat">✅ 本批已新增 ${n} 筆景點。</div>`
+    +`<div class="meta">按下面可以整批撤回;重新整理頁面後這個復原就會失效(刻意設計,不寫入儲存)。</div>`
+    +`<div class="bulkOps"><button class="btn btn-ghost" id="bulkUndo">↩ 復原這批(${n} 筆)</button></div>`;
+  box.hidden=false;
+}
+function bulkOnOpen(){                                 /* 開啟分頁:縣市預帶目前區域(重用 canonCity) */
+  const sel=document.getElementById("bulkCity");
+  if(sel&&!sel.value)sel.value=canonCity(settings.currentRegion)||"";
+  renderBulkResult();
+}
+/* D4:縣市只問一次——收集本批出現且不在本次旅行地區的縣市,合併成一次詢問;回傳 regions 是否有變 */
+function bulkAskRegions(added){
+  const have=new Set(settings.regions||[]);
+  const list=[...new Set(added.map(r=>canonCity(r.city)).filter(c=>c&&!have.has(c)))];
+  if(!list.length)return false;
+  const snap=(settings.regions||[]).join("|");
+  if(list.length===1){maybeAddRegionForCity(list[0]);}   /* 單一縣市:直接重用既有函式 */
+  else if(confirm(`「${list.join("、")}」不在本次旅行地區,要一起加入嗎?`)){
+    const old=[...(settings.regions||[])];
+    settings.regions=[...old,...list];
+    if(!saveSettings()){settings.regions=old;alert("加入旅行地區儲存失敗,未變更(見儲存提醒)。")}
+  }
+  return (settings.regions||[]).join("|")!==snap;
+}
+/* D4:交易式寫入——一次 saveCustom(),失敗依 uid 整批濾掉(不用 pop),輸入框不清空 */
+function bulkCommit(){
+  if(!bulkRows){alert("請先按「🔍 解析預覽」,確認內容之後才能新增。");return}
+  const adds=bulkRows.filter(r=>r.ok);
+  if(!adds.length){alert("目前沒有可新增的項目。");return}
+  const now=new Date().toISOString(),used=new Set();
+  const recs=adds.map(r=>{
+    let uid=createCustomUid();                          /* 重用既有 uid 產生器(含碰撞重試) */
+    while(byUid[uid]||used.has(uid))uid=createCustomUid();
+    used.add(uid);
+    const rec={name:r.name,mainCat:r.mainCat,cat:r.mainCat,icon:"",addr:r.addr,
+      /* nav 回退順序與單筆新增同一套:有地址→名稱+地址;只有座標→座標;都沒有→名稱
+         (normalizeCustomPlace 要求 地址/關鍵字/座標 至少一項,純店名不帶 nav 會在重整後被剔除) */
+      nav:r.addr?r.name+" "+r.addr:(r.lat!=null?r.lat+","+r.lng:r.name),
+      hours:"—",open:null,schedType:"unknown",phone:"",
+      parkingType:"未確認",indoorType:"未設定",airConditioned:false,stayMinutes:null,
+      note:"",city:r.city,area:r.area,updatedAt:now};
+    rec.tags=buildTags(rec);                            /* 重用既有標籤產生器 */
+    return Object.assign({uid,source:"custom",lat:r.lat,lng:r.lng,createdAt:now},rec);
+  });
+  const uids=recs.map(p=>p.uid);
+  customPlaces=customPlaces.concat(recs);               /* 1. 先全部進記憶體 */
+  if(!saveCustom()){                                    /* 2. 只存一次 */
+    const set=new Set(uids);
+    customPlaces=customPlaces.filter(p=>!set.has(p.uid));   /* 4. 失敗:依 uid 整批還原 */
+    alert("批次匯入失敗,一筆都沒有新增。貼上的內容已保留,請先「📦 匯出」備份或檢查瀏覽器儲存空間。");
+    return;                                             /* 輸入框不清空 */
+  }
+  lastBulkImportUids=uids;                              /* 3. 成功:記下本批 */
+  bulkRows=null;renderBulkPreview();
+  showToast(`已新增 ${uids.length} 筆景點`);
+  rebuildAndRender();
+  renderBulkResult();
+  if(bulkAskRegions(adds))rebuildAndRender();           /* 縣市只問一次,有變才再重繪 */
+}
+/* D5:整批撤回——saveCustom 失敗還原記憶體,不留半套 */
+function bulkUndo(){
+  const n=lastBulkImportUids.length;if(!n)return;
+  const set=new Set(lastBulkImportUids),old=customPlaces;
+  customPlaces=customPlaces.filter(p=>!set.has(p.uid));
+  if(!saveCustom()){customPlaces=old;alert("復原失敗,景點未變更(見儲存提醒)。");return}
+  lastBulkImportUids=[];
+  renderBulkResult();
+  showToast(`已復原這批 ${n} 筆景點`);
+  rebuildAndRender();
+}
+document.getElementById("mBulk").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="bulkParse"){bulkRows=bulkParseAll();renderBulkPreview();return}
+  if(b.id==="bulkClearInput"){document.getElementById("bulkInput").value="";bulkRows=null;renderBulkPreview();return}
+  if(b.id==="bulkCommit"){bulkCommit();return}
+  if(b.id==="bulkCancel"){bulkRows=null;renderBulkPreview();return}
+  if(b.id==="bulkUndo"){bulkUndo();return}
+});
+document.getElementById("bulkInput").addEventListener("input",()=>{   /* 內容一改,舊預覽立即失效 */
+  if(bulkRows){bulkRows=null;renderBulkPreview()}
 });
 
 /* ═══ 14. 新增/編輯表單(工單四、五、十) ═══ */
@@ -3123,11 +3385,22 @@ $pf.addEventListener("change",()=>{
   const uid=pendingPhotoUid;pendingPhotoUid=null;$pf.value="";
   if(!f||!uid||!byUid[uid])return;
   compressPhoto(f,out=>{
+    /* v22L17 C2:事前攔截——壓縮完成、已知這張實際大小,但還沒寫進 photos 之前判斷 */
+    const thisSize=out.length*2,oldSize=(photos[uid]?photos[uid].length*2:0);
+    const predicted=estimateAppStorageBytes()-oldSize+thisSize;
+    if(predicted>=STORAGE_RED_BYTES){               /* 紅燈:不寫入、不呼叫 savePhotos()、直接結束 */
+      alert("空間不足,這張照片沒有存進去。\n目前約 "+storageLevel().mb.toFixed(2)
+        +" MB,已接近瀏覽器上限。\n請先刪除部分現場照片,或按「📦 匯出」備份後再刪。");
+      return;
+    }
     const old=photos[uid];                          /* 存成功才生效(群組#3) */
     photos[uid]=out;
     if(savePhotos()){
       renderAll();
       if(activeManageUid===uid)renderPlaceSheet();  /* 抽屜開著→同步重繪(工單九) */
+      if(predicted>=STORAGE_YELLOW_BYTES)           /* v22L17 C2:黃燈——照樣存進去,存成功後才追加提醒 */
+        showToast("已儲存。空間快滿了(約 "+storageLevel().mb.toFixed(2)+" MB),還能再存約 "
+          +photosRemaining()+" 張,建議先匯出備份。");
     }else{old!==undefined?photos[uid]=old:delete photos[uid];
       alert("照片儲存失敗,原照片未變更。可能是瀏覽器儲存空間不足,可先刪其他現場照或先匯出備份。")} /* 工單19-E */
   });
@@ -3633,7 +3906,7 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
       +`・行程、去過紀錄、座標校正、旅遊設定一併回到備份檔狀態\n\n`
       +"確定完整還原嗎?"))return;
   }
-  /* 工單14#4:套用前十鍵快照(淺拷貝即可——replace 整鍵重指派、merge 只換元素引用,皆不深改既有物件) */
+  /* 工單14#4:套用前十一鍵快照(淺拷貝即可——replace 整鍵重指派、merge 只換元素引用,皆不深改既有物件) */
   const snap={settings:{...settings},customPlaces:[...customPlaces],overrides:{...overrides},
     excluded:[...excluded],coordFix:{...coordFix},trip:[...trip],tripManual,
     completedToday:[...completedToday],visitedHistory:{...visitedHistory},photos:{...photos},
@@ -3670,7 +3943,7 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     }
     Object.assign(photos,vPhotos);
   }
-  /* 工單14#4:整組交易——十鍵全存成功才算匯入完成,任一失敗全部還原 */
+  /* 工單14#4:整組交易——十一鍵全存成功才算匯入完成,任一失敗全部還原 */
   const trackBefore=backupTracking;backupTracking=false;   /* v22K:匯入的批次寫入不逐鍵計數 */
   const saved=[saveSettings(),saveCustom(),saveOverrides(),saveExcluded(),
     saveCoordFix(),saveTrip(),saveTripManual(),saveCT(),saveVH(),savePhotos(),
@@ -4062,6 +4335,8 @@ function populateCityDropdowns(){                     /* 填入 22 縣市選項 
   if(fc)fc.innerHTML=`<option value="">(未分類)</option>`+opts;
   const ra=document.getElementById("sRegionAdd");
   if(ra)ra.innerHTML=`<option value="">(選縣市加入)</option>`+opts;
+  const bc=document.getElementById("bulkCity");                 /* v22L18 D1:批次匯入縣市下拉 */
+  if(bc){const cur=bc.value;bc.innerHTML=`<option value="">(未分類)</option>`+opts;bc.value=cur;}
 }
 function renderRegionBar(){                           /* 四來源聯集:全部∪本次旅行∪其他城市∪未分類 */
   const $b=document.getElementById("regionBar");if(!$b)return;
@@ -5131,7 +5406,7 @@ applyStartupPrefs();                                  /* v22J:先套顯示偏好
 renderBackupUI();                                     /* v22K:備份資訊與提醒 */
 renderSop();                                          /* v22L3:SOP 預設收合 */
 reconcileCurrentRegion();                             /* 再對帳(區域已消失時回落全部) */
-/* 開機正規化結果十鍵齊回存(工單16#6:補 trip/tripManual),儲存與畫面永遠一致(群組#8) */
+/* 開機正規化結果十一鍵齊回存(工單16#6:補 trip/tripManual),儲存與畫面永遠一致(群組#8) */
 const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
   saveExcluded(),saveVH(),saveCT(),savePhotos(),saveTrip(),saveTripManual(),
   savePermRemoved()].every(Boolean);                 /* v21:十一鍵 */
