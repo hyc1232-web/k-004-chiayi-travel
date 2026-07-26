@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L13 造訪紀錄彈窗回頂)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L14 未儲存變更保護)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -145,6 +145,12 @@
    在 openVisitDialog 結尾以「同步歸零 + 雙層 requestAnimationFrame」回頂,
    涵蓋新增、查看後編輯、同日提醒選編輯原紀錄、切換編輯另一筆等所有開啟路徑;
    不使用固定 setTimeout,不動 window 捲動(背景頁面位置不變),彈窗開啟不自動聚焦欄位。
+ V22L14(2026-07-22,APP_RELEASE=22L14):造訪紀錄未儲存變更保護——
+   開啟表單時建立記憶體快照(模式/日期/今日完成勾選/評價/心得/編輯索引,心得做 trim 一致化);
+   離開前以 visitFormHasUnsavedChanges() 比對,有變更才跳「尚未儲存造訪紀錄」確認,
+   預設焦點放在「繼續編輯」避免誤按;套用於既有的 X、略過/關閉、點背景遮罩、切換編輯另一筆、
+   新增切到歷史清單五條路徑(Esc 原本未綁定造訪彈窗,依工單不新增);
+   儲存成功與關閉時清除快照,不會再提醒,也不留任何草稿(不寫 localStorage)。
  V22L8.1(2026-07-22,APP_RELEASE=22L8.1):卡片新增常駐「✅ 記錄造訪」入口,
    今日完成後也不消失、不停用;「查看紀錄」與「記錄造訪」各自成鈕、獨立一列、觸控 ≥44px;
    同一天已有紀錄時不再默默重複新增,改詢問是否編輯原紀錄;
@@ -829,7 +835,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L13</span>
+    <span class="verChip" id="verChip">V22L14</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -1411,7 +1417,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L13";        /* v22L13:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L14";        /* v22L14:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -4182,7 +4188,8 @@ function askConfirm(opt){
     const noteEl=document.getElementById("cdNote");    /* v22L10 §2:補充說明 */
     if(noteEl){noteEl.hidden=!opt.note;noteEl.textContent=opt.note||""}
     box.hidden=false;
-    try{okBtn.focus()}catch(_){}
+    /* v22L14:可指定預設焦點放在次要按鈕(例:繼續編輯),避免誤按危險操作 */
+    try{(opt.focusCancel?document.getElementById("cdCancel"):okBtn).focus()}catch(_){}
   });
 }
 function cdClose(v){
@@ -4524,10 +4531,51 @@ function openVisitDialog(uid,mode,editIndex,prefill){
   vdEl("vdCount").textContent=`${vdEl("vdNote").value.length}/${VH_NOTE_MAX}`;
   vdEl("visitDlg").hidden=false;
   scrollVisitDialogTop();                             /* v22L13:內容渲染完成後回到最上方 */
+  vdTakeSnapshot();                                   /* v22L14 §1:欄位填入完成後記錄初始快照 */
 }
 /* ═══ v22L13:造訪紀錄彈窗回頂 ═══
    真正負責捲動的是 #vdBody(.vdCard 為 overflow:hidden,#visitDlg 僅為遮罩),
    因此只對 #vdBody 歸零;不動 window 捲動,背景頁面位置維持不變。 */
+/* ═══ v22L14:未儲存變更保護(快照僅存記憶體,不寫 localStorage)═══ */
+let vdSnapshot=null;
+function vdCurrentState(){
+  /* §1 快照欄位:模式／日期／今日完成勾選／評價／心得／編輯索引 */
+  const noteEl=vdEl("vdNote"),dateEl=vdEl("vdDate"),cb=vdEl("vdMarkDone");
+  return {
+    mode:vdMode||"",
+    editIndex:(vdEditIndex===null||vdEditIndex===undefined)?-1:vdEditIndex,
+    date:(dateEl&&dateEl.value)||"",
+    markDone:!!(cb&&cb.checked),
+    rating:vdGetRating()||"",
+    /* §2 一致化:null／undefined／前後空白統一,避免誤判 */
+    note:String((noteEl&&noteEl.value)||"").trim()
+  };
+}
+function vdTakeSnapshot(){vdSnapshot=JSON.stringify(vdCurrentState())}
+function visitFormHasUnsavedChanges(){
+  if(!vdSnapshot)return false;
+  const dlg=document.getElementById("visitDlg");
+  if(!dlg||dlg.hidden)return false;
+  if(vdMode==="edit"&&vdEditIndex===null)return false;   /* 歷史清單模式沒有可編輯內容 */
+  return JSON.stringify(vdCurrentState())!==vdSnapshot;
+}
+function guardVisitLeave(proceed,okText,cancelText){
+  /* v22L14:無未儲存變更→同步執行,不多繞一個 microtask(避免關閉被後續操作插隊);
+     有變更才進入非同步確認流程。 */
+  if(!visitFormHasUnsavedChanges()){proceed();return}
+  (async()=>{if(await confirmDiscardVisitChanges(okText,cancelText))proceed()})();
+}
+async function confirmDiscardVisitChanges(okText,cancelText){
+  /* 回傳 true=可以離開;false=留在表單。無變更時直接放行,不打擾。 */
+  if(!visitFormHasUnsavedChanges())return true;
+  return await askConfirm({
+    title:"尚未儲存造訪紀錄",
+    lines:["你修改的日期、評價或心得尚未儲存。確定要放棄這些變更嗎?"],
+    okText:okText||"放棄變更並關閉",
+    cancelText:cancelText||"繼續編輯",
+    danger:true,focusCancel:true                          /* §3:預設焦點在「繼續編輯」 */
+  });
+}
 function scrollVisitDialogTop(){
   const body=document.getElementById("vdBody");
   if(!body)return;
@@ -4538,6 +4586,7 @@ function scrollVisitDialogTop(){
   else reset();                                       /* 不使用固定 setTimeout 掩蓋問題 */
 }
 function closeVisitDialog(){
+  vdSnapshot=null;                                    /* v22L14 §6:離開即清除快照,不留草稿 */
   vdEl("visitDlg").hidden=true;vdUid=null;vdEditIndex=null;
   vhSortOldFirst=false;                            /* v22L6:關閉後回復預設「最新在前」 */
   const t=vdTrigger;vdTrigger=null;                 /* v22L4:焦點回到原卡片按鈕,頁面不跳頂端 */
@@ -4658,6 +4707,7 @@ async function vdSaveClick(){
   }
   vhSyncFromHistory(rec,base);
   if(!vhCommit(uid,rec))return;
+  vdSnapshot=null;                                     /* v22L14 §6:已儲存,清除快照 */
   /* v22L2 分離原則 + v22L8.1 修正:勾選框僅在「日期=今天」時有效。
      日期非今天時它是停用狀態,不得代表使用者意見,因此完全不碰 completedToday
      (修正前會以 checked=false 誤把今天完成取消掉)。 */
@@ -4683,8 +4733,7 @@ async function vdSaveClick(){
 /* v22L10 §4:從新增畫面切到歷史清單;表單已填內容先問,且不會儲存 */
 document.getElementById("vdPastBtn").addEventListener("click",async()=>{
   const uid=vdUid;if(!uid)return;
-  const dirty=(vdGetRating()!=="")||vdEl("vdNote").value.trim()!==""
-    ||vdEl("vdDate").value!==vdTodayStr();
+  const dirty=visitFormHasUnsavedChanges();           /* v22L14:改用共用判斷,與其他離開方式一致 */
   if(dirty){
     if(!await askConfirm({title:"尚未儲存這次輸入",
       lines:["尚未儲存這次輸入,確定離開嗎?"],
@@ -4702,7 +4751,7 @@ document.getElementById("vdSave").addEventListener("click",async()=>{
   finally{sv.disabled=false;sv.textContent=label}
 });
 /* v22L8:略過=不新增造訪紀錄,但仍尊重「同時標記今天行程已完成」的勾選狀態 */
-document.getElementById("vdSkip").addEventListener("click",()=>{
+function vdSkipProceed(){                             /* 原略過流程,內容未變 */
   if(vdMode==="add"){
     const uid=vdUid,cb=vdEl("vdMarkDone");
     if(uid&&cb&&!cb.disabled&&cb.checked)vdApplyMarkDone(uid,true);   /* v22L9 §1:未勾選不改變今日完成 */
@@ -4710,6 +4759,10 @@ document.getElementById("vdSkip").addEventListener("click",()=>{
     return;
   }
   closeVisitDialog();
+}
+document.getElementById("vdSkip").addEventListener("click",()=>{
+  /* v22L14 §4:沒有修改→沿用原流程;已修改→先確認。今日完成勾選行為維持不變。 */
+  guardVisitLeave(vdSkipProceed);
 });
 document.getElementById("vdNote").addEventListener("input",e=>{
   vdEl("vdCount").textContent=`${e.target.value.length}/${VH_NOTE_MAX}`;
@@ -4739,11 +4792,17 @@ document.getElementById("sheetFootTop").addEventListener("click",()=>{
 });
 document.getElementById("vdSortNew").addEventListener("click",()=>{vhSortOldFirst=false;vdRenderHistory()});
 document.getElementById("vdSortOld").addEventListener("click",()=>{vhSortOldFirst=true;vdRenderHistory()});
-document.getElementById("vdClose").addEventListener("click",closeVisitDialog);
+/* v22L14 §3:右上角 X——有未儲存變更先確認 */
+document.getElementById("vdClose").addEventListener("click",()=>{
+  guardVisitLeave(closeVisitDialog);                  /* 繼續編輯:表單與捲動位置皆不動 */
+});
 document.getElementById("vdHist").addEventListener("click",async e=>{
   const uid=vdUid;if(!uid)return;
   const eb=e.target.closest("[data-vedit]");
-  if(eb){openVisitDialog(uid,"edit",+eb.dataset.vedit);return}   /* v22L2:逐筆編輯 */
+  if(eb){                                            /* v22L2:逐筆編輯;v22L14 §7:切換前先確認 */
+    const nextIdx=+eb.dataset.vedit;
+    guardVisitLeave(()=>openVisitDialog(uid,"edit",nextIdx),"放棄變更並切換","繼續編輯目前這筆");
+    return}
   const cb=e.target.closest("[data-vcopy]");                     /* v22L6:複製為新紀錄 */
   if(cb){
     const cur=vhOf(uid),src=cur&&cur.history[+cb.dataset.vcopy];
@@ -4764,7 +4823,8 @@ document.getElementById("vdHist").addEventListener("click",async e=>{
   deleteVisitRecord(uid,i);
 });
 document.getElementById("visitDlg").addEventListener("click",e=>{
-  if(e.target.id==="visitDlg")closeVisitDialog();     /* 點背景關閉 */
+  if(e.target.id!=="visitDlg")return;                 /* 點背景關閉 */
+  guardVisitLeave(closeVisitDialog);                  /* v22L14 §5:同樣套用未儲存保護 */
 });
 /* ═══ v22K:備份提醒(資訊全存於 settings,不新增 localStorage 鍵) ═══ */
 const BACKUP_STALE_DAYS=14, BACKUP_CHANGE_LIMIT=20;
