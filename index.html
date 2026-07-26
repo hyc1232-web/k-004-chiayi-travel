@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十二版(V22L12 完成行程與記錄造訪的區別)｜2026-07-22
+ 旅遊吃玩導航｜第二十二版(V22L13 造訪紀錄彈窗回頂)｜2026-07-22
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -140,6 +140,11 @@
    「記錄這次造訪」補一行「需要完成今天行程,請勾選下方…」;
    勾選說明改「勾選後,這個景點也會標記為今日已完成。」、
    非今天改「只有今天的造訪紀錄可以同時完成今日行程。」
+ V22L13(2026-07-22,APP_RELEASE=22L13):造訪紀錄彈窗開啟時自動回到最上方——
+   真正負責捲動的是 #vdBody(.vdCard 為 overflow:hidden、#visitDlg 僅遮罩),
+   在 openVisitDialog 結尾以「同步歸零 + 雙層 requestAnimationFrame」回頂,
+   涵蓋新增、查看後編輯、同日提醒選編輯原紀錄、切換編輯另一筆等所有開啟路徑;
+   不使用固定 setTimeout,不動 window 捲動(背景頁面位置不變),彈窗開啟不自動聚焦欄位。
  V22L8.1(2026-07-22,APP_RELEASE=22L8.1):卡片新增常駐「✅ 記錄造訪」入口,
    今日完成後也不消失、不停用;「查看紀錄」與「記錄造訪」各自成鈕、獨立一列、觸控 ≥44px;
    同一天已有紀錄時不再默默重複新增,改詢問是否編輯原紀錄;
@@ -824,7 +829,7 @@
   <div class="sysName">🧭 <span class="sysFull">旅遊吃玩導航</span><span class="sysShort">旅遊導航</span></div>
   <div class="hRow">
     <h1 id="hTitle">嘉義親子吃玩之旅</h1>
-    <span class="verChip" id="verChip">V22L12</span>
+    <span class="verChip" id="verChip">V22L13</span>
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
     <button id="btnSettings" title="旅遊設定">⚙️</button>
@@ -977,7 +982,7 @@
     </div>
     <button id="vdClose" title="關閉" aria-label="關閉">✕</button>
   </div>
-  <div class="vdBody">
+  <div class="vdBody" id="vdBody">
   <div id="vdSummary" class="vdMeta" hidden></div>
   <div id="vdForm">
     <div class="vdRow"><label for="vdDate">日期</label><input type="date" id="vdDate"></div>
@@ -1406,7 +1411,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=22;             /* 程式版本(與資料格式版本分離) */
-const APP_RELEASE="22L12";        /* v22L12:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="22L13";        /* v22L13:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -4518,6 +4523,19 @@ function openVisitDialog(uid,mode,editIndex,prefill){
   }
   vdEl("vdCount").textContent=`${vdEl("vdNote").value.length}/${VH_NOTE_MAX}`;
   vdEl("visitDlg").hidden=false;
+  scrollVisitDialogTop();                             /* v22L13:內容渲染完成後回到最上方 */
+}
+/* ═══ v22L13:造訪紀錄彈窗回頂 ═══
+   真正負責捲動的是 #vdBody(.vdCard 為 overflow:hidden,#visitDlg 僅為遮罩),
+   因此只對 #vdBody 歸零;不動 window 捲動,背景頁面位置維持不變。 */
+function scrollVisitDialogTop(){
+  const body=document.getElementById("vdBody");
+  if(!body)return;
+  body.scrollTop=0;                                   /* 先同步歸零,避免開啟瞬間閃到舊位置 */
+  const reset=()=>{body.scrollTop=0};
+  if(typeof requestAnimationFrame==="function")
+    requestAnimationFrame(()=>requestAnimationFrame(reset));   /* 雙層 rAF:等版面與內容渲染穩定 */
+  else reset();                                       /* 不使用固定 setTimeout 掩蓋問題 */
 }
 function closeVisitDialog(){
   vdEl("visitDlg").hidden=true;vdUid=null;vdEditIndex=null;
