@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十三版(V23 多旅程與多天行程)｜2026-07-26
- 本檔最新版本:APP_RELEASE = 23(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段1 基礎整頓)｜2026-07-27
+ 本檔最新版本:APP_RELEASE = 24a(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -228,6 +228,21 @@
      會看到「空白頁+錯版本號+對話框」);verChip 靜態預設值改中性「—」。
      修正11:批次回顧的同日去重條件只擋空白筆,若那天已寫過評分/備註會被空白筆覆蓋
      (次數多算一次、卡片評分備註變空);改為同日已有任何紀錄就略過,與單筆路徑判準一致。
+ ═══ V24 段1(2026-07-27,APP_RELEASE=24a):基礎整頓 ═══
+   A 開機自動落到「今天」+記住頂部收合:新增 todayDayIdxOf()/autoJumpToToday(),
+     開機在 startReviewFlow() 之前呼叫(順序不可對調:先切背景再蓋回顧視窗);
+     headerCollapsed 改存 settings.headerCollapsed(DEF_SETTINGS 加欄、normalizeSettings 收斂、
+     開機讀初值、▲/▼ 翻轉後 saveSettings),不新增 localStorage 鍵;
+   B 每一站加單點導航:tvStop 樣板加 .tvGoOne(既有 dirURL,不動 segURLsOf 與整天多點路線);
+   C「✕ 移除一站」加 8 秒復原(不加確認框,少按一下):新增 travelUndo/travelUndoTimer 與
+     setTravelUndo()/undoTravelChange(),移除前取 cloneTravels() 快照,復原走既有 commitTravels;
+   D 天數列可視化:.tvDayBar 加細捲軸與左右淡陰影,不改 HTML 結構;
+   E 加/減一天同步 endDate:修掉「區間寫 3 天卻說 6 天」的假結束日;
+     「✏️ 修改名稱/日期」那條路徑不動,兩邊衝突時以使用者手填日期優先;
+   F 隔天回顧改「整趟結束才問」:pendingReviewDays 先比最後一天的實際日期
+     (用 travelDayDate 算,不信可能是壞值的 endDate),旅途中一律安靜;手動入口不受影響;
+   G「行程」正名為「想去清單」21 項 23 處(段3 漏改的);
+     「完成今日行程」「排進行程」「行程順序」「行程表定時間」四類語意不同,一律不動。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -957,7 +972,18 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvHead{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.2rem 0 .6rem}
 .tvName{font-size:1.15rem;font-weight:800}
 .tvDates{color:var(--ink-soft);font-size:1rem}
-.tvDayBar{display:flex;gap:.45rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:.3rem 0 .5rem}
+.tvDayBar{display:flex;gap:.45rem;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:.3rem 0 .5rem;
+  scrollbar-width:thin;
+  background:
+    radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.20),rgba(0,0,0,0)),
+    radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.20),rgba(0,0,0,0)) 100% 0;
+  background-repeat:no-repeat;
+  background-size:.9rem 100%,.9rem 100%;
+  background-attachment:scroll,scroll}
+.tvDayBar::-webkit-scrollbar{height:.45rem}
+.tvDayBar::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px}
+.tvDayBar::-webkit-scrollbar-track{background:transparent}
 .tvDayBar button{flex:0 0 auto;min-height:2.75rem;padding:0 .9rem;font-size:1rem;font-weight:700;
   border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink);cursor:pointer;white-space:nowrap}
 .tvDayBar button[aria-pressed="true"]{background:var(--open);color:#fff;border-color:var(--open)}
@@ -972,6 +998,12 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvStopOps{display:flex;gap:.35rem}
 .tvStopOps button{min-width:2.75rem;min-height:2.75rem;font-size:1rem;border:1px solid var(--line);
   border-radius:.5rem;background:#fff;cursor:pointer}
+.tvGoOne{display:inline-flex;align-items:center;justify-content:center;
+  min-height:2.75rem;padding:0 .7rem;border-radius:.7rem;text-decoration:none;
+  background:var(--sign-green);color:#fff;font-weight:800;font-size:.95rem;white-space:nowrap}
+.tvUndo{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.5rem 0;
+  padding:.55rem .7rem;border-radius:.7rem;background:#FFF6E0;border:1px solid #E5C97A;
+  font-size:1rem;color:#5A4300}
 .tvPick{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}
 .tvPickList{display:flex;flex-direction:column;gap:.4rem;max-height:18rem;overflow-y:auto;margin:.5rem 0}
 .tvPickItem{display:flex;align-items:center;gap:.5rem;min-height:2.75rem;font-size:1.05rem}
@@ -1323,7 +1355,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 <div id="tripBar">
   <div class="row">
     <b id="tripSum">想去清單 0 站</b>
-    <button class="btn btn-dark" id="btnTripExpand" title="進入專注編輯模式">✏️ 編輯行程</button>
+    <button class="btn btn-dark" id="btnTripExpand" title="進入專注編輯模式">✏️ 編輯想去清單</button>
     <button class="btn btn-dark" id="btnCopyTrip">📋 複製給家人</button>
     <div id="tripCtl">
     <button class="btn btn-dark" id="btnNearFar">由近到遠</button>
@@ -1468,7 +1500,8 @@ const INDOOR_TYPES=["室內","戶外","半室內","未設定"];
 const DEF_SETTINGS={title:"嘉義親子吃玩之旅",hotelName:"天成文旅－繪日之丘",startDate:"",endDate:"",regions:[],currentRegion:"",
   defaultRegionMode:"all",defaultSortMode:"trip",   /* v22J:顯示偏好(僅存於 settings,不新增 localStorage 鍵) */
   lastFullBackupAt:"",backupChangeCount:0,           /* v22K:備份資訊(同樣只存於 settings) */
-  v23UpgradeNoticed:false};                          /* v23 E2:升級備份提醒只跳一次(存 settings,不新增鍵) */
+  v23UpgradeNoticed:false,                           /* v23 E2:升級備份提醒只跳一次(存 settings,不新增鍵) */
+  headerCollapsed:false};                            /* v24 A:頂部收合偏好(存 settings,不新增鍵) */
 function normalizeSettings(raw){          /* 依群組 建議.txt */
   const result={...DEF_SETTINGS};
   if(!raw||typeof raw!=="object")return result;
@@ -1496,6 +1529,7 @@ function normalizeSettings(raw){          /* 依群組 建議.txt */
    const c=Number(raw.backupChangeCount);
    result.backupChangeCount=(Number.isFinite(c)&&c>=0)?Math.floor(c):0;}
   result.v23UpgradeNoticed=raw.v23UpgradeNoticed===true;   /* v23 E2:升級提醒是否已跳過 */
+  result.headerCollapsed=raw.headerCollapsed===true;       /* v24 A:頂部收合偏好 */
   return result;
 }
 function normalizeOpen(raw){               /* 群組v8#3:排序+合併重疊/相鄰時段 */
@@ -1729,7 +1763,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="23";           /* v23:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="24a";          /* v24 段1:施工中版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2175,7 +2209,7 @@ document.getElementById("sHealth").addEventListener("click",()=>{
     const hasWarning=legacyN>0||lv.level!=="green";
     const nameLine=legacyN?legacyNames.slice(0,5).join("、")+(legacyN>5?`…等 ${legacyN-5} 個景點`:""):"";
     return `內建景點:${PLACES.length}｜自訂景點:${customPlaces.length}｜已暫時隱藏:${excluded.size}｜無座標:${noCoord}<br>`
-    +`自訂重複uid:${dup}｜異常座標校正:${badFix}｜行程站點:${trip.length}｜行程重複:${tripDup}<br>`
+    +`自訂重複uid:${dup}｜異常座標校正:${badFix}｜想去清單站點:${trip.length}｜想去清單重複:${tripDup}<br>`
     +`無效歷史紀錄:${orphanHist}｜去過紀錄異常:${vhAnomalies}｜今日完成:${completedToday.size}｜曾去過:${Object.keys(visitedHistory).length} 筆｜座標校正:${Object.keys(coordFix).length} 筆｜發布移除標記:${permanentRemovedUids.length}<br>`
     +`照片:${phAll.length} 張(拍攝 ${phD}/網址 ${phAll.length-phD}/明確無照 ${phNone})｜內建預設 ${Object.keys(DEFAULT_PHOTOS).length} 張｜本機旅遊資料:約 ${mb.toFixed(2)} MB／上限約 ${(STORAGE_RED_BYTES/1024/1024).toFixed(1)}MB(估算,僅本專案十二鍵)｜還能存約 ${remainN} 張照片｜程式版本:v${APP_VERSION}｜資料格式:v${DATA_SCHEMA_VERSION}`
     +(legacyN?`<br><span style="color:var(--closed)">⚠️ 舊HTTP圖片:${legacyN} 張——${nameLine}(HTTPS頁可能不顯示、不會被匯出;開該景點「貼圖片網址」換 https)</span>`:"")
@@ -2202,7 +2236,7 @@ let mobileMultiSelectMode=false;    /* 手機退回修正3:精簡多選(純介�
 let tripPanelExpanded=false;        /* 手機退回修正4:行程面板預設收合 */
 /* v22E:兩區塊「整體收合」狀態——只存記憶體,不寫 localStorage,重整後預設展開。
    刻意與 tripPanelExpanded(編輯區展開)、tripListOpen(站點清單展開)分離,互不共用變數。 */
-let headerCollapsed=false;          /* 頂部綠色區整體收合 */
+let headerCollapsed=settings.headerCollapsed===true;   /* v24 A:改讀 settings,重整後維持上次的收合狀態 */
 let tripBarCollapsed=false;         /* 今日行程整體縮小 */
 /* v22G:專注編輯模式——只存記憶體,不新增 localStorage 鍵;不影響 trip/tripManual/勾選/順序 */
 let tripEditMode=false;
@@ -2428,7 +2462,7 @@ function renderMultiSelectList(now){
   if(sortMode==="closing")pts=[...pts].sort((a,b)=>minToClose(a,now)-minToClose(b,now));
   renderedPts=pts;
   document.getElementById("main").innerHTML=
-    `<div class="meta" style="margin:.4rem 0">✓ 多選模式:點整列即可加入/取消行程;再按上方「✓ 多選模式」回完整卡片。</div>`
+    `<div class="meta" style="margin:.4rem 0">✓ 多選模式:點整列即可加入/取消想去清單;再按上方「✓ 多選模式」回完整卡片。</div>`
     +pts.map(p=>{
       const st=stateOf(p,now),inTrip=trip.includes(p.uid),exc=excluded.has(p.uid);
       const km=meta[p.uid]?`約 ${meta[p.uid].km.toFixed(1)} km`:(p.hasCoord?"":"⚠ 無座標");
@@ -2546,7 +2580,7 @@ function commitSortedTrip(out){
   trip=out;tripManual=false;
   const ok=[saveTrip(),saveTripManual()].every(Boolean); /* 工單14#6 */
   if(!ok){
-    rollbackTripState(oldT,oldM,"排序未完成(儲存失敗),行程順序已還原。"); /* 工單17#5 */
+    rollbackTripState(oldT,oldM,"排序未完成(儲存失敗),順序已還原。"); /* 工單17#5 */
     return false;
   }
   return true;
@@ -2593,7 +2627,7 @@ function renderTripBar(now){
   updateTripSummary(now);
   /* 手機退回修正4:預設收合單列;展開才見完整控制與清單 */
   /* v22G:btnTripExpand 只當「編輯行程」入口/「完成編輯」出口,不再控制收合(收合一律由 btnTripMin) */
-  document.getElementById("btnTripExpand").textContent=tripEditMode?"✅ 完成編輯":"✏️ 編輯行程";
+  document.getElementById("btnTripExpand").textContent=tripEditMode?"✅ 完成編輯":"✏️ 編輯想去清單";
   document.getElementById("btnTripExpand").title=tripEditMode?"結束編輯":"進入專注編輯模式";
   document.getElementById("tripCtl").hidden=tripBarCollapsed;
   lastGos=segURLs();
@@ -2622,12 +2656,12 @@ function renderTripBar(now){
       <button class="btn btn-dark" data-act="checkall">☑ 全選</button>
       <button class="btn btn-dark" data-act="uncheckall">☐ 全部取消勾選</button>
       <button class="btn btn-danger" data-act="rmunchecked"${dropN?"":" disabled"}>🗑 移除未勾選(${dropN})</button>
-      <span class="tEditNote">勾選 = 保留在行程;目前保留 ${keepN} 站,未勾選 ${dropN} 站(移除只改行程,不刪景點資料)</span>
+      <span class="tEditNote">勾選 = 保留在想去清單;目前保留 ${keepN} 站,未勾選 ${dropN} 站(移除只改想去清單,不刪景點資料)</span>
     </div>`+trip.map((k,i)=>{
     const p=byUid[k];if(!p)return"";
     const on=!tripUnchecked.has(k);
     return `<div class="tItem">
-      <label class="tChkWrap"><input type="checkbox" class="tChk" data-uid="${esc(k)}"${on?" checked":""} aria-label="保留 ${esc(p.name)} 在行程"></label>
+      <label class="tChkWrap"><input type="checkbox" class="tChk" data-uid="${esc(k)}"${on?" checked":""} aria-label="保留 ${esc(p.name)} 在想去清單"></label>
       <span class="tName">${i+1}. ${esc(p.name)}</span>
       <span class="tLeg">${legs[i]!=null?`(前段約 ${legs[i]} 分)`:""}</span>
       <div class="tOps">
@@ -2635,7 +2669,7 @@ function renderTripBar(now){
         <button data-op="up" data-i="${i}"${i===0?" disabled":""} title="上移" aria-label="上移">↑</button>
         <button data-op="down" data-i="${i}"${i===trip.length-1?" disabled":""} title="下移" aria-label="下移">↓</button>
         <button data-op="end" data-i="${i}" title="設為最後一站">終點</button>
-        <button data-op="del" data-i="${i}" title="從行程移除">移除</button>
+        <button data-op="del" data-i="${i}" title="從想去清單移除">移除</button>
       </div>
     </div>`;
   }).join("");
@@ -2652,7 +2686,7 @@ function updateTripSummary(now){
     +(tripManual?"｜✋ 已手動調整順序":"");
   const warn=trip.map(k=>byUid[k]).filter(p=>p&&stateOf(p,now).badge==="今日公休").map(p=>p.name);
   document.getElementById("tripWarn").textContent=
-    warn.length?`⚠️ 今日公休仍在行程中:${warn.join("、")}`:"";
+    warn.length?`⚠️ 今日公休仍在想去清單中:${warn.join("、")}`:"";
 }
 document.getElementById("btnTripExpand").addEventListener("click",()=>{
   tripEditMode=!tripEditMode;                        /* v22G:進入/結束專注編輯模式;不動 trip/勾選/順序 */
@@ -2665,12 +2699,12 @@ document.getElementById("btnNearFar").addEventListener("click",()=>{if(!confirmS
 document.getElementById("btnFarNear").addEventListener("click",()=>{if(!confirmSortOverride())return;if(farFirstOrder()){segClicked=-1;renderAll()}}); /* 工單15#4 */
 document.getElementById("btnClearTrip").addEventListener("click",()=>{
   const n=trip.length;
-  if(!n){alert("目前尚未加入行程");return}
+  if(!n){alert("想去清單目前是空的");return}
   if(!confirm(`將移除想去清單中的全部 ${n} 站。\n景點資料、照片、座標及去過紀錄都會保留。\n確定清空想去清單嗎?`))return;
   const oldT=[...trip],oldM=tripManual;              /* 存成功才生效(工單I) */
   trip=[];tripManual=false;
   if(![saveTrip(),saveTripManual()].every(Boolean)){ /* 工單14#6 */
-    rollbackTripState(oldT,oldM,"清空未完成(儲存失敗),行程已還原。");return; /* 工單17#5 */
+    rollbackTripState(oldT,oldM,"清空未完成(儲存失敗),想去清單已還原。");return; /* 工單17#5 */
   }
   tripUnchecked.clear();
   setTripUndo(oldT,oldM,"想去清單已清空");            /* v22D:8 秒復原 */
@@ -2728,7 +2762,7 @@ function excludePlace(uid){
     trip=oldTrip;excluded=oldExcluded;
     const rollbackSaved=[saveTrip(),saveExcluded()].every(Boolean); /* 工單16#3:回存也驗 */
     alert(rollbackSaved
-      ?"暫時隱藏失敗,行程與景點狀態已還原。"
+      ?"暫時隱藏失敗,想去清單與景點狀態已還原。"
       :"暫時隱藏失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
     return false;
   }
@@ -3610,6 +3644,7 @@ $pf.addEventListener("change",()=>{
 let homeTab="wish";          /* 僅記憶體:wish|travel */
 let curDayIdx=0;             /* 僅記憶體:目前看第幾天(索引 0 = 第 1 天) */
 let travelPicking=false;     /* 僅記憶體:加入景點的挑選區是否展開 */
+let travelUndo=null,travelUndoTimer=null;   /* 僅記憶體:旅行單站移除的 8 秒復原 */
 let tvDragFrom=-1;           /* 僅記憶體:拖曳來源索引 */
 /* 每次都整包重建再指派,絕不就地改動 travelsData,失敗才能原樣還原 */
 const cloneTravels=()=>({
@@ -3678,7 +3713,9 @@ function travelAddDay(){
   const t=currentTravel();if(!t)return;
   if(t.days.length>=TRAVEL_MAX_DAYS){alert(`天數上限 ${TRAVEL_MAX_DAYS} 天。`);return}
   const next=cloneTravels();
-  next.travels.find(x=>x.id===t.id).days.push({uids:[],reviewed:null});
+  const tt=next.travels.find(x=>x.id===t.id);
+  tt.days.push({uids:[],reviewed:null});
+  if(tt.startDate)tt.endDate=travelDayDate(tt,tt.days.length-1);   /* v24 E:天數變,結束日跟著變 */
   if(!commitTravels(next,"加一天失敗,未變更(見儲存提醒)。"))return;
   curDayIdx=currentTravel().days.length-1;
   renderTravelPanel();
@@ -3690,7 +3727,9 @@ function travelRemoveDay(){                 /* 減天前若該天有站,必須�
   if(last.uids.length&&!confirm(
     `第 ${t.days.length} 天還有 ${last.uids.length} 個景點,減掉這一天會連景點一起移除。\n\n確定要減掉嗎?`))return;
   const next=cloneTravels();
-  next.travels.find(x=>x.id===t.id).days.pop();
+  const tt=next.travels.find(x=>x.id===t.id);
+  tt.days.pop();
+  if(tt.startDate)tt.endDate=tt.days.length?travelDayDate(tt,tt.days.length-1):tt.startDate;   /* v24 E */
   if(!commitTravels(next,"減一天失敗,未變更(見儲存提醒)。"))return;
   clampDayIdx(currentTravel());
   renderTravelPanel();
@@ -3706,11 +3745,14 @@ function travelMoveStop(from,to){
 }
 function travelRemoveStop(i){
   const t=currentTravel();if(!t)return;
+  const snapBefore=cloneTravels();          /* v24 C:移除前快照,供 8 秒復原 */
   const next=cloneTravels(),d=travelDayOf(next,t);
   if(!d||i<0||i>=d.uids.length)return;
   const uid=d.uids.splice(i,1)[0];
   if(!commitTravels(next,"移除失敗,未變更(見儲存提醒)。"))return;
-  showToast(`已從第 ${curDayIdx+1} 天移除:${byUid[uid]?byUid[uid].name:uid}`);
+  const nm=byUid[uid]?byUid[uid].name:uid;
+  setTravelUndo(snapBefore,`已移除「${nm}」`);   /* v24 C */
+  showToast(`已從第 ${curDayIdx+1} 天移除:${nm}`);
   renderTravelPanel();
 }
 function travelAddStops(uids){
@@ -3795,6 +3837,10 @@ function renderTravelPanel(){
       +(t.startDate?"":`<span class="meta">這趟沒設起始日,不會自動提醒,要記錄請按左邊</span>`);
     h+=`</div>`;
   }
+  if(travelUndo){                           /* v24 C:8 秒復原條 */
+    h+=`<div class="tvUndo"><span>${esc(travelUndo.msg)}</span>`
+      +`<button class="btn btn-ghost" id="tvUndoBtn">↩ 復原</button></div>`;
+  }
   h+=stops.length
     ?`<div class="tvStops">`+stops.map((p,i)=>`<div class="tvStop" draggable="true" data-i="${i}">`
       +`<span class="tvGrip" title="拖曳排序" aria-hidden="true">⋮⋮</span>`
@@ -3802,6 +3848,8 @@ function renderTravelPanel(){
       +`<span class="tvStopName">${p.icon?esc(p.icon)+" ":""}${esc(p.name)}`
       +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}`
       +`${p.hasCoord===false?`<span class="cityChip">無座標</span>`:""}</span>`
+      +`<a class="tvGoOne" href="${dirURL(p.nav)}" target="_blank" rel="noopener"`
+      +` aria-label="導航到 ${esc(p.name)}">🧭 導航</a>`
       +`<span class="tvStopOps">`
       +`<button type="button" data-up="${i}" title="上移" aria-label="上移"${i===0?" disabled":""}>↑</button>`
       +`<button type="button" data-down="${i}" title="下移" aria-label="下移"${i===stops.length-1?" disabled":""}>↓</button>`
@@ -3865,6 +3913,7 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.dataset.up!==undefined){const i=+b.dataset.up;travelMoveStop(i,i-1);return}
   if(b.dataset.down!==undefined){const i=+b.dataset.down;travelMoveStop(i,i+1);return}
   if(b.dataset.del!==undefined){travelRemoveStop(+b.dataset.del);return}
+  if(b.id==="tvUndoBtn"){undoTravelChange();return}        /* v24 C */
   if(b.id==="tvDelete"){travelDelete();return}
   if(b.id==="tvEditOpen"){travelEditing=!travelEditing;renderTravelPanel();return}   /* v23 追加4 */
   if(b.id==="tvEditCancel"){travelEditing=false;renderTravelPanel();return}
@@ -4032,14 +4081,27 @@ function travelDayDate(t,i){                 /* 第 i 天的日期;沒有 startD
   const d=new Date(t.startDate+"T00:00:00");d.setDate(d.getDate()+i);
   return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
-function pendingReviewDays(){                /* 有 startDate、日期已過、reviewed===null、且該天有站 */
+function todayDayIdxOf(t){          /* 今天是這趟的第幾天,沒有回 -1 */
+  if(!t||!t.startDate)return -1;
+  const today=todayKey();
+  for(let i=0;i<t.days.length;i++){if(travelDayDate(t,i)===today)return i}
+  return -1;
+}
+function autoJumpToToday(){         /* 只處理目前選中那趟;不寫檔、不切趟 */
+  const t=currentTravel();if(!t)return false;
+  const i=todayDayIdxOf(t);if(i<0)return false;
+  curDayIdx=i;travelPicking=false;setHomeTab("travel");return true;
+}
+function pendingReviewDays(){       /* v24 F:整趟結束隔天才問;旅途中一律安靜 */
   const out=[],today=todayKey();
   for(const t of sortedTravels()){
-    if(!t.startDate)continue;
+    if(!t.startDate||!t.days.length)continue;
+    const lastDate=travelDayDate(t,t.days.length-1);
+    if(!lastDate||lastDate>=today)continue;        /* 整趟還沒結束→這趟完全不問 */
     t.days.forEach((d,i)=>{
-      if(d.reviewed!==null||!d.uids.length)return;   /* 沒有站的天不問:記錄不了東西 */
+      if(d.reviewed!==null||!d.uids.length)return; /* 沒有站的天不問:記錄不了東西 */
       const date=travelDayDate(t,i);
-      if(date&&date<today)out.push({travelId:t.id,dayIdx:i,date});
+      if(date)out.push({travelId:t.id,dayIdx:i,date});
     });
   }
   return out;
@@ -4049,6 +4111,19 @@ function setDayReviewed(travelId,dayIdx,state){       /* 交易式:沿用 cloneT
   const d=nt&&nt.days[dayIdx];if(!d)return false;
   d.reviewed=state;
   return commitTravels(next,"回顧狀態儲存失敗,未變更(見儲存提醒)。");
+}
+function setTravelUndo(snapshot,msg){
+  travelUndo={data:snapshot,msg};
+  if(travelUndoTimer)clearTimeout(travelUndoTimer);
+  travelUndoTimer=setTimeout(()=>{travelUndo=null;travelUndoTimer=null;renderTravelPanel()},8000);
+}
+function undoTravelChange(){
+  if(!travelUndo)return false;
+  const snap=travelUndo.data;
+  if(!commitTravels(snap,"復原未完成(儲存失敗),未變更。"))return false;
+  travelUndo=null;
+  if(travelUndoTimer){clearTimeout(travelUndoTimer);travelUndoTimer=null}
+  renderTravelPanel();return true;
 }
 /* 批次寫入既有 visitedHistory:全部成功才算,任一失敗整批不寫 */
 function vhBatchAdd(uids,date){
@@ -4215,12 +4290,12 @@ document.getElementById("main").addEventListener("click",e=>{
   const pk=e.target.closest(".pick");
   if(pk&&!pk.disabled){
     const k=pk.dataset.k,p=byUid[k];
-    if(!trip.includes(k)&&p&&!p.hasCoord){alert("此景點尚未設定座標,先用「📌 座標校正」補座標才能加入行程。");return}
+    if(!trip.includes(k)&&p&&!p.hasCoord){alert("此景點尚未設定座標,先用「📌 座標校正」補座標才能加入想去清單。");return}
     const oldT=[...trip];                              /* 工單14#1:存成功才生效,補上 v5 遺留缺口 */
     trip.includes(k)?trip.splice(trip.indexOf(k),1):trip.push(k);
     if(!saveTrip()){
       trip=oldT;renderAll();                           /* 工單15#5:還原後保險重繪 */
-      alert("行程更新未完成(儲存失敗),已還原。");return}
+      alert("想去清單更新未完成(儲存失敗),已還原。");return}
     segClicked=-1;renderAll();return}
   const vo=e.target.closest("[data-vhopen]");        /* v22L3:查看紀錄→直接開編輯視窗;不動完成狀態 */
   if(vo){vdTrigger=vo;openVisitDialog(vo.dataset.vhopen,"edit");return}
@@ -4687,7 +4762,7 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
       +`  覆蓋 ${R.custOverwrite} 筆、新增 ${R.custAdd} 筆、移除本機獨有 ${R.custRemove} 筆`
       +(R.custRemove?`\n  (將移除:${names})`:"")+"\n"
       +`・現場拍照片:將移除 ${lostShots} 張(備份檔內沒有,移除後無法復原)\n`
-      +`・行程、去過紀錄、座標校正、旅遊設定一併回到備份檔狀態\n\n`
+      +`・想去清單、去過紀錄、座標校正、旅遊設定一併回到備份檔狀態\n\n`
       +"確定完整還原嗎?"))return;
   }
   /* 工單14#4:套用前十二鍵快照(淺拷貝即可——replace 整鍵重指派、merge 只換元素引用,皆不深改既有物件) */
@@ -4772,7 +4847,7 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     +`暫時隱藏名單:成功 ${R.exc.ok}、失敗 ${R.exc.fail}\n`
     +`發布移除標記:${R.permRemoved} 筆\n`
     +`座標校正:成功 ${R.fix.ok}、失敗 ${R.fix.fail}\n`
-    +`行程:${R.trip} 站｜今日完成:${R.ct} 筆｜歷史紀錄:${R.hist} 筆｜照片:${R.photo} 筆\n`
+    +`想去清單:${R.trip} 站｜今日完成:${R.ct} 筆｜歷史紀錄:${R.hist} 筆｜照片:${R.photo} 筆\n`
     +`旅遊設定:${R.set?"已套用":"未包含"}`);
 });
 
@@ -5048,7 +5123,7 @@ async function generatePublishHtml(){
     +`├ 自正式版移除:${pub.stats.removed} 筆${pub.removedNames.length?"\n│   → "+pub.removedNames.join("、"):""}\n`
     +`└ 正式預設照片:${Object.keys(dp).length} 張(僅 https)\n\n`
     +publishMergedBlock(pub)                      /* v22H:併入名單醒目區塊(含 0 筆警告與原因) */
-    +`\n不包含:今日完成/曾去過/本次行程/手動排序/本機拍攝照片/旅遊日期住宿/暫時隱藏\n\n確定產生?`);
+    +`\n不包含:今日完成/曾去過/想去清單/手動排序/本機拍攝照片/旅遊日期住宿/暫時隱藏\n\n確定產生?`);
   if(!okGo)return;
   const sp=sentinelBlock(src.text,"PLACES"),sd0=sentinelBlock(src.text,"DEFAULT_PHOTOS");
   if(!sp||!sd0||sp.end>sd0.start){alert("原始檔哨兵異常、順序錯誤或區間重疊,已中止。");return} /* v21 同版修正4 */
@@ -5257,8 +5332,8 @@ function execCopyText(text){                           /* execCommand fallback(H
   }catch(_){return false}
 }
 function copyTodayTrip(){                               /* 複製今日行程文字,方便貼 LINE */
-  if(!trip.length){alert("目前尚未加入行程");return}
-  const title=(settings.title&&settings.title.trim())||"今日旅遊行程";
+  if(!trip.length){alert("想去清單目前是空的");return}
+  const title=(settings.title&&settings.title.trim())||"我的想去清單";
   const now=new Date();
   const dateLine=`${pad(now.getMonth()+1)}/${pad(now.getDate())} 想去清單`;
   const lines=trip.map((u,i)=>`${i+1}. ${byUid[u]?byUid[u].name:u}`);
@@ -6124,7 +6199,8 @@ function applyTripBarModes(bar){
   }
 }
 document.getElementById("btnHeaderToggle").addEventListener("click",()=>{
-  headerCollapsed=!headerCollapsed;renderHeader();      /* 記憶體;重整後預設展開 */
+  headerCollapsed=!headerCollapsed;renderHeader();
+  settings.headerCollapsed=headerCollapsed;saveSettings();   /* v24 A:純顯示偏好,存檔失敗不回滾(lsSet 已自帶提示) */
 });
 document.getElementById("btnTripMin").addEventListener("click",()=>{
   /* v22G:唯一的收合控制。編輯模式中按下→先退出編輯回一般展開;否則切換整體縮小/展開 */
@@ -6151,7 +6227,7 @@ function undoTripChange(){                            /* 復原:完整舊 trip �
   trip=[...snap.trip];tripManual=snap.manual;
   if(![saveTrip(),saveTripManual()].every(Boolean)){   /* 失敗→維持復原前狀態 */
     trip=curT;tripManual=curM;saveTrip();saveTripManual();
-    alert("復原未完成(儲存失敗),已維持目前行程。");renderAll();return false}
+    alert("復原未完成(儲存失敗),已維持目前想去清單。");renderAll();return false}
   clearTripUndo();tripUnchecked.clear();segClicked=-1;renderAll();return true;
 }
 function removeUncheckedFromTrip(){                   /* 批次移除:只改 trip */
@@ -6161,9 +6237,9 @@ function removeUncheckedFromTrip(){                   /* 批次移除:只改 tri
   const oldT=[...trip],oldM=tripManual;
   trip=trip.filter(u=>!tripUnchecked.has(u));
   if(!saveTrip()){
-    rollbackTripState(oldT,oldM,"移除未完成(儲存失敗),行程已還原。");return false}
+    rollbackTripState(oldT,oldM,"移除未完成(儲存失敗),想去清單已還原。");return false}
   tripUnchecked.clear();
-  setTripUndo(oldT,oldM,`已從行程移除 ${drop.length} 站`);
+  setTripUndo(oldT,oldM,`已從想去清單移除 ${drop.length} 站`);
   segClicked=-1;renderAll();return true;
 }
 document.getElementById("tripUndo").addEventListener("click",e=>{
@@ -6217,6 +6293,7 @@ if(v23FromV22&&!settings.v23UpgradeNoticed){
   settings.v23UpgradeNoticed=true;
   if(!saveSettings())settings.v23UpgradeNoticed=false;
 }
+autoJumpToToday();                  /* v24 A:先把背景切到今天,回顧視窗再蓋上去 */
 startReviewFlow();                                   /* v23 E5:畫面畫好之後才問隔天回顧 */
 backupTracking=true;                                 /* v22K:開機回存不計數,之後的使用者操作才計 */
 renderBackupUI();
