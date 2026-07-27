@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段1 基礎整頓)｜2026-07-27
- 本檔最新版本:APP_RELEASE = 24a(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段1 基礎整頓＋修正1～3)｜2026-07-27
+ 本檔最新版本:APP_RELEASE = 24d(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -243,6 +243,36 @@
      (用 travelDayDate 算,不信可能是壞值的 endDate),旅途中一律安靜;手動入口不受影響;
    G「行程」正名為「想去清單」21 項 23 處(段3 漏改的);
      「完成今日行程」「排進行程」「行程順序」「行程表定時間」四類語意不同,一律不動。
+ ═══ V24 段1 修正1(2026-07-27,APP_RELEASE=24b)═══
+   1-1 天數列捲位:renderTravelPanel 以 innerHTML 整段重畫會把 .tvDayBar 的 scrollLeft 歸零,
+     8 天的旅行點第 4 天會彈回第 1 天、要再滑兩次。改在寫入 innerHTML 之後,
+     依 aria-pressed="true" 那顆的 offsetLeft 把選中日捲到可視範圍中央;
+     只動 scrollLeft(橫向),不用 scrollIntoView——它會連頁面縱向一起捲、撞 sticky 頁首(見上方 v22L7.3);
+     天數少到不需捲動時 Math.max(0,…) 會算出 0,不造成位移;
+   1-2 復原改掛 toast:段1 C 自製的黃色復原條與既有 toast 同時出現,同一件事跳兩個通知,
+     且自製條沒有倒數也沒有暫停。改為重用 showToast 既有的 action.label/onClick,
+     一個動作只留一個通知,並自帶 .toastBar 倒數與按住暫停;
+     setTravelUndo 簡化為只保管快照(參數去掉 msg),過期 8000ms 與 toast 的 8000ms 同時失效;
+     自製復原條的 CSS、樣板與事件分支三處全部刪除,識別字不留殘跡;
+     undoTravelChange() 的還原邏輯(走 commitTravels)一字未改;
+     想去清單那邊的復原條是另一套獨立元件(變數、算繪函式、只留復原條的顯示模式),完全未觸碰;
+   1-3 補正名:備份提醒「本機景點、行程、照片及紀錄可能遺失」的「行程」指 trip,
+     改為「想去清單」——段1 G 清單漏列的第 22 項。
+ ═══ V24 段1 修正2(2026-07-27,APP_RELEASE=24c)═══
+   修正1 留下的洞:復原快照存在模組層變數,生命週期靠自己的 8000ms 計時器維護,
+     與提示的 8000ms 是兩個獨立碼表。使用者按住提示暫停倒數時,提示還在、快照已過期,
+     按「↩ 復原」會靜默無效。
+   不採「提示關閉時通知快照失效」:要動 36 處共用的提示關閉流程,風險不成比例;
+   不採「快照延長到 12000ms」:只是把窗口糊掉,按住 30 秒照樣壞。
+   正解:快照直接包進提示動作按鈕的閉包——按鈕在快照就在,按鈕沒了快照跟著被回收,
+     不需要任何計時器,兩個碼表不同步的問題從源頭消失。
+   新增 restoreTravels(snap)(快照由呼叫端傳入)取代原本讀模組層狀態的復原函式;
+     移除模組層的快照變數與其計時器、以及設定快照的那支函式,共減 3 個識別字;
+     還原邏輯仍走 commitTravels,成功後仍呼叫 renderTravelPanel();
+     快照仍在 commitTravels 成功之前取,順序未變;
+     未動 showToast/hideToast/toastDuration 與提示關閉流程;
+     想去清單那邊的復原元件完好保留,未觸碰。
+   沿革措辭於 24d 還原為原字面,程式碼區不受影響。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -1001,9 +1031,6 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvGoOne{display:inline-flex;align-items:center;justify-content:center;
   min-height:2.75rem;padding:0 .7rem;border-radius:.7rem;text-decoration:none;
   background:var(--sign-green);color:#fff;font-weight:800;font-size:.95rem;white-space:nowrap}
-.tvUndo{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.5rem 0;
-  padding:.55rem .7rem;border-radius:.7rem;background:#FFF6E0;border:1px solid #E5C97A;
-  font-size:1rem;color:#5A4300}
 .tvPick{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}
 .tvPickList{display:flex;flex-direction:column;gap:.4rem;max-height:18rem;overflow-y:auto;margin:.5rem 0}
 .tvPickItem{display:flex;align-items:center;gap:.5rem;min-height:2.75rem;font-size:1.05rem}
@@ -1763,7 +1790,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24a";          /* v24 段1:施工中版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24d";          /* v24 段1 修正3:施工中版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -3644,7 +3671,6 @@ $pf.addEventListener("change",()=>{
 let homeTab="wish";          /* 僅記憶體:wish|travel */
 let curDayIdx=0;             /* 僅記憶體:目前看第幾天(索引 0 = 第 1 天) */
 let travelPicking=false;     /* 僅記憶體:加入景點的挑選區是否展開 */
-let travelUndo=null,travelUndoTimer=null;   /* 僅記憶體:旅行單站移除的 8 秒復原 */
 let tvDragFrom=-1;           /* 僅記憶體:拖曳來源索引 */
 /* 每次都整包重建再指派,絕不就地改動 travelsData,失敗才能原樣還原 */
 const cloneTravels=()=>({
@@ -3751,8 +3777,10 @@ function travelRemoveStop(i){
   const uid=d.uids.splice(i,1)[0];
   if(!commitTravels(next,"移除失敗,未變更(見儲存提醒)。"))return;
   const nm=byUid[uid]?byUid[uid].name:uid;
-  setTravelUndo(snapBefore,`已移除「${nm}」`);   /* v24 C */
-  showToast(`已從第 ${curDayIdx+1} 天移除:${nm}`);
+  /* v24 修正1:一個動作只給一個通知;復原掛在 toast 上,倒數條讓使用者知道還剩多久
+     v24 修正2:快照包進閉包,toast 在多久快照就活多久 */
+  showToast(`已從第 ${curDayIdx+1} 天移除:${nm}`,
+            {label:"↩ 復原",onClick:()=>restoreTravels(snapBefore)},8000);
   renderTravelPanel();
 }
 function travelAddStops(uids){
@@ -3837,10 +3865,6 @@ function renderTravelPanel(){
       +(t.startDate?"":`<span class="meta">這趟沒設起始日,不會自動提醒,要記錄請按左邊</span>`);
     h+=`</div>`;
   }
-  if(travelUndo){                           /* v24 C:8 秒復原條 */
-    h+=`<div class="tvUndo"><span>${esc(travelUndo.msg)}</span>`
-      +`<button class="btn btn-ghost" id="tvUndoBtn">↩ 復原</button></div>`;
-  }
   h+=stops.length
     ?`<div class="tvStops">`+stops.map((p,i)=>`<div class="tvStop" draggable="true" data-i="${i}">`
       +`<span class="tvGrip" title="拖曳排序" aria-hidden="true">⋮⋮</span>`
@@ -3887,6 +3911,10 @@ function renderTravelPanel(){
   h+=`<div class="tvDanger"><button class="btn btn-danger" id="tvDelete">🗑 刪除這趟旅行</button>`
     +`<div class="meta">只會刪掉這趟的天數與站點安排;景點本身、想去清單、造訪紀錄都不受影響。</div></div>`;
   box.innerHTML=h;
+  /* v24 修正1:整段重畫會讓天數列捲回最左,把選中那天捲回畫面中央 */
+  const dayBar=document.querySelector("#travelBody .tvDayBar");
+  const dayOn=dayBar&&dayBar.querySelector('button[aria-pressed="true"]');
+  if(dayBar&&dayOn)dayBar.scrollLeft=Math.max(0,dayOn.offsetLeft-(dayBar.clientWidth-dayOn.offsetWidth)/2);
 }
 function setHomeTab(tab){
   homeTab=tab==="travel"?"travel":"wish";
@@ -3913,7 +3941,6 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.dataset.up!==undefined){const i=+b.dataset.up;travelMoveStop(i,i-1);return}
   if(b.dataset.down!==undefined){const i=+b.dataset.down;travelMoveStop(i,i+1);return}
   if(b.dataset.del!==undefined){travelRemoveStop(+b.dataset.del);return}
-  if(b.id==="tvUndoBtn"){undoTravelChange();return}        /* v24 C */
   if(b.id==="tvDelete"){travelDelete();return}
   if(b.id==="tvEditOpen"){travelEditing=!travelEditing;renderTravelPanel();return}   /* v23 追加4 */
   if(b.id==="tvEditCancel"){travelEditing=false;renderTravelPanel();return}
@@ -4112,17 +4139,9 @@ function setDayReviewed(travelId,dayIdx,state){       /* 交易式:沿用 cloneT
   d.reviewed=state;
   return commitTravels(next,"回顧狀態儲存失敗,未變更(見儲存提醒)。");
 }
-function setTravelUndo(snapshot,msg){
-  travelUndo={data:snapshot,msg};
-  if(travelUndoTimer)clearTimeout(travelUndoTimer);
-  travelUndoTimer=setTimeout(()=>{travelUndo=null;travelUndoTimer=null;renderTravelPanel()},8000);
-}
-function undoTravelChange(){
-  if(!travelUndo)return false;
-  const snap=travelUndo.data;
+function restoreTravels(snap){        /* v24 修正2:快照由呼叫端傳入,不再有模組層狀態 */
+  if(!snap)return false;
   if(!commitTravels(snap,"復原未完成(儲存失敗),未變更。"))return false;
-  travelUndo=null;
-  if(travelUndoTimer){clearTimeout(travelUndoTimer);travelUndoTimer=null}
   renderTravelPanel();return true;
 }
 /* 批次寫入既有 visitedHistory:全部成功才算,任一失敗整批不寫 */
@@ -6088,7 +6107,7 @@ function renderBackupUI(){
   if(st.many)reasons.push(`備份後已累積 ${backupCountNow()} 次資料變更`);
   el.hidden=false;
   el.innerHTML=`<span class="bkTitle">⚠️ ${esc(reasons.join(";"))}</span>`
-    +`手機清除瀏覽資料、換手機或瀏覽器空間異常時,本機景點、行程、照片及紀錄可能遺失。`
+    +`手機清除瀏覽資料、換手機或瀏覽器空間異常時,本機景點、想去清單、照片及紀錄可能遺失。`
     +`<div class="bkOps"><button class="btn btn-loc" id="btnBackupNotice">📦 立即備份</button>`
     +`<button class="btn btn-ghost" id="btnBackupSnooze">稍後提醒</button></div>`;
 }
