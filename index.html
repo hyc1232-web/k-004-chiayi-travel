@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段1 基礎整頓＋修正1～3)｜2026-07-27
- 本檔最新版本:APP_RELEASE = 24(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段2 批次1 介面收斂)｜2026-07-28
+ 本檔最新版本:APP_RELEASE = 24e(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -273,6 +273,26 @@
      未動 showToast/hideToast/toastDuration 與提示關閉流程;
      想去清單那邊的復原元件完好保留,未觸碰。
    沿革措辭於 24d 還原為原字面,程式碼區不受影響。
+ ═══ V24 段2 批次1(2026-07-28,APP_RELEASE=24e):純介面收斂 ═══
+   本批次只改看得到的東西,不碰任何資料結構與十二鍵。
+   1-A 卡片按鈕列:.pick 只吐符號沒有字,「加入想去清單」六個字只寫在 title,
+     手機沒有滑鼠停留永遠不顯示——改為「＋ 想去」/「✓ 已加」,title 保留;
+     .pick 由 min-width:3.4rem 改為靠 padding 撐開以容納文字;
+     .actions 補 flex-wrap:wrap(原本沒有,塞不下只會互相擠壓,實機上「📅 排進行程」已被擠成兩行);
+     補 .planBtn 樣式(全檔樣式表原本 0 次,吃瀏覽器預設外觀,是那一列唯一不同族的按鈕),
+     刻意用中性外框而非綠底,不與「🧭 導航」的大面積綠爭焦;
+     .go/.info/.navSel 與 .pick[aria-pressed] 一律不動;
+   1-B 備份入口收斂:原本三顆按鈕、兩個名字、同一支 exportFullBackup——
+     刪掉下方那一排的「📦 匯出完整旅遊資料」與其事件註冊(函式本身一字不動,另兩顆仍在用);
+     「📥 匯入完整旅遊資料」搬進「資料備份」區塊與「📦 立即備份」並排,並改名為「📥 還原備份」
+     (它做的是整包覆蓋,叫「匯入」聽起來像加東西進去,名字要講出後果);
+     說明與各處保命提示裡的「📦 匯出完整旅遊資料」全部改名為「📦 立即備份」,一句都沒刪;
+     ioBox 留在原位不動;黃色提醒橫幅那顆與座標校正、可攜版本、重新載入四顆均不動;
+   1-C 旅行加站兩下改一下:想去清單那邊早就是「點整列即加入」,旅行這邊卻要勾方框再按「加入所選」,
+     同一個 APP 兩套規矩——改為一列一顆按鈕、點了直接加入,底部兩顆併成一顆「完成」
+     (已即時生效,沒有東西可以取消);travelAddStops 內部邏輯一字不動,
+     其結尾會把 travelPicking 設回 false,故由呼叫端在其後重新打開,使用者才能連續加第二、三站;
+     空清單那一支分支(「想去清單目前沒有可加入的景點…」+「收起」)一字不動。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -748,7 +768,7 @@
   .visitBtn[aria-pressed="true"]{background:#EAF3EC;color:var(--sign-green-dark);
     border-color:#BBD9C4;font-weight:800}
   .fixed-tag{color:#0B63A8;font-weight:800}
-  .actions{display:flex;gap:.5rem;margin-top:.3rem}
+  .actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.3rem}
   .go{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;
     min-height:3.4rem;text-decoration:none;border-radius:.9rem;background:var(--sign-green);
     color:#fff;font-weight:800;font-size:1.02em;
@@ -757,10 +777,14 @@
   .info{flex:0 0 auto;display:flex;align-items:center;justify-content:center;min-width:5rem;
     min-height:3.4rem;text-decoration:none;border-radius:.9rem;border:2px solid var(--line);
     color:var(--ink-soft);font-weight:700;font-size:.8em;background:#fff}
-  .pick{flex:0 0 auto;min-width:3.4rem;min-height:3.4rem;border-radius:.9rem;
-    font:inherit;font-size:1.1em;font-weight:800;cursor:pointer;
+  .pick{flex:0 0 auto;min-width:0;padding:0 .8rem;min-height:3.4rem;border-radius:.9rem;
+    font:inherit;font-size:1.02em;font-weight:800;cursor:pointer;white-space:nowrap;
     border:3px dashed var(--sign-green);background:#fff;color:var(--sign-green)}
   .pick[aria-pressed="true"]{background:var(--sign-green);color:#fff;border-style:solid}
+  /* v24 1-A:補樣式,讓它與同列其他按鈕同一族;刻意中性外框,不與「🧭 導航」的大面積綠爭焦 */
+  .planBtn{flex:0 0 auto;min-height:3.4rem;padding:0 .8rem;border-radius:.9rem;
+    font:inherit;font-size:1.02em;font-weight:800;cursor:pointer;white-space:nowrap;
+    border:1px solid var(--line);background:var(--paper);color:var(--ink)}
   /* v22L4.1:淺底膠囊,字級小於景點名稱(.name 1.22em),降低視覺搶焦;
      修正先前 font-size 被後宣告 1.2em 覆蓋的問題 */
   .moreBtn{position:absolute;top:.6rem;right:.6rem;z-index:2;
@@ -1033,8 +1057,10 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   background:var(--sign-green);color:#fff;font-weight:800;font-size:.95rem;white-space:nowrap}
 .tvPick{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}
 .tvPickList{display:flex;flex-direction:column;gap:.4rem;max-height:18rem;overflow-y:auto;margin:.5rem 0}
-.tvPickItem{display:flex;align-items:center;gap:.5rem;min-height:2.75rem;font-size:1.05rem}
-.tvPickItem input{width:1.5rem;height:1.5rem}
+.tvPickItem{display:flex;align-items:center;gap:.5rem;width:100%;min-height:2.75rem;
+  padding:.4rem .6rem;font:inherit;font-size:1.05rem;text-align:left;cursor:pointer;
+  border:1px solid var(--line);border-radius:.7rem;background:var(--paper);color:var(--ink)}
+.tvPickPlus{flex:0 0 auto;font-weight:800;color:var(--sign-green)}
 .tvGo{display:flex;flex-direction:column;gap:.5rem;margin:.8rem 0 1.2rem}
 .tvGo a{display:inline-block;text-align:center;min-height:3rem;line-height:3rem;padding:0 1rem;
   border-radius:.6rem;background:var(--open);color:#fff;font-weight:800;font-size:1.05rem;text-decoration:none}
@@ -1132,7 +1158,8 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
     <div class="bkBox" id="sBackupBox">
       <b>資料備份</b>
       <div class="bkLine" id="sBackupInfo"></div>
-      <div class="bkOps"><button class="btn btn-loc" id="btnBackupNow">📦 立即備份</button></div>
+      <div class="bkOps"><button class="btn btn-loc" id="btnBackupNow">📦 立即備份</button>
+        <button class="btn btn-ghost" id="btnImportAll">📥 還原備份</button></div>
     </div></div>
   <div class="frow"><label for="sDefSort">預設排序</label>
     <select id="sDefSort">
@@ -1423,15 +1450,13 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   距離與車程為<b>直線×1.35 道路係數</b>估算;精準以「導航」後的 Google 地圖為準。座標可到現場用「📌 座標校正」修正。<br>
   <button class="btn btn-ghost" id="btnExport">📋 匯出座標校正</button>
   <button class="btn btn-ghost" id="btnImport">📥 匯入座標校正</button>
-  <button class="btn btn-ghost" id="btnExportAll">📦 匯出完整旅遊資料</button>
-  <button class="btn btn-ghost" id="btnImportAll">📥 匯入完整旅遊資料</button>
   <button class="btn btn-ghost" id="btnPublish">📦 建立可攜離線版本</button>
   <button class="btn btn-ghost" id="btnReload">🔄 重新載入最新版</button>
   <input type="file" id="publishSrcFile" accept=".html,text/html" hidden>
   <textarea id="ioBox" aria-label="資料交換區" placeholder="匯出結果或貼上要匯入的 JSON"></textarea><br>
   <input type="file" id="photoFile" accept="image/*" hidden>
   照片:各卡片「⋮」可 📷 現場拍或 🖼 貼圖片網址;<br>
-  「📦 匯出完整旅遊資料」會包含現場照片、HTTPS 圖片網址及明確無照狀態,有現場照片時 JSON 可能較大;<br>
+  「📦 立即備份」會包含現場照片、HTTPS 圖片網址及明確無照狀態,有現場照片時 JSON 可能較大;<br>
   「📦 建立可攜離線版本」只帶 HTTPS 正式圖片,不帶本機拍攝照片;日常新增景點後不需執行此功能。<br>
   若已上傳新版但畫面仍是舊版,按「🔄 重新載入最新版」;不會刪除本機旅遊資料。<br>
   定位小知識:http:// 開啟會封鎖 GPS(需 HTTPS)→ 改用「我現在在」手動選點(GitHub Pages 是 HTTPS,不受影響)。
@@ -1452,7 +1477,7 @@ function lsSet(k,v){                       /* 群組#4:儲存失敗不再靜默 
     try{console.error("localStorage 儲存失敗",k,e)}catch(_){}
     if(!lsFailWarned){lsFailWarned=true;
       if(typeof alert==="function")
-        alert("⚠️ 資料儲存失敗(瀏覽器空間不足、無痕模式或禁止儲存)。畫面仍可操作,但重新整理會遺失變更——請先按「📦 匯出完整旅遊資料」備份。");
+        alert("⚠️ 資料儲存失敗(瀏覽器空間不足、無痕模式或禁止儲存)。畫面仍可操作,但重新整理會遺失變更——請先按「📦 立即備份」備份。");
     }
     return false;
   }
@@ -1790,7 +1815,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24";           /* v24:畫面版本代號(僅顯示用,不寫 localStorage、不影響資料格式) */
+const APP_RELEASE="24e";          /* v24 段2 批次1:開發期版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2243,7 +2268,7 @@ document.getElementById("sHealth").addEventListener("click",()=>{
     +(lv.level==="red"?`<br><span style="color:var(--closed)">⛔ 空間已滿(約 ${mb.toFixed(2)} MB),新照片將無法儲存。請先刪除現場照片或匯出後刪除。</span>`
       :lv.level==="yellow"?`<br><span style="color:var(--closed)">⚠️ 空間快滿(約 ${mb.toFixed(2)} MB),還能存約 ${remainN} 張,建議先匯出備份或刪除部分照片。</span>`:"")   /* v22L17 C3:三級,綠燈不顯示 */
     +`<br><b style="color:${hasDataError?"var(--closed)":"var(--open)"}">${
-      hasDataError?"⚠️ 發現資料異常——請「📦 匯出完整旅遊資料」貼給群組排查。"
+      hasDataError?"⚠️ 發現資料異常——請「📦 立即備份」貼給群組排查。"
       :hasWarning?"⚠️ 基本資料正常,但有上列提醒需處理。"
       :"✅ 全部正常"}</b>`;})();
 });
@@ -2367,7 +2392,7 @@ function togglePlaceCompleted(uid,forceComplete=false){
     const rollbackSaved=saveCT();
     alert(rollbackSaved
       ?"完成紀錄儲存失敗,資料已還原。"
-      :"完成紀錄儲存失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
+      :"完成紀錄儲存失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 立即備份」備份。");
     return false;
   }
   return true;
@@ -2554,7 +2579,7 @@ function renderCards(now){
       <div class="actions">
         <a class="go" href="${dirURL(p.nav)}" target="_blank" rel="noopener">🧭 導航</a>
         <a class="info" href="${infoURL(p.name,p.city)}" target="_blank" rel="noopener">🏪 店家頁</a>
-        <button class="pick" data-k="${p.uid}" aria-pressed="${inTrip}" ${exc?"disabled":""} title="加入想去清單">${inTrip?"✓":"＋"}</button>
+        <button class="pick" data-k="${p.uid}" aria-pressed="${inTrip}" ${exc?"disabled":""} title="加入想去清單">${inTrip?"✓ 已加":"＋ 想去"}</button>
         <button class="planBtn" data-plan="${p.uid}" title="把這個景點排進旅行的某一天">📅 排進行程</button>
         <label class="navSel" title="勾選多個景點,可在下方一次導航跑完"><input type="checkbox" data-navsel="${p.uid}"${navSel.has(p.uid)?" checked":""}>一起導航</label>
       </div>
@@ -2598,7 +2623,7 @@ function rollbackTripState(oldTrip,oldManual,normalMessage){
   trip=oldTrip;tripManual=oldManual;
   const rollbackSaved=[saveTrip(),saveTripManual()].every(Boolean);
   alert(rollbackSaved?normalMessage
-    :normalMessage+"而且瀏覽器無法完整回存舊資料,請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
+    :normalMessage+"而且瀏覽器無法完整回存舊資料,請勿重新整理,先按「📦 立即備份」備份。");
   return rollbackSaved;
 }
 /* 工單I:排序結果交易式寫入——存成功才生效,成功才清手調旗標;回傳成功與否(工單15#4) */
@@ -2790,7 +2815,7 @@ function excludePlace(uid){
     const rollbackSaved=[saveTrip(),saveExcluded()].every(Boolean); /* 工單16#3:回存也驗 */
     alert(rollbackSaved
       ?"暫時隱藏失敗,想去清單與景點狀態已還原。"
-      :"暫時隱藏失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
+      :"暫時隱藏失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 立即備份」備份。");
     return false;
   }
   if(ref&&ref.uid===uid)ref.uid=null;
@@ -2904,7 +2929,7 @@ function deletePlace(uid){
       saveVH(),saveCoordFix(),savePhotos()].every(Boolean); /* 工單16#4:回存也驗 */
     alert(rollbackSaved
       ?"刪除未完成(儲存失敗),資料已還原。"
-      :"刪除未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
+      :"刪除未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 立即備份」備份。");
     rebuildAndRender();return;
   }
   if(ref&&ref.uid===uid)ref.uid=null;
@@ -3540,7 +3565,7 @@ document.getElementById("fSave").addEventListener("click",()=>{
         const rollbackSaved=[saveOverrides(),saveCoordFix()].every(Boolean); /* 回存也驗 */
         alert(rollbackSaved
           ?"景點更新失敗,資料已還原;表單內容已保留。"
-          :"景點更新失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
+          :"景點更新失敗,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 立即備份」備份。");
         return}                                      /* 工單18#3+19-C:失敗不立即重繪 */
       showToast("景點已更新"+(coordNote?"(座標未變更)":""));   /* v22L5 */
     }
@@ -3893,11 +3918,10 @@ function renderTravelPanel(){
       +`<div class="tvOps"><button class="btn btn-ghost" id="tvPickClose">收起</button></div></div>`;
   }else{
     h+=`<div class="tvPick"><b>加到「${esc(dayLabel(t,curDayIdx))}」</b>`
-      +`<div class="tvPickList">`+cand.map(p=>`<label class="tvPickItem">`
-        +`<input type="checkbox" value="${esc(p.uid)}">${esc(p.name)}`
-        +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}</label>`).join("")+`</div>`
-      +`<div class="tvOps"><button class="btn btn-loc" id="tvPickAdd">加入所選</button>`
-      +`<button class="btn btn-ghost" id="tvPickClose">取消</button></div></div>`;
+      +`<div class="tvPickList">`+cand.map(p=>`<button type="button" class="tvPickItem" data-pickone="${esc(p.uid)}">`
+        +`<span class="tvPickPlus">＋</span>${esc(p.name)}`
+        +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}</button>`).join("")+`</div>`
+      +`<div class="tvOps"><button class="btn btn-loc" id="tvPickClose">完成</button></div></div>`;
   }
   if(stops.length){                         /* 沿用既有分段:每段最多 SEG_MAX 站 */
     const segs=segURLsOf(day.uids);
@@ -3935,8 +3959,11 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.id==="tvDelDay"){travelRemoveDay();return}
   if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();return}
   if(b.id==="tvPickClose"){travelPicking=false;renderTravelPanel();return}
-  if(b.id==="tvPickAdd"){
-    travelAddStops([...document.querySelectorAll("#travelBody .tvPickItem input:checked")].map(x=>x.value));return}
+  if(b.dataset.pickone!==undefined){          /* v24 1-C:點整列即加入,面板不關,可連續點 */
+    travelAddStops([b.dataset.pickone]);
+    /* travelAddStops 內部會把 travelPicking 設回 false(其邏輯一字不動),這裡重新打開讓使用者連續加 */
+    if(!travelPicking){travelPicking=true;renderTravelPanel()}
+    return}
   if(b.dataset.day!==undefined){curDayIdx=+b.dataset.day;travelPicking=false;renderTravelPanel();return}
   if(b.dataset.up!==undefined){const i=+b.dataset.up;travelMoveStop(i,i-1);return}
   if(b.dataset.down!==undefined){const i=+b.dataset.down;travelMoveStop(i,i+1);return}
@@ -4663,17 +4690,16 @@ document.getElementById("btnImport").addEventListener("click",()=>{
       const rollbackSaved=saveCoordFix();            /* 回存也驗(工單17#3) */
       alert(rollbackSaved
         ?"座標匯入未完成(儲存失敗),資料已還原。"
-        :"座標匯入未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份。");
+        :"座標匯入未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 立即備份」備份。");
       return}
     buildAll();renderAll();
     alert(`座標匯入完成:成功 ${ok}/失敗 ${fail}`);
   }catch(e){alert("JSON 格式解析失敗,確認是從「匯出」複製的完整內容。")}
 });
 /* v22K:與「📦 立即備份」共用同一函式——同一份格式,另建下載檔並記錄備份日期 */
-document.getElementById("btnExportAll").addEventListener("click",exportFullBackup);
 document.getElementById("btnImportAll").addEventListener("click",()=>{
   if($io.style.display!=="block"){$io.style.display="block";$io.value="";$io.focus();
-    alert("把「匯出完整旅遊資料」的 JSON 貼進框內,再按一次「匯入完整旅遊資料」。");return}
+    alert("把「📦 立即備份」下載的 JSON 貼進框內,再按一次「📥 還原備份」。");return}
   if($io.value.length>IO_MAX){alert("匯入內容超過 2MB,已拒絕。");return}
   let d;
   try{d=JSON.parse($io.value)}catch(e){alert("JSON 格式解析失敗。");return}
@@ -4847,7 +4873,7 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
       savePermRemoved(),saveTravels()].every(Boolean); /* 工單15#3;v23:十二鍵全數回存 */
     alert(rollbackSaved
       ?"匯入未完成(儲存失敗),資料已還原。"
-      :"匯入未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 匯出完整旅遊資料」備份現有資料。");
+      :"匯入未完成,而且瀏覽器無法完整回存舊資料。請勿重新整理,先按「📦 立即備份」備份現有資料。");
     backupTracking=trackBefore;                            /* v22K:還原追蹤狀態,匯入失敗不計數 */
     buildAll();reconcileCurrentRegion();renderHeader();renderAll();renderManage();return;
   }
@@ -5197,7 +5223,7 @@ function reloadLatestWithAllRegions(){
   if(!saveSettings()){
     settings.currentRegion=oldRegion;                 /* 還原,不重載 */
     try{renderRegionBar()}catch(_){}
-    alert("無法切換為全部地區,更新已取消。\n請先匯出完整旅遊資料備份。");
+    alert("無法切換為全部地區,更新已取消。\n請先按「📦 立即備份」。");
     return false;
   }
   location.replace(location.pathname+"?v="+Date.now());
@@ -6302,13 +6328,13 @@ const bootSaved=[saveSettings(),saveCustom(),saveOverrides(),saveCoordFix(),
   saveExcluded(),saveVH(),saveCT(),savePhotos(),saveTrip(),saveTripManual(),
   savePermRemoved(),saveTravels()].every(Boolean);   /* v23:十二鍵(v21 的 11 鍵 + cy_travels_v6) */
 if((!bootBuildOK||!bootSaved)&&!lsFailWarned)        /* 工單16#5+18#7:失敗警告一次,lsSet 已提醒過就不重複跳 */
-  alert("⚠️ 開機資料回存不完整(瀏覽器儲存異常)。畫面可正常操作,但請先按「📦 匯出完整旅遊資料」備份。");
+  alert("⚠️ 開機資料回存不完整(瀏覽器儲存異常)。畫面可正常操作,但請先按「📦 立即備份」備份。");
 renderAll();
 /* v23 E2:從 v22 升上來時提醒備份一次;記在 settings,不新增鍵。存檔失敗就不記,下次再提醒。
    v23 修正9:原本用 alert 且擺在 renderAll() 之前——升級後第一次開啟會看到
    「空白頁＋錯版本號＋對話框」,讓人以為資料不見。改為畫面畫好之後才提示,並改用不阻斷的 showToast。 */
 if(v23FromV22&&!settings.v23UpgradeNoticed){
-  showToast("已升級到 V23。建議現在按「📦 匯出完整旅遊資料」備份一次。",null,12000);
+  showToast("已升級到 V23。建議現在按「📦 立即備份」備份一次。",null,12000);
   settings.v23UpgradeNoticed=true;
   if(!saveSettings())settings.v23UpgradeNoticed=false;
 }
