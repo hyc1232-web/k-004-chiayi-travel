@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段2 批次1 介面收斂)｜2026-07-28
- 本檔最新版本:APP_RELEASE = 24e(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段2 批次2 齒輪與旅行合一)｜2026-07-28
+ 本檔最新版本:APP_RELEASE = 24f(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -293,6 +293,31 @@
      (已即時生效,沒有東西可以取消);travelAddStops 內部邏輯一字不動,
      其結尾會把 travelPicking 設回 false,故由呼叫端在其後重新打開,使用者才能連續加第二、三站;
      空清單那一支分支(「想去清單目前沒有可加入的景點…」+「收起」)一字不動。
+ ═══ V24 段2 批次2(2026-07-28,APP_RELEASE=24f):齒輪與旅行合一 ═══
+   問題:兩套「旅行」並存互不相干——⚙️齒輪(V22 舊的,存 cy_trip_settings_v5,只能一趟)
+   與 🧳旅行分頁(V23 新的,存 cy_travels_v6,可多趟)。實機上 header 寫「尚未設定旅遊日期」,
+   同畫面下方「選擇旅行」卻有一趟,兩邊各說各話;而且 header 的「旅遊第 N 天」是用齒輪日期算的,
+   跟使用者選的那趟旅行完全無關。分界線:🧳旅行=這趟出去玩的事,⚙️設定=這台 APP 的事。
+   2-1 資料層:normalizeTravel 加 hotel 欄(照 name 的處理方式,上限 80 字);
+     不升 DATA_SCHEMA_VERSION——這是可選欄位,舊備份沒有就自動變 "",不會壞也不會被拒收;
+     cloneTravels 用 {...t} 展開,新欄位自動帶,無須補寫;
+   2-2 建立與編輯表單各加一列「住宿」(tvNewHotel / tvEditHotel),可選、留空可存;
+     編輯表單展開時回填該趟現值;「✏️ 修改名稱／日期」因欄位變多改名為「✏️ 修改這趟資料」;
+     travelSaveEdit 既有的日期驗證與天數增減邏輯一字未動;
+   2-3 header 改讀 currentTravel():大標題=那趟的名稱、日期區間=那趟的起訖、住宿=那趟的住宿;
+     dayStateText() 同樣改用那趟的日期,「距離出發還有 N 天／本次旅遊已結束／旅遊第 N 天」
+     三種輸出文字一字未動,只換資料來源;一趟都沒有時只顯示 APP 名稱(新增常數 APP_TITLE_FALLBACK,
+     值取自原 DEF_SETTINGS.title),日期與住宿留空——沒有旅行時「尚未設定旅遊日期」那句沒有意義;
+     切換/建立/刪除/修改旅行成功後皆呼叫 renderHeader() 同步;
+   2-4 齒輪四格(旅遊標題/開始日期/結束日期/住宿名稱)HTML、回填、儲存讀取全數移除,
+     DEF_SETTINGS 與 normalizeSettings 一併移除 title/hotelName/startDate/endDate 四欄
+     (白名單式正規化,舊備份帶著這四欄會被自動忽略,為預期行為);
+     只服務這四格的「開始晚於結束」驗證同步移除,其餘欄位儲存邏輯一字不動;
+     齒輪按鈕由光禿禿的 ⚙️ 改為「⚙️ 設定」,與旁邊的「🏠 首頁」「🔄 更新」一致,位置不動;
+   2-5「📋 複製給家人」的標題與住宿改讀目前選中的旅行,內文格式一字不動,
+     沒有旅行時標題 fallback 維持「我的想去清單」、住宿那段不出現;
+   不做:settings 舊值自動轉成一趟旅行(開機寫檔風險大於效益,使用者已備份)、
+     齒輪按鈕搬家(使用者尚未拍板)、「本次旅行地區」那個設定欄位(26 處引用,單獨開段)。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -1127,7 +1152,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
     <span class="verChip" id="verChip">—</span>   <!-- v23 修正10:中性預設,重繪前不顯示錯版本 -->
     <button id="btnHome" class="hHome" title="回到首頁,顯示全部地區與所有景點" aria-label="回到首頁,顯示全部地區與所有景點"><span class="hHomeIcon">🏠</span><span class="hHomeTxt">首頁</span></button>
     <button id="btnHeaderReload" class="hReload" title="重新下載網站最新版(不會刪除本機旅遊資料)"><span class="hRlIcon">🔄</span><span class="hRlTxt">更新</span></button>
-    <button id="btnSettings" title="旅遊設定">⚙️</button>
+    <button id="btnSettings" title="旅遊設定" aria-label="旅遊設定">⚙️ 設定</button>
     <button id="btnHeaderToggle" class="hArrow" aria-expanded="true" title="收合頂部" aria-label="收合頂部">▲</button>
   </div>
   <div class="hSub" id="hDates">尚未設定旅遊日期</div>
@@ -1138,10 +1163,6 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 <!-- ⚙️ 旅遊設定 -->
 <div class="panel" id="settingsPanel" hidden>
   <h2>⚙️ 旅遊設定</h2>
-  <div class="frow"><label for="sTitle">旅遊標題</label><input type="text" id="sTitle" style="flex:1;min-width:12rem"></div>
-  <div class="frow"><label for="sStart">開始日期</label><input type="date" id="sStart"></div>
-  <div class="frow"><label for="sEnd">結束日期</label><input type="date" id="sEnd"></div>
-  <div class="frow"><label for="sHotel">住宿名稱</label><input type="text" id="sHotel" style="flex:1;min-width:12rem"></div>
   <div class="frow"><label for="sRegionAdd">本次旅行地區</label>
     <select id="sRegionAdd"></select>
     <button class="btn btn-ghost" id="btnAddRegion">加入</button>
@@ -1401,6 +1422,8 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
     <div class="frow"><label for="tvNewStart">開始</label><input type="date" id="tvNewStart">
       <label for="tvNewEnd">結束</label><input type="date" id="tvNewEnd">
       <span class="meta">日期可以留空;填了就自動算天數</span></div>
+    <div class="frow"><label for="tvNewHotel">住宿</label>
+      <input type="text" id="tvNewHotel" maxlength="80" placeholder="例:天成文旅－繪日之丘" style="flex:1;min-width:10rem"></div>
     <div class="frow"><button class="btn btn-loc" id="tvCreate">＋ 建立旅行</button></div>
   </div>
   <div id="travelBody"></div>
@@ -1549,7 +1572,9 @@ const MAIN_CATS=["正餐","點心","親子","景點","住宿","購物","其他"]
 const SCHED_TYPES=["hours","public-space","recommended-evening","unknown"];
 const PARK_TYPES=["專用停車場","附近停車場","路邊停車","停車困難","未確認"];
 const INDOOR_TYPES=["室內","戶外","半室內","未設定"];
-const DEF_SETTINGS={title:"嘉義親子吃玩之旅",hotelName:"天成文旅－繪日之丘",startDate:"",endDate:"",regions:[],currentRegion:"",
+/* v24 2-3:header 沒有任何旅行時的預設大標題(原 DEF_SETTINGS.title 的值,照實檔搬過來) */
+const APP_TITLE_FALLBACK="嘉義親子吃玩之旅";
+const DEF_SETTINGS={regions:[],currentRegion:"",   /* v24 2-4:title/hotelName/startDate/endDate 四欄移除,改由旅行保管 */
   defaultRegionMode:"all",defaultSortMode:"trip",   /* v22J:顯示偏好(僅存於 settings,不新增 localStorage 鍵) */
   lastFullBackupAt:"",backupChangeCount:0,           /* v22K:備份資訊(同樣只存於 settings) */
   v23UpgradeNoticed:false,                           /* v23 E2:升級備份提醒只跳一次(存 settings,不新增鍵) */
@@ -1557,13 +1582,8 @@ const DEF_SETTINGS={title:"嘉義親子吃玩之旅",hotelName:"天成文旅－�
 function normalizeSettings(raw){          /* 依群組 建議.txt */
   const result={...DEF_SETTINGS};
   if(!raw||typeof raw!=="object")return result;
-  result.title=typeof raw.title==="string"?(raw.title.trim().slice(0,80)||DEF_SETTINGS.title):DEF_SETTINGS.title;
-  result.hotelName=typeof raw.hotelName==="string"?raw.hotelName.trim().slice(0,80):DEF_SETTINGS.hotelName;
-  result.startDate=validDateString(raw.startDate)?raw.startDate:"";
-  result.endDate=validDateString(raw.endDate)?raw.endDate:"";
-  if(result.startDate&&result.endDate&&parseD(result.startDate)>parseD(result.endDate)){
-    result.startDate="";result.endDate="";
-  }
+  /* v24 2-4:title/hotelName/startDate/endDate 四欄已移除(改由旅行保管);
+     白名單式正規化,舊備份帶著這四欄會被自動忽略,不必特別處理 */
   /* v22:本次旅行地區——只收合法縣市字串、去重;不接受 ""/未分類 */
   result.regions=Array.isArray(raw.regions)
     ?[...new Set(raw.regions.map(canonCity).filter(Boolean))]:[];
@@ -1676,6 +1696,7 @@ function normalizeTravel(raw){
   const name=String(raw.name||"").trim().slice(0,80);
   if(!name)return null;
   return{id,name,
+    hotel:String(raw.hotel||"").trim().slice(0,80),   /* v24 2-1:住宿改由旅行保管;舊備份沒這欄→"" */
     startDate:validDateString(raw.startDate)?raw.startDate:"",
     endDate:validDateString(raw.endDate)?raw.endDate:"",
     days:(Array.isArray(raw.days)?raw.days.slice(0,TRAVEL_MAX_DAYS):[]).map(normalizeTravelDay),
@@ -1815,7 +1836,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24e";          /* v24 段2 批次1:開發期版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24f";          /* v24 段2 批次2:開發期版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2118,7 +2139,8 @@ let renderedPts=[];
 /* ═══ 6. 抬頭:標題/日期/第幾天(工單二) ═══ */
 const W=["日","一","二","三","四","五","六"];
 function dayStateText(){
-  const sd=parseD(settings.startDate),ed=parseD(settings.endDate);
+  const ct=currentTravel();if(!ct)return"";           /* v24 2-3:改用目前選中旅行的日期 */
+  const sd=parseD(ct.startDate),ed=parseD(ct.endDate);
   if(!sd||!ed)return"";
   const n=new Date(),t=new Date(n.getFullYear(),n.getMonth(),n.getDate());
   const day=Math.round((t-sd)/86400000);
@@ -2127,13 +2149,13 @@ function dayStateText(){
   return`｜旅遊第 ${day+1} 天`;
 }
 function renderHeader(){
-  document.getElementById("hTitle").textContent=settings.title||DEF_SETTINGS.title;
+  const ct=currentTravel();                            /* v24 2-3:header 改讀目前選中的旅行 */
+  document.getElementById("hTitle").textContent=(ct&&ct.name)||APP_TITLE_FALLBACK;
   document.getElementById("hDates").textContent=
-    (settings.startDate&&settings.endDate)
-      ?`旅遊日期:${fmtD(settings.startDate)}－${fmtD(settings.endDate)}`
-      :"尚未設定旅遊日期";
-  document.getElementById("hHotel").textContent=
-    settings.hotelName?`住宿:${settings.hotelName}`:"";
+    (ct&&ct.startDate&&ct.endDate)
+      ?`旅遊日期:${fmtD(ct.startDate)}－${fmtD(ct.endDate)}`
+      :(ct?"這趟尚未設定日期":"");
+  document.getElementById("hHotel").textContent=(ct&&ct.hotel)?`住宿:${ct.hotel}`:"";
   /* v22E:頂部整體收合(記憶體狀態) */
   document.querySelector("header").classList.toggle("hCollapsed",headerCollapsed);
   const hArrow=document.getElementById("btnHeaderToggle");
@@ -2156,10 +2178,6 @@ document.getElementById("btnSettings").addEventListener("click",()=>{
   const p=document.getElementById("settingsPanel");
   p.hidden=!p.hidden;
   if(!p.hidden){
-    document.getElementById("sTitle").value=settings.title||"";
-    document.getElementById("sStart").value=settings.startDate||"";
-    document.getElementById("sEnd").value=settings.endDate||"";
-    document.getElementById("sHotel").value=settings.hotelName||"";
     document.getElementById("sDefRegion").value=settings.defaultRegionMode||"all";   /* v22J */
     document.getElementById("sDefSort").value=settings.defaultSortMode||"trip";
     renderBackupUI();                                 /* v22K */
@@ -2167,13 +2185,8 @@ document.getElementById("btnSettings").addEventListener("click",()=>{
   }
 });
 document.getElementById("btnSaveSettings").addEventListener("click",()=>{
-  const s=document.getElementById("sStart").value,e=document.getElementById("sEnd").value;
-  if(s&&e&&parseD(s)>parseD(e)){alert("開始日期晚於結束日期,請修正。");return}
   const oldSettings={...settings};                   /* 工單16#1:存成功才生效 */
   settings=normalizeSettings(Object.assign({},settings,{
-    title:document.getElementById("sTitle").value,
-    hotelName:document.getElementById("sHotel").value,
-    startDate:s,endDate:e,
     defaultRegionMode:document.getElementById("sDefRegion").value,     /* v22J:顯示偏好 */
     defaultSortMode:document.getElementById("sDefSort").value}));   /* v22:保留 regions/currentRegion */
   if(!saveSettings()){
@@ -3750,13 +3763,15 @@ function createTravelFromForm(){            /* 名稱必填,起訖可留空 */
   while(used.has(id)||!TRAVEL_ID_RE.test(id))id=createCustomUid().replace(/^custom-/,"travel-");
   const n=(s&&e)?daysBetween(s,e):1;        /* 有起訖就自動算天數,否則先給 1 天 */
   const next=cloneTravels();
-  next.travels.push({id,name,startDate:s||"",endDate:e||"",
+  next.travels.push({id,name,hotel:$("tvNewHotel").value.trim().slice(0,80),   /* v24 2-2:可選欄位,留空即 "" */
+    startDate:s||"",endDate:e||"",
     days:Array.from({length:Math.max(1,n)},()=>({uids:[],reviewed:null})),
     createdAt:new Date().toISOString()});
   next.currentTravelId=id;
   if(!commitTravels(next,"建立旅行失敗,未新增(見儲存提醒)。"))return;
+  renderHeader();                            /* v24 2-3:新建的那趟會成為目前選中,header 同步 */
   curDayIdx=0;travelPicking=false;
-  $("tvNewName").value="";$("tvNewStart").value="";$("tvNewEnd").value="";
+  $("tvNewName").value="";$("tvNewStart").value="";$("tvNewEnd").value="";$("tvNewHotel").value="";
   showToast(`已建立旅行:${name}`);
   renderTravelPanel();
 }
@@ -3830,6 +3845,7 @@ function travelDelete(){                    /* 只刪 cy_travels_v6 內這一趟
   next.currentTravelId=next.travels.length      /* 刪完重新指向排序第一筆;一趟都沒有就留空 */
     ?[...next.travels].sort(travelSortCmp)[0].id:"";
   if(!commitTravels(next,"刪除旅行失敗,未變更(見儲存提醒)。"))return;
+  renderHeader();                            /* v24 2-3:刪掉後目前選中會換人(或沒有),header 同步 */
   curDayIdx=0;travelPicking=false;
   showToast(`已刪除旅行:${t.name}`);
   renderTravelPanel();
@@ -3838,6 +3854,7 @@ function switchTravel(id){
   if(!travelsData.travels.some(t=>t.id===id))return;
   const next=cloneTravels();next.currentTravelId=id;
   if(!commitTravels(next,"切換旅行失敗,未變更(見儲存提醒)。"))return;
+  renderHeader();                            /* v24 2-3:換趟之後 header 的名稱/日期/住宿要跟著換 */
   curDayIdx=0;travelPicking=false;
   renderTravelPanel();
 }
@@ -3858,7 +3875,7 @@ function renderTravelPanel(){
   h+=`<div class="tvHead"><span class="tvName">${esc(t.name)}</span>`
     +`<span class="tvDates">${t.startDate?esc(t.startDate)+(t.endDate?" ～ "+esc(t.endDate):""):"未設定日期"}`
     +`｜共 ${t.days.length} 天</span>`
-    +`<button class="btn btn-ghost" id="tvEditOpen">✏️ 修改名稱／日期</button></div>`;
+    +`<button class="btn btn-ghost" id="tvEditOpen">✏️ 修改這趟資料</button></div>`;
   if(travelEditing){                        /* v23 追加4:建立後可改名稱與起訖日期 */
     h+=`<div class="tvEdit"><b>修改旅行資料</b>
       <div class="frow"><label for="tvEditName">名稱*</label>
@@ -3867,6 +3884,8 @@ function renderTravelPanel(){
         <input type="date" id="tvEditStart" value="${esc(t.startDate)}">
         <label for="tvEditEnd">結束</label>
         <input type="date" id="tvEditEnd" value="${esc(t.endDate)}"></div>
+      <div class="frow"><label for="tvEditHotel">住宿</label>
+        <input type="text" id="tvEditHotel" maxlength="80" value="${esc(t.hotel||"")}" style="flex:1;min-width:10rem"></div>
       <div class="meta">改日期只會補天數;要減天數請用「－ 減一天」,才會先確認那天的景點。</div>
       <div class="tvOps"><button class="btn btn-loc" id="tvEditSave">儲存修改</button>
         <button class="btn btn-ghost" id="tvEditCancel">取消</button></div></div>`;
@@ -4101,6 +4120,7 @@ function travelSaveEdit(){
   if(s&&e&&s>e){alert("結束日期不可以早於開始日期。");return}
   const next=cloneTravels(),nt=next.travels.find(x=>x.id===t.id);
   nt.name=name;nt.startDate=s||"";nt.endDate=e||"";
+  nt.hotel=$("tvEditHotel").value.trim().slice(0,80);   /* v24 2-2:住宿改由旅行保管 */
   let note="";
   const want=(s&&e)?daysBetween(s,e):0;      /* 有完整起訖才依日期調天數 */
   if(want>0&&want>nt.days.length){
@@ -4114,6 +4134,7 @@ function travelSaveEdit(){
   }
   if(!commitTravels(next,"修改旅行失敗,未變更(見儲存提醒)。"))return;
   travelEditing=false;
+  renderHeader();                            /* v24 2-3:改完名稱/日期/住宿,header 同步 */
   clampDayIdx(currentTravel());
   showToast(`已更新旅行資料${note}`);
   renderTravelPanel();
@@ -5378,12 +5399,13 @@ function execCopyText(text){                           /* execCommand fallback(H
 }
 function copyTodayTrip(){                               /* 複製今日行程文字,方便貼 LINE */
   if(!trip.length){alert("想去清單目前是空的");return}
-  const title=(settings.title&&settings.title.trim())||"我的想去清單";
+  const ct=currentTravel();                                   /* v24 2-5:標題與住宿改讀目前選中的旅行 */
+  const title=(ct&&ct.name&&ct.name.trim())||"我的想去清單";
   const now=new Date();
   const dateLine=`${pad(now.getMonth()+1)}/${pad(now.getDate())} 想去清單`;
   const lines=trip.map((u,i)=>`${i+1}. ${byUid[u]?byUid[u].name:u}`);
   let text=title+"\n"+dateLine+"\n\n"+lines.join("\n");
-  if(settings.hotelName&&settings.hotelName.trim())text+="\n\n住宿:"+settings.hotelName.trim();
+  if(ct&&ct.hotel&&ct.hotel.trim())text+="\n\n住宿:"+ct.hotel.trim();
   const finish=ok=>{
     if(ok){alert("已複製想去清單,可貼到 LINE");return}
     const box=document.getElementById("ioBox");         /* 最終 fallback:顯示於資料交換區手動複製 */
