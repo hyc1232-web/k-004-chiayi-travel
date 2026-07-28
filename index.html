@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段2 批次3B 備份整區重做)｜2026-07-28
- 本檔最新版本:APP_RELEASE = 24i(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段2 批次3C 隔天回顧不綁載入與空轉入口清除)｜2026-07-29
+ 本檔最新版本:APP_RELEASE = 24j(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -389,6 +389,39 @@
    本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、settings.currentRegion、
      #backupNotice 整組、exportFullBackup/buildFullBackupJson 的資料行為、
      completedToday/saveCT/togglePlaceCompleted/vdMarkDone/btnClearToday(那是批次 3C 範圍)。
+ ═══ V24 段2 批次3C(2026-07-29,APP_RELEASE=24j):隔天回顧不綁載入與空轉入口清除 ═══
+   T4 隔天回顧不再綁頁面載入。開機序列末尾的 startReviewFlow() 呼叫移除(函式定義保留),
+     新增 #reviewNotice 常駐提示 + renderReviewNotice(),接在 renderAll() 尾端
+     (與 renderBackupUI() 同層級)。使用者原話:「不管那顆按鈕叫什麼名字,叫使用者去按就是錯的」
+     ——問題不在按鈕名字,在「彈窗只在載入當下檢查一次,不重載就永遠問不到」。
+     n=pendingReviewDays().length;n=0 整條隱藏,n>0 顯示「有 N 天的行程還沒記錄」+「📝 現在記錄」。
+     刻意不另設計時器、不另外監聽事件——renderAll() 本來就是所有資料變動的共同出口,
+     回顧結束後既有 afterReviewRefresh() 會重繪,提示自然消失。
+     pendingReviewDays / renderReviewStep1 / renderReviewStep2 / setDayReviewed / vhBatchAdd
+     全部一字未動——本批只改「什麼時候被叫起來」,不改視窗本身。
+     #reviewNotice 樣式比照 #backupNotice 版型但改用中性色票(--line/--paper):
+     這是待辦不是風險,不該長得像警告;未新增任何色票常數。
+   T21 造訪視窗「同時標記今天行程已完成」勾選框砍除(HTML #vdDoneRow 整塊、vdSyncMarkDone() 函式、
+     開關兩處 hidden 切換、vdCurrentState 的 markDone 快照欄、vdSaveClick 與 vdSkipProceed 的讀取,
+     以及 vdDate change 監聽器——該監聽器內只有這一件事,整個移除)。
+     連帶:儲存成功的 toast 原本會依勾選加註「,並完成今日行程」,勾選框砍掉後該分支永不成立,一併移除。
+     批次 3A 砍 T5 時只砍了卡片與篩選端,這兩個入口留下來變成空轉——勾了不會有任何畫面反應。
+   T22 設定面板「🧹 清除今日完成紀錄」按鈕與其事件監聽整段砍除。同上,沒有入口能標記完成,
+     自然也沒有東西可清。
+     T21/T22 皆遵守 X4:completedToday 宣告、saveCT、togglePlaceCompleted、備份匯出八條路徑、
+     匯入 vCT 驗證與回存、跨日自動清除**一字未動**;第十二鍵 cy_completed_today_v5 保留。
+     vdApplyMarkDone 依同一理由保留定義(現為 0 呼叫),與 togglePlaceCompleted 一起留給 V25。
+   T18 renderDataOpsUsage() 依大小切單位:≥0.1MB 印「約 X.XX MB」,否則印「約 N KB」。
+     起因是幾十 KB 被 toFixed(2) 壓成「約 0.00 MB」,讀起來像壞掉(P2)。
+     storageLevel() 與 estimateAppStorageBytes() 一字未動。
+   T19 頁尾第二顆「🔄 重新載入最新版」(#btnReload)與其事件監聽砍除。
+     它與 header 的 #btnHeaderReload 呼叫同一支 reloadLatestWithAllRegions()、
+     同一句 RELOAD_CONFIRM_MSG,砍掉零行為損失。兩者與 header 那顆全部保留不動。
+   T20 死樣式 .bkBox 一條刪除(批次 3B 砍掉 #sBackupBox 後已 0 引用)。
+     .bkLine(給 #dataOpsUsage 用)與 .bkOps(給 #backupNotice、頁尾按鈕列、#reviewNotice 用)仍在使用,未動。
+   本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、settings.currentRegion、
+     #backupNotice 風險橫幅整組、兩步回顧視窗與 vhBatchAdd 的寫入行為、
+     d.reviewed 欄位語意(null／"done"／"skipped")、header 的「🔄 更新」。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -752,7 +785,6 @@
     .vdHistItem .vdHNote{flex:1 1 100%;margin-top:0}
     .vdHOps{margin-top:0}
   }
-  .bkBox{flex:1;border:2px solid var(--line);border-radius:.6rem;padding:.55rem .7rem;background:var(--paper)}
   .bkLine{font-size:.95rem;color:var(--ink-soft);margin:.25rem 0 .5rem;line-height:1.7}
   .bkOps{display:flex;flex-wrap:wrap;gap:.5rem}
   .bkOps .btn{min-height:2.75rem}
@@ -761,6 +793,12 @@
   #backupNotice[hidden]{display:none}
   #backupNotice .bkTitle{font-weight:800;display:block;margin-bottom:.2rem}
   #backupNotice .bkOps{margin-top:.5rem}
+  /* v24 3C T4:隔天回顧常駐提示。比照 #backupNotice 版型,但用中性色票(--line/--paper)——
+     這不是風險,是待辦,不該長得像警告。未新增任何色票常數 */
+  #reviewNotice{margin:.5rem 1rem 0;border:2px solid var(--line);border-radius:.6rem;
+    padding:.6rem .75rem;background:var(--paper);color:var(--ink);font-size:1rem;line-height:1.7}
+  #reviewNotice[hidden]{display:none}
+  #reviewNotice .bkOps{margin-top:.5rem}
   .noCoord{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}
   .fixCoordBtn{display:inline-flex;align-items:center;min-height:2.75rem;padding:0 .8rem;
     font-size:.9rem;font-weight:800;background:var(--closed);color:#fff;border:none;
@@ -1257,7 +1295,6 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   <div class="frow">
     <button class="btn btn-loc" id="btnSaveSettings">儲存設定</button>
     <button class="btn btn-ghost" id="btnResetSettings">恢復預設值</button>
-    <button class="btn btn-ghost" id="btnClearToday">🧹 清除今日完成紀錄</button>
     <button class="btn btn-ghost" id="sHealth">🔍 檢查資料</button>
   </div>
   <div class="meta" id="healthOut"></div>
@@ -1410,9 +1447,6 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <div class="vdSecTitle">日期與今日行程</div>
       <div class="vdRow vdDateRow"><label for="vdDate" class="vdLbl">造訪日期</label>
         <input type="date" id="vdDate"></div>
-      <div class="vdDoneWrap" id="vdDoneRow">
-        <label class="vdCheck"><input type="checkbox" id="vdMarkDone">同時標記今天行程已完成</label>
-        <div class="vdCheckNote" id="vdDoneNote">勾選後,這個景點也會標記為今日已完成。</div></div>
     </div>
     <div class="vdSec">
       <div class="vdSecTitle">這次感受</div>
@@ -1448,6 +1482,8 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   </div>
 </div></div>
 <div id="backupNotice" hidden></div>
+<!-- v24 3C T4:隔天回顧常駐提示。內容由 renderReviewNotice() 每次重繪時重算 -->
+<div id="reviewNotice" hidden></div>
 <!-- v23 E3:首頁分頁列。「想去清單」沿用現有景點清單畫面,一個字未動 -->
 <div class="homeTabs" id="homeTabs" role="tablist" aria-label="首頁分頁">
   <button type="button" data-ht="wish" aria-pressed="true">📋 想去清單</button>
@@ -1551,7 +1587,6 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
     <textarea id="ioBox" aria-label="資料交換區" placeholder="匯出結果或貼上要匯入的 JSON"></textarea>
     <div class="bkOps"><button class="btn btn-ghost" id="btnIoCopy">📋 複製</button></div>
   </details>
-  <button class="btn btn-ghost" id="btnReload">🔄 重新載入最新版</button><br>
   <input type="file" id="photoFile" accept="image/*" hidden>
   定位小知識:http:// 開啟會封鎖 GPS(需 HTTPS)→ 改用「我現在在」手動選點(GitHub Pages 是 HTTPS,不受影響)。
 </footer>
@@ -1907,7 +1942,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24i";          /* v24 段2 批次3B:開發期版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24j";          /* v24 段2 批次3C:開發期版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2278,15 +2313,6 @@ document.getElementById("btnResetSettings").addEventListener("click",()=>{
     alert("恢復預設失敗,未變更(見儲存提醒)。");return}
   renderHeader();
   document.getElementById("btnSettings").click();document.getElementById("btnSettings").click();
-});
-document.getElementById("btnClearToday").addEventListener("click",()=>{
-  if(!confirm("清除「今日完成」紀錄?(曾去過次數保留)"))return;
-  const oldCompleted=new Set(completedToday);        /* 工單16#2:清除也要存成功才生效 */
-  completedToday.clear();
-  if(!saveCT()){
-    completedToday=oldCompleted;renderAll();
-    alert("清除今日完成失敗,未變更(見儲存提醒)。");return}
-  renderAll();
 });
 /* 工單20#4:只統計本專案十二鍵(同網域其他工具不混入);UTF-16 每字 2 bytes,估算值
    v23 E1:新增 cy_travels_v6;estimateAppStorageBytes 跑這個陣列,加鍵後自動涵蓋,不必改它 */
@@ -4387,11 +4413,25 @@ document.getElementById("reviewDlg").addEventListener("change",e=>{
   const cb=e.target.closest?e.target.closest("[data-rv]"):null;if(!cb)return;
   cb.checked?reviewChecked.add(cb.dataset.rv):reviewChecked.delete(cb.dataset.rv);
 });
-function startReviewFlow(){                   /* 開機在畫面畫好之後才跑 */
+function startReviewFlow(){                   /* v24 3C T4:改由常駐提示上的「📝 現在記錄」呼叫,不再綁開機 */
   reviewQueue=pendingReviewDays();
   const first=reviewQueue[0];
   if(first)openReviewFor(first.travelId,first.dayIdx,false);
 }
+/* v24 3C T4:隔天回顧的常駐提示。每次 renderAll() 都重算,所以改完資料不必重載畫面。
+   刻意不另設計時器、不另外監聽事件——renderAll() 本來就是所有資料變動的共同出口。
+   pendingReviewDays() 是純函式,內部一字未動(整趟結束才問、沒有站的天不問,判斷全在它裡面)。 */
+function renderReviewNotice(){
+  const el=document.getElementById("reviewNotice");if(!el)return;
+  const n=pendingReviewDays().length;
+  if(!n){el.hidden=true;el.innerHTML="";return}          /* 沒有待記錄的天→整條消失,不佔畫面 */
+  el.hidden=false;
+  el.innerHTML=`<b>有 ${n} 天的行程還沒記錄</b>`
+    +`<div class="bkOps"><button class="btn btn-loc" id="btnReviewNow">📝 現在記錄</button></div>`;
+}
+document.getElementById("reviewNotice").addEventListener("click",e=>{
+  if(e.target.closest("#btnReviewNow"))startReviewFlow();   /* 走既有兩步視窗,流程一字未動 */
+});
 
 /* ═══ 15. 卡片事件委派 ═══ */
 document.getElementById("tabs").addEventListener("click",e=>{
@@ -4758,7 +4798,12 @@ document.getElementById("btnExport").addEventListener("click",()=>{
    刻意不用 navigator.storage.estimate()——它不含 localStorage 自己的上限,會回報數百 MB 造成假安全 */
 function renderDataOpsUsage(){
   const el=document.getElementById("dataOpsUsage");if(!el)return;
-  el.textContent=`這個 APP 在你手機上佔用:約 ${storageLevel().mb.toFixed(2)} MB`;
+  /* v24 3C T18:小於 0.1MB 改印 KB——幾十 KB 被 toFixed(2) 壓成「約 0.00 MB」,讀起來像壞掉。
+     只改這個函式,storageLevel()／estimateAppStorageBytes() 一字未動 */
+  const st=storageLevel();
+  el.textContent=st.bytes>=0.1*1024*1024
+    ?`這個 APP 在你手機上佔用:約 ${st.mb.toFixed(2)} MB`
+    :`這個 APP 在你手機上佔用:約 ${Math.round(st.bytes/1024)} KB`;
 }
 renderDataOpsUsage();
 document.getElementById("dataOps").addEventListener("toggle",e=>{
@@ -5036,6 +5081,7 @@ function renderAll(){
   renderHeader();renderRegionBar();renderTabs();renderSorts();renderFilters();renderSearchStat();
   renderCards(now);renderReco(now);renderTripBar(now);
   renderSelect();renderLocExtras();renderMultiNavBar();   /* v23 E4-3 */
+  renderReviewNotice();                                  /* v24 3C T4:與 renderBackupUI() 同層級,不綁載入 */
   if(ref){
     $st.innerHTML=`目前位置:<b>${esc(ref.label)}</b>`
       +(ref.acc!=null?`(±${ref.acc}m)`:"")
@@ -5341,10 +5387,9 @@ function reloadLatestWithAllRegions(){
 }
 const RELOAD_CONFIRM_MSG="將重新下載網站最新版,並切換為顯示全部地區。\n\n"
   +"不會刪除:\n・景點\n・想去清單\n・照片\n・座標\n・去過紀錄\n\n確定更新嗎?";
-document.getElementById("btnReload").addEventListener("click",()=>{
-  if(confirm(RELOAD_CONFIRM_MSG))reloadLatestWithAllRegions();
-});
-/* v22A:頂部「🔄 更新」——與頁尾同動作,第一入口 */
+/* v22A:頂部「🔄 更新」——唯一入口。
+   v24 3C T19:頁尾第二顆「🔄 重新載入最新版」已砍——兩顆呼叫同一支
+   reloadLatestWithAllRegions()、同一句 RELOAD_CONFIRM_MSG,砍掉零行為損失 */
 document.getElementById("btnHeaderReload").addEventListener("click",()=>{
   if(confirm(RELOAD_CONFIRM_MSG))reloadLatestWithAllRegions();
 });
@@ -5828,20 +5873,6 @@ function vhSummaryLines(r){                           /* v22L10 §2:同日提醒
           `評價:${r.rating?VH_RATINGS[r.rating]:"(未評價)"}`,
           `心得:${note}`];
 }
-function vdSyncMarkDone(){
-  /* v22L2:日期=今天→預設勾選;非今天→預設不勾。
-     v22L8:日期非今天時停用此選項並加註「僅限今天的造訪紀錄」,
-     避免「記錄過去日期」與「標記今天完成」混在一起造成誤解。 */
-  const cb=vdEl("vdMarkDone"),row=vdEl("vdDoneRow"),note=vdEl("vdDoneNote");
-  if(!cb)return;
-  const isToday=(vdEl("vdDate").value===vdTodayStr());
-  cb.checked=isToday;
-  cb.disabled=!isToday;
-  if(row)row.classList.toggle("vdDoneDisabled",!isToday);
-  if(note)note.textContent=isToday
-    ?"勾選後,這個景點也會標記為今日已完成。"          /* v22L12 §五 */
-    :"只有今天的造訪紀錄可以同時完成今日行程。";
-}
 function vdShowForm(show){
   vdEl("vdForm").hidden=!show;
   vdEl("vdSave").hidden=!show;
@@ -5862,7 +5893,6 @@ function openVisitDialog(uid,mode,editIndex,prefill){
     vdEl("vdSave").textContent="儲存修改";
     vdEl("vdSkip").textContent="關閉";
     vdEl("vdClearAll").hidden=false;
-    vdEl("vdDoneRow").hidden=true;                   /* 編輯既有紀錄不涉及今日完成 */
     {const row=vdEl("vdPastRow");if(row)row.hidden=true}   /* 編輯模式本來就有清單,不重複入口 */
     if(vdEditIndex!==null&&rec&&rec.history[vdEditIndex]){
       const r=rec.history[vdEditIndex];
@@ -5888,7 +5918,6 @@ function openVisitDialog(uid,mode,editIndex,prefill){
     vdEl("vdSave").textContent="儲存造訪紀錄";        /* v22L8 */
     vdEl("vdSkip").textContent="略過,不記錄";
     vdEl("vdClearAll").hidden=true;
-    vdEl("vdDoneRow").hidden=false;vdSyncMarkDone();  /* 預設依日期是否為今天 */
     vdShowForm(true);
     {const n=vhCount(uid),row=vdEl("vdPastRow"),btn=vdEl("vdPastBtn"),tot=vdEl("vdTotal");
      /* v22L15 §八:0 筆仍顯示且維持可點擊(降低未來筆數增加卻無法點的風險) */
@@ -5907,13 +5936,13 @@ function openVisitDialog(uid,mode,editIndex,prefill){
 /* ═══ v22L14:未儲存變更保護(快照僅存記憶體,不寫 localStorage)═══ */
 let vdSnapshot=null;
 function vdCurrentState(){
-  /* §1 快照欄位:模式／日期／今日完成勾選／評價／心得／編輯索引 */
-  const noteEl=vdEl("vdNote"),dateEl=vdEl("vdDate"),cb=vdEl("vdMarkDone");
+  /* §1 快照欄位:模式／日期／評價／心得／編輯索引
+     v24 3C T21:今日完成勾選框已砍,該欄位一併移出快照(比對的東西不存在了) */
+  const noteEl=vdEl("vdNote"),dateEl=vdEl("vdDate");
   return {
     mode:vdMode||"",
     editIndex:(vdEditIndex===null||vdEditIndex===undefined)?-1:vdEditIndex,
     date:(dateEl&&dateEl.value)||"",
-    markDone:!!(cb&&cb.checked),
     rating:vdGetRating()||"",
     /* §2 一致化:null／undefined／前後空白統一,避免誤判 */
     note:String((noteEl&&noteEl.value)||"").trim()
@@ -6076,26 +6105,11 @@ async function vdSaveClick(){
   vhSyncFromHistory(rec,base);
   if(!vhCommit(uid,rec))return;
   vdSnapshot=null;                                     /* v22L14 §6:已儲存,清除快照 */
-  /* v22L2 分離原則 + v22L8.1 修正:勾選框僅在「日期=今天」時有效。
-     日期非今天時它是停用狀態,不得代表使用者意見,因此完全不碰 completedToday
-     (修正前會以 checked=false 誤把今天完成取消掉)。 */
-  let alsoDoneToday=false;                             /* v22L9 §3:這次儲存是否一併完成今天行程 */
-  if(vdMode==="add"){
-    /* v22L9 §1:勾選=「順便也完成今天行程」,未勾選僅代表「不順便做」,
-       不得反過來取消既有的今日完成(要取消請按卡片上的「完成?」)。
-       停用狀態(日期非今天)同樣完全不碰。 */
-    const cbSave=vdEl("vdMarkDone");
-    if(cbSave&&!cbSave.disabled&&cbSave.checked){vdApplyMarkDone(uid,true);alsoDoneToday=true}
-  }
   if(vdMode==="edit"){showToast("造訪紀錄已更新");openVisitDialog(uid,"edit");renderAll();return}  /* v22L11 §四 */
-  /* v22L9 §3:新增成功→顯示完整結果,並提供「查看紀錄」直達。
-     「並完成今天行程」只在這次儲存確實一併完成時才顯示;
-     若景點本來就已完成、而使用者未勾選,這次沒有「同時完成」,顯示一般文案。 */
-  const markedToday=alsoDoneToday;
   closeVisitDialog();renderAll();
-  /* v22L11 §四:統一為「已新增造訪紀錄」;同時完成今日行程時加註。
-     時間交由 showToast 依「含操作按鈕」規則自動判定(10 秒)。 */
-  showToast(markedToday?"已新增造訪紀錄,並完成今日行程":"已新增造訪紀錄",
+  /* v22L11 §四:統一為「已新增造訪紀錄」。時間交由 showToast 依「含操作按鈕」規則自動判定(10 秒)。
+     v24 3C T21:原本會依勾選框加註「,並完成今日行程」;勾選框砍掉後該分支永遠不成立,一併移除 */
+  showToast("已新增造訪紀錄",
     {label:"查看紀錄",onClick:()=>openVisitDialog(uid,"edit")});
 }
 /* v22L10 §4:從新增畫面切到歷史清單;表單已填內容先問,且不會儲存 */
@@ -6118,26 +6132,21 @@ document.getElementById("vdSave").addEventListener("click",async()=>{
   try{await vdSaveClick()}
   finally{sv.disabled=false;sv.textContent=label}
 });
-/* v22L8:略過=不新增造訪紀錄,但仍尊重「同時標記今天行程已完成」的勾選狀態 */
-function vdSkipProceed(){                             /* 原略過流程,內容未變 */
+/* v22L8:略過=不新增造訪紀錄。v24 3C T21:今日完成勾選框已砍,略過不再連動任何完成狀態 */
+function vdSkipProceed(){
   if(vdMode==="add"){
-    const uid=vdUid,cb=vdEl("vdMarkDone");
-    if(uid&&cb&&!cb.disabled&&cb.checked)vdApplyMarkDone(uid,true);   /* v22L9 §1:未勾選不改變今日完成 */
     closeVisitDialog();renderAll();showToast("已略過造訪紀錄");
     return;
   }
   closeVisitDialog();
 }
 document.getElementById("vdSkip").addEventListener("click",()=>{
-  /* v22L14 §4:沒有修改→沿用原流程;已修改→先確認。今日完成勾選行為維持不變。 */
+  /* v22L14 §4:沒有修改→沿用原流程;已修改→先確認。 */
   guardVisitLeave(vdSkipProceed);
 });
 document.getElementById("vdRating").addEventListener("change",vdSyncRatingUI);   /* v22L15 §六 */
 document.getElementById("vdNote").addEventListener("input",e=>{
   vdEl("vdCount").textContent=`${e.target.value.length} / ${VH_NOTE_MAX}`;   /* v22L15 §七 */
-});
-document.getElementById("vdDate").addEventListener("change",()=>{
-  if(vdMode==="add")vdSyncMarkDone();                /* 改日期→重設預設值;使用者仍可手動勾選 */
 });
 document.getElementById("vdClearAll").addEventListener("click",async()=>{
   const uid=vdUid;if(!uid)return;
@@ -6443,8 +6452,11 @@ if(v23FromV22&&!settings.v23UpgradeNoticed){
   settings.v23UpgradeNoticed=true;
   if(!saveSettings())settings.v23UpgradeNoticed=false;
 }
-autoJumpToToday();                  /* v24 A:先把背景切到今天,回顧視窗再蓋上去 */
-startReviewFlow();                                   /* v23 E5:畫面畫好之後才問隔天回顧 */
+autoJumpToToday();                  /* v24 A:先把背景切到今天 */
+/* v24 3C T4:開機不再自動彈出隔天回顧。改由 renderAll() 尾端的 renderReviewNotice()
+   畫出常駐提示,使用者按「📝 現在記錄」才呼叫 startReviewFlow()。
+   使用者原話:「不管那顆按鈕叫什麼名字,叫使用者去按就是錯的」——彈窗綁載入才是問題,
+   常駐提示不綁載入、改資料就會自己更新,不必先重載畫面。 */
 backupTracking=true;                                 /* v22K:開機回存不計數,之後的使用者操作才計 */
 renderBackupUI();
 setInterval(updateDynamic,30000);
