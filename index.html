@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段2 批次3A-2 收合列系統名稱與死樣式清理)｜2026-07-28
- 本檔最新版本:APP_RELEASE = 24h(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段2 批次3B 備份整區重做)｜2026-07-28
+ 本檔最新版本:APP_RELEASE = 24i(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -357,6 +357,38 @@
      連同其 v22L12 §七 註解,共 9 行移除(810-817、1015)。
      該按鈕已於 3A 隨 T5 砍除,JS 內 .visitBtn 參照已為 0,此 9 行為純死樣式。
      不影響任何現存元素;非入口變動,進貨對帳淨值 0。
+ ═══ V24 段2 批次3B(2026-07-28,APP_RELEASE=24i):備份整區重做 ═══
+   T7 備份整區由設定面板搬到頁尾,收成 <details id="dataOps"> 一個開關(預設收合,
+     不記憶展開狀態、不新增 localStorage 鍵)。設定面板 #sBackupRow 整個 frow 移除;
+     #btnBackupNow / #btnImportAll 的 id、事件繫結與函式一字未動,只換位置。
+     #btnReload 留在 details 外面——它不是資料操作。
+   T3 常駐備份計數器移除:renderBackupUI() 內產生 #sBackupInfo 的那段(含 bkWarn toggle)刪除,
+     CSS .bkBox.bkWarn 一併刪。使用者的疑慮來自「畫面上有個會自己動的數字」,砍的是那個數字,
+     不是備份行為。#backupNotice 風險橫幅整組(含 BACKUP_STALE_DAYS 14 / BACKUP_CHANGE_LIMIT 20、
+     btnBackupNotice、btnBackupSnooze)一字未動——那是提醒,不是常駐計數器。
+   T8 頁尾四句技術說明(照片、立即備份內容、可攜版本、重新載入)移除,改為三句「什麼時候會用到」:
+     換手機搬資料／給家人一份／怕手機清掉瀏覽器資料。說明句淨值 -1(砍 4、加 3);
+     未使用 class="meta"(P1 上限已滿,全檔維持 39 處)。「定位小知識」那句不在本批範圍,保留。
+   T9 details 內顯示目前占用空間,數字取自既有 storageLevel().mb,每次展開重算。
+     刻意不用 navigator.storage.estimate()——它不含 localStorage 自己的上限,
+     會回報「還有幾百 MB」造成假安全(同 v22L17 C1 既有理由)。
+   T6 #btnPublish 按鈕文字「📦 建立可攜離線版本」→「📥 下載 APP 副本(含目前資料)」。
+     按鈕 id、事件、confirm 內文、產出檔名一字未動——那些是程式邏輯,不是使用者看的名字。
+   T11 三處自動全選的 .focus();.select() 移除(btnExport / copyTodayTrip 的 finish fallback /
+     exportFullBackup),三處的顯示與填值都保留;ioBox 下方新增 #btnIoCopy「📋 複製」,
+     走既有 navigator.clipboard → execCopyText 兩段式,結果用既有 showToast 回報。
+     execCopyText 內部那個隱藏暫存框的 select() 是它的工作原理,保留。
+     ioBox 本來就是「複製失敗時的最後退路」,手機上選不起來等於這條退路是斷的——本項是補護欄。
+   T16 「恢復預設值」不再重設 lastFullBackupAt / backupChangeCount(DECISIONS D15:
+     備份紀錄是歷史事實,不是設定偏好)。{regions:…,currentRegion:…} 那段逐字未動(R3)。
+     連帶:T10 寫進 confirm 的「備份資訊顯示」一項撤掉——不撤它,這句從本版起就在說謊。
+   T17 旅行「＋ 從想去清單加入」改可切換(DECISIONS D16):候選清單不再濾掉已加入的站,
+     已加入那列顯示「✓」+淡綠底(.tvPickOn,沿用 .msRow.msOn 既有色票),再點一次即從該天移除,
+     走既有 travelRemoveStop(與 ✕ 同一個函式,含 8 秒復原)。travelAddStops 內部邏輯一字未動。
+     加三站仍是 5 下(開 1 + 點 3 + 完成 1),沒有多一個確定鈕。
+   本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、settings.currentRegion、
+     #backupNotice 整組、exportFullBackup/buildFullBackupJson 的資料行為、
+     completedToday/saveCT/togglePlaceCompleted/vdMarkDone/btnClearToday(那是批次 3C 範圍)。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -721,7 +753,6 @@
     .vdHOps{margin-top:0}
   }
   .bkBox{flex:1;border:2px solid var(--line);border-radius:.6rem;padding:.55rem .7rem;background:var(--paper)}
-  .bkBox.bkWarn{border-color:var(--warn);background:#FFF7E6}
   .bkLine{font-size:.95rem;color:var(--ink-soft);margin:.25rem 0 .5rem;line-height:1.7}
   .bkOps{display:flex;flex-wrap:wrap;gap:.5rem}
   .bkOps .btn{min-height:2.75rem}
@@ -1016,6 +1047,8 @@
   body.sheet-open{overflow:hidden}
   footer{margin:2rem 1rem 1rem;color:var(--ink-soft);font-size:.72em;line-height:1.8;max-width:64rem}
   footer .btn{margin:.15rem .2rem .15rem 0}
+  /* v24 3B T7:備份整區收成頁尾一個開關;summary 觸控區與字級不得小於既有按鈕(GS-P11 老花) */
+  #dataOps summary{min-height:2.75rem;font-size:1.05rem;cursor:pointer;padding:.6rem .2rem}
   #ioBox{width:100%;min-height:8rem;font-size:.85em;margin-top:.5rem;display:none;
     font-family:ui-monospace,monospace}
   /* ═══ 手機縮減統一塊(群組修正:CSS 順序)——必須位於所有一般規則之後,才能正確覆蓋 ═══
@@ -1123,6 +1156,8 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   padding:.4rem .6rem;font:inherit;font-size:1.05rem;text-align:left;cursor:pointer;
   border:1px solid var(--line);border-radius:.7rem;background:var(--paper);color:var(--ink)}
 .tvPickPlus{flex:0 0 auto;font-weight:800;color:var(--sign-green)}
+/* v24 3B T17:已加入這一天的那列——沿用 .msRow.msOn 的既有色票,不另訂新色 */
+.tvPickItem.tvPickOn{background:#EAF6EF;border-color:var(--sign-green)}
 .tvGo{display:flex;flex-direction:column;gap:.5rem;margin:.8rem 0 1.2rem}
 .tvGo a{display:inline-block;text-align:center;min-height:3rem;line-height:3rem;padding:0 1rem;
   border-radius:.6rem;background:var(--open);color:#fff;font-weight:800;font-size:1.05rem;text-decoration:none}
@@ -1212,13 +1247,6 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <option value="firstTrip">本次旅行第一個地區</option>
     </select>
     <span class="meta">「全部地區」最不容易誤以為景點消失。</span></div>
-  <div class="frow" id="sBackupRow">
-    <div class="bkBox" id="sBackupBox">
-      <b>資料備份</b>
-      <div class="bkLine" id="sBackupInfo"></div>
-      <div class="bkOps"><button class="btn btn-loc" id="btnBackupNow">📦 立即備份</button>
-        <button class="btn btn-ghost" id="btnImportAll">📥 還原備份</button></div>
-    </div></div>
   <div class="frow"><label for="sDefSort">預設排序</label>
     <select id="sDefSort">
       <option value="trip">行程順序</option>
@@ -1508,17 +1536,23 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 <footer>
   營業狀態依<b>行程表定時間</b>判斷——臨時公休、售完提早打烊不會反映,出發前請看店家最新公告。<br>
   距離與車程為<b>直線×1.35 道路係數</b>估算;精準以「導航」後的 Google 地圖為準。座標可到現場用「📌 座標校正」修正。<br>
-  <button class="btn btn-ghost" id="btnExport">📋 匯出座標校正</button>
-  <button class="btn btn-ghost" id="btnImport">📥 匯入座標校正</button>
-  <button class="btn btn-ghost" id="btnPublish">📦 建立可攜離線版本</button>
-  <button class="btn btn-ghost" id="btnReload">🔄 重新載入最新版</button>
-  <input type="file" id="publishSrcFile" accept=".html,text/html" hidden>
-  <textarea id="ioBox" aria-label="資料交換區" placeholder="匯出結果或貼上要匯入的 JSON"></textarea><br>
+  <details id="dataOps">
+    <summary>📦 資料備份與轉移</summary>
+    <div class="bkLine" id="dataOpsUsage"></div>
+    1. 換手機、要把資料搬過去 → 按「立即備份」存成檔案,新手機按「還原備份」讀回來。<br>
+    2. 想把行程給家人一份 → 按「立即備份」,把檔案傳給他。<br>
+    3. 怕手機清掉瀏覽器資料 → 資料只在這台手機裡,清掉就沒了,偶爾備一次。
+    <div class="bkOps"><button class="btn btn-loc" id="btnBackupNow">📦 立即備份</button>
+      <button class="btn btn-ghost" id="btnImportAll">📥 還原備份</button></div>
+    <div class="bkOps"><button class="btn btn-ghost" id="btnExport">📋 匯出座標校正</button>
+      <button class="btn btn-ghost" id="btnImport">📥 匯入座標校正</button>
+      <button class="btn btn-ghost" id="btnPublish">📥 下載 APP 副本(含目前資料)</button></div>
+    <input type="file" id="publishSrcFile" accept=".html,text/html" hidden>
+    <textarea id="ioBox" aria-label="資料交換區" placeholder="匯出結果或貼上要匯入的 JSON"></textarea>
+    <div class="bkOps"><button class="btn btn-ghost" id="btnIoCopy">📋 複製</button></div>
+  </details>
+  <button class="btn btn-ghost" id="btnReload">🔄 重新載入最新版</button><br>
   <input type="file" id="photoFile" accept="image/*" hidden>
-  照片:各卡片「⋮」可 📷 現場拍或 🖼 貼圖片網址;<br>
-  「📦 立即備份」會包含現場照片、HTTPS 圖片網址及明確無照狀態,有現場照片時 JSON 可能較大;<br>
-  「📦 建立可攜離線版本」只帶 HTTPS 正式圖片,不帶本機拍攝照片;日常新增景點後不需執行此功能。<br>
-  若已上傳新版但畫面仍是舊版,按「🔄 重新載入最新版」;不會刪除本機旅遊資料。<br>
   定位小知識:http:// 開啟會封鎖 GPS(需 HTTPS)→ 改用「我現在在」手動選點(GitHub Pages 是 HTTPS,不受影響)。
 </footer>
 
@@ -1873,7 +1907,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24h";          /* v24 段2 批次3A-2:開發期版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24i";          /* v24 段2 批次3B:開發期版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2233,9 +2267,12 @@ document.getElementById("btnSaveSettings").addEventListener("click",()=>{
   renderHeader();renderBackupUI();alert("旅遊設定已儲存。");
 });
 document.getElementById("btnResetSettings").addEventListener("click",()=>{
-  if(!confirm("恢復預設設定(開啟網站時預設顯示、預設排序、頂部收合、備份資訊顯示回到出廠值;旅行、景點、造訪紀錄、地區都不會動)?"))return;   /* v24 T10:照實檔實際重設範圍改寫,原文提的標題/住宿/日期已於批次2 搬離齒輪 */
+  if(!confirm("恢復預設設定(開啟網站時預設顯示、預設排序、頂部收合回到出廠值;旅行、景點、造訪紀錄、地區都不會動)?"))return;   /* v24 T10:照實檔實際重設範圍改寫;v24 3B T16:備份紀錄已不再被重設,該項一併撤掉 */
   const oldSettings={...settings};                   /* 工單16#1:恢復預設同樣驗存 */
-  settings=Object.assign({},DEF_SETTINGS,{regions:settings.regions||[],currentRegion:settings.currentRegion||""});   /* v22:恢復預設不動旅行地區 */
+  /* v24 3B T16(DECISIONS D15):備份紀錄是歷史事實,不是設定偏好,恢復預設不准碰 */
+  const keepBackupAt=settings.lastFullBackupAt||"",keepBackupCnt=backupCountNow();
+  settings=Object.assign({},DEF_SETTINGS,{regions:settings.regions||[],currentRegion:settings.currentRegion||""},
+    {lastFullBackupAt:keepBackupAt,backupChangeCount:keepBackupCnt});   /* v22:恢復預設不動旅行地區 */
   if(!saveSettings()){
     settings=oldSettings;renderHeader();
     alert("恢復預設失敗,未變更(見儲存提醒)。");return}
@@ -3959,18 +3996,21 @@ function renderTravelPanel(){
       +`②到「📋 想去清單」分頁,在景點卡片上按「📅 排進行程」。</div>`;
   /* 加入景點:來源就是想去清單(cy_trip_v5),只讀不寫 */
   const already=new Set(day.uids);
-  const cand=trip.map(u=>byUid[u]).filter(p=>p&&!already.has(p.uid));
+  /* v24 3B T17:整份想去清單都列出,不再濾掉已加入的;already 保留供每列狀態判斷 */
+  const cand=trip.map(u=>byUid[u]).filter(Boolean);
   if(!travelPicking){
     h+=`<div class="tvOps"><button class="btn btn-ghost" id="tvPickOpen">＋ 從想去清單加入</button></div>`;
-  }else if(!cand.length){
-    h+=`<div class="tvPick"><div class="meta">想去清單目前沒有可加入的景點`
-      +`(可能都已排進這一天)。先回「📋 想去清單」分頁,用卡片的 ＋ 把景點加進清單。</div>`
+  }else if(!cand.length){                   /* v24 3B T17:此分支現在只剩「想去清單為空」一種情況 */
+    h+=`<div class="tvPick"><div class="meta">想去清單目前沒有可加入的景點。`
+      +`先回「📋 想去清單」分頁,用卡片的 ＋ 把景點加進清單。</div>`
       +`<div class="tvOps"><button class="btn btn-ghost" id="tvPickClose">收起</button></div></div>`;
   }else{
     h+=`<div class="tvPick"><b>加到「${esc(dayLabel(t,curDayIdx))}」</b>`
-      +`<div class="tvPickList">`+cand.map(p=>`<button type="button" class="tvPickItem" data-pickone="${esc(p.uid)}">`
-        +`<span class="tvPickPlus">＋</span>${esc(p.name)}`
-        +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}</button>`).join("")+`</div>`
+      +`<div class="tvPickList">`+cand.map(p=>{
+        const on=already.has(p.uid);          /* v24 3B T17:已加入不消失,改打勾+淡綠底;再點一次即移除 */
+        return `<button type="button" class="tvPickItem${on?" tvPickOn":""}" data-pickone="${esc(p.uid)}">`
+        +`<span class="tvPickPlus">${on?"✓":"＋"}</span>${esc(p.name)}`
+        +`${p.city?`<span class="cityChip">${esc(p.city)}</span>`:""}</button>`}).join("")+`</div>`
       +`<div class="tvOps"><button class="btn btn-loc" id="tvPickClose">完成</button></div></div>`;
   }
   if(stops.length){                         /* 沿用既有分段:每段最多 SEG_MAX 站 */
@@ -4010,7 +4050,11 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();return}
   if(b.id==="tvPickClose"){travelPicking=false;renderTravelPanel();return}
   if(b.dataset.pickone!==undefined){          /* v24 1-C:點整列即加入,面板不關,可連續點 */
-    travelAddStops([b.dataset.pickone]);
+    const uid=b.dataset.pickone;              /* v24 3B T17:已加入的再點一次 → 走既有移除路徑,與 ✕ 同一個函式 */
+    const ct=currentTravel(),cd=ct&&ct.days[curDayIdx];
+    const at=cd?cd.uids.indexOf(uid):-1;
+    if(at>=0){travelRemoveStop(at);return}    /* travelRemoveStop 內部會重繪,travelPicking 不動,清單維持展開 */
+    travelAddStops([uid]);
     /* travelAddStops 內部會把 travelPicking 設回 false(其邏輯一字不動),這裡重新打開讓使用者連續加 */
     if(!travelPicking){travelPicking=true;renderTravelPanel()}
     return}
@@ -4708,8 +4752,30 @@ const IO_MAX=2*1024*1024;
 document.getElementById("btnExport").addEventListener("click",()=>{
   $io.style.display="block";
   $io.value=Object.keys(coordFix).length?JSON.stringify(coordFix,null,1)
-    :'(尚無校正資料——到現場按各卡「📌 座標校正」)';
-  $io.focus();$io.select();
+    :'(尚無校正資料——到現場按各卡「📌 座標校正」)';   /* v24 3B T11:不再自動全選,改用下方「📋 複製」 */
+});
+/* v24 3B T9:顯示目前占用空間。沿用既有 storageLevel(),不另寫估算函式;
+   刻意不用 navigator.storage.estimate()——它不含 localStorage 自己的上限,會回報數百 MB 造成假安全 */
+function renderDataOpsUsage(){
+  const el=document.getElementById("dataOpsUsage");if(!el)return;
+  el.textContent=`這個 APP 在你手機上佔用:約 ${storageLevel().mb.toFixed(2)} MB`;
+}
+renderDataOpsUsage();
+document.getElementById("dataOps").addEventListener("toggle",e=>{
+  if(e.target.open)renderDataOpsUsage();      /* 每次展開重算;不記憶展開狀態、不新增 localStorage 鍵 */
+});
+/* v24 3B T11:ioBox 的複製鈕。ioBox 本來就是「複製失敗時的最後退路」,
+   原本靠自動全選,手機上選不起來 = 這條退路是斷的;改用既有 clipboard→execCopyText 兩段式 */
+document.getElementById("btnIoCopy").addEventListener("click",()=>{
+  const text=$io.value;
+  if(!text){showToast("資料交換區目前是空的");return}
+  const done=ok=>{
+    if(ok)showToast("已複製,可貼到別的地方");
+    else showToast("複製失敗,請長按框內文字手動複製",null,null,"error");
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(()=>done(true)).catch(()=>done(execCopyText(text)));
+  else done(execCopyText(text));
 });
 document.getElementById("btnImport").addEventListener("click",()=>{
   if($io.style.display!=="block"){$io.style.display="block";$io.value="";$io.focus();
@@ -5432,7 +5498,7 @@ function copyTodayTrip(){                               /* 複製今日行程文
   const finish=ok=>{
     if(ok){alert("已複製想去清單,可貼到 LINE");return}
     const box=document.getElementById("ioBox");         /* 最終 fallback:顯示於資料交換區手動複製 */
-    if(box){box.style.display="block";box.value=text;box.focus();box.select();}
+    if(box){box.style.display="block";box.value=text;}   /* v24 3B T11:不再自動全選 */
     alert("複製失敗,請手動選取文字");
   };
   if(navigator.clipboard&&navigator.clipboard.writeText)
@@ -6163,12 +6229,6 @@ function fmtBackupAt(){
 }
 function renderBackupUI(){
   const st=backupNeedsAttention();
-  const info=document.getElementById("sBackupInfo");
-  if(info){
-    info.innerHTML=`上次完整備份:<b>${esc(fmtBackupAt())}</b><br>備份後資料變更:<b>${backupCountNow()}</b> 次`;
-    const box=document.getElementById("sBackupBox");
-    if(box)box.classList.toggle("bkWarn",st.need);
-  }
   const el=document.getElementById("backupNotice");
   if(!el)return;
   if(!st.need||backupNoticeSnoozed){el.hidden=true;el.innerHTML="";return}
@@ -6199,7 +6259,7 @@ function exportFullBackup(){                       /* 成功建立下載檔且�
   let text;
   try{text=buildFullBackupJson()}
   catch(err){alert("備份未完成:資料轉換失敗("+err.message+")。");return false}
-  try{$io.style.display="block";$io.value=text;$io.focus();$io.select();}catch(_){}
+  try{$io.style.display="block";$io.value=text;}catch(_){}   /* v24 3B T11:不再自動全選 */
   const stamp=new Date();
   const fname=`旅遊吃玩導航_完整備份_${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}`
     +`_${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.json`;
