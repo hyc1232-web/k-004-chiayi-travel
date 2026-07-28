@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段2 批次2 齒輪與旅行合一)｜2026-07-28
- 本檔最新版本:APP_RELEASE = 24f(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段2 批次3A 砍入口與文字修正)｜2026-07-28
+ 本檔最新版本:APP_RELEASE = 24g(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -318,6 +318,29 @@
      沒有旅行時標題 fallback 維持「我的想去清單」、住宿那段不出現;
    不做:settings 舊值自動轉成一趟旅行(開機寫檔風險大於效益,使用者已備份)、
      齒輪按鈕搬家(使用者尚未拍板)、「本次旅行地區」那個設定欄位(26 處引用,單獨開段)。
+ ═══ V24 段2 批次3A(2026-07-28,APP_RELEASE=24g):砍入口與文字修正 ═══
+   T5 「✓ 完成今日行程」使用者入口全數移除(使用者裁決 B 直接砍,見 DECISIONS D13)。
+     砍的是入口不是機制,共五處:①卡片 .visitBtn 按鈕整段 ②它在卡片事件委派內的 click 分支
+     ③renderFilters 的「隱藏已完成」篩選鈕(並拿掉「顯示全部」aria-pressed 裡的 !f.hideDone)
+     ④visList 的 filters.hideDone 過濾 ⑤卡片 done 變數與 .card.done 灰化(CSS 兩行一併刪,
+     該規則只服務這一處);renderReco 的排除條件改為只擋 hotel 與無座標。
+     completedToday / saveCT / togglePlaceCompleted 定義與內部邏輯一字未動,
+     第十二鍵 cy_completed_today_v5 保留,備份匯出匯入還原、跨日自動清除、景點刪除復原快照、
+     造訪視窗「同時標記今天行程已完成」四條路全部未碰——底層留著,V25 臨時行程若用得到還在。
+     filters 物件的 hideDone 欄位刻意保留(多處初始化與 reset 會設它,砍欄位會擴大改動面)。
+   T10 「恢復預設值」的 confirm 文字原寫「標題/住宿,日期清空」,那三樣已於批次2 搬離齒輪,
+     這句自批次2 起就在說謊。照 DEF_SETTINGS 與該函式實際重設範圍改寫:
+     開啟網站時預設顯示、預設排序、頂部收合、備份資訊顯示(lastFullBackupAt/backupChangeCount)
+     回到出廠值;regions/currentRegion 與旅行、景點、造訪紀錄不動。重設邏輯一字未改,只改文字,
+     句數維持 1 句(P1 不得增加)。
+   T1 toast 關閉鈕由純符號「✕」改為「✓ 知道了」(使用者原話:X 讀起來像取消/刪除),
+     aria-label 與 title 同步;樣式由 44×44 方形符號鈕改為比照 .toastBtn 的文字鈕
+     (邊框維持較淡,讓「↩ 復原」這類動作鈕仍是視覺主角),高度仍 ≥44px。
+     倒數條 .toastBar、showToast/hideToast 邏輯、按住暫停、動作鈕 label 全部未動——
+     「不用等他跑完」按這顆本來就會立刻關,不需要動計時器。
+   T13(系統名稱被截斷)本批未動,原因見交回報告:實機截斷發生在「收合」列,
+     而工單指的樣式組是 header:not(.hCollapsed)(展開列,該處名稱獨佔整行不會截斷),
+     且工單限制明文禁止改動收合版面。待使用者裁決後另批處理。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -496,8 +519,10 @@
   .toastBtn{flex:0 0 auto;min-height:2.75rem;padding:0 .8rem;font:inherit;font-weight:800;
     white-space:nowrap;border:2px solid #fff;border-radius:.5rem;
     background:transparent;color:#fff;cursor:pointer}
-  .toastClose{flex:0 0 auto;width:2.75rem;height:2.75rem;line-height:1;   /* §4:44×44px */
-    font:inherit;font-size:1.05rem;font-weight:800;color:#fff;cursor:pointer;
+  /* v24 T1:由純符號 ✕ 改為「✓ 知道了」——外觀比照 .toastBtn(有邊框、看得出可按),
+     邊框維持較淡,讓動作鈕(例「↩ 復原」)仍是視覺主角;高度仍 ≥44px */
+  .toastClose{flex:0 0 auto;min-height:2.75rem;padding:0 .8rem;line-height:1;
+    font:inherit;font-weight:800;white-space:nowrap;color:#fff;cursor:pointer;
     background:transparent;border:2px solid rgba(255,255,255,.55);border-radius:.5rem}
   /* §2:倒數進度條(細線,由滿縮短,無數字) */
   .toastBar{position:absolute;left:.6rem;right:.6rem;bottom:.35rem;height:3px;
@@ -750,8 +775,6 @@
   .c-meal{--cc:var(--c-meal)} .c-snack{--cc:var(--c-snack)} .c-kids{--cc:var(--c-kids)}
   .c-spot{--cc:var(--c-spot)} .c-stay{--cc:var(--c-stay)} .c-shop{--cc:var(--c-shop)}
   .c-custom{--cc:var(--c-custom)}
-  .card.done{opacity:.55}
-  .card.done .name{text-decoration:line-through}
   .card.excluded{opacity:.5;outline:2px dashed var(--closed);outline-offset:-2px}
   .top{display:flex;align-items:flex-start;gap:.7rem}
   .num{flex:0 0 auto;width:2.5rem;height:2.5rem;border-radius:50%;display:flex;
@@ -1836,7 +1859,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24f";          /* v24 段2 批次2:開發期版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24g";          /* v24 段2 批次3A:開發期版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2196,7 +2219,7 @@ document.getElementById("btnSaveSettings").addEventListener("click",()=>{
   renderHeader();renderBackupUI();alert("旅遊設定已儲存。");
 });
 document.getElementById("btnResetSettings").addEventListener("click",()=>{
-  if(!confirm("恢復預設旅遊設定(標題/住宿,日期清空)?"))return;
+  if(!confirm("恢復預設設定(開啟網站時預設顯示、預設排序、頂部收合、備份資訊顯示回到出廠值;旅行、景點、造訪紀錄、地區都不會動)?"))return;   /* v24 T10:照實檔實際重設範圍改寫,原文提的標題/住宿/日期已於批次2 搬離齒輪 */
   const oldSettings={...settings};                   /* 工單16#1:恢復預設同樣驗存 */
   settings=Object.assign({},DEF_SETTINGS,{regions:settings.regions||[],currentRegion:settings.currentRegion||""});   /* v22:恢復預設不動旅行地區 */
   if(!saveSettings()){
@@ -2425,7 +2448,7 @@ function renderReco(now){
   if(!ref){$r.hidden=true;return}
   const okList=[],unkList=[];
   for(const p of visList()){
-    if(p.type==="hotel"||completedToday.has(p.uid)||!p.hasCoord)continue;
+    if(p.type==="hotel"||!p.hasCoord)continue;   /* v24 T5:完成今日行程入口已砍,不再排除 */
     const eta=etaMin(distKm(ref,p));
     const hist=vhCount(p.uid);
     if(p.open){
@@ -2481,9 +2504,8 @@ function renderSorts(){
 function renderFilters(){
   const f=filters;
   document.getElementById("filters").innerHTML=
-    `<button data-f="reset" aria-pressed="${!f.customOnly&&!f.hideDone&&!f.showExcluded}">顯示全部</button>`
+    `<button data-f="reset" aria-pressed="${!f.customOnly&&!f.showExcluded}">顯示全部</button>`
     +`<button data-f="customOnly" aria-pressed="${f.customOnly}">只顯示自訂</button>`
-    +`<button data-f="hideDone" aria-pressed="${f.hideDone}">隱藏已完成</button>`
     +`<button data-f="showExcluded" aria-pressed="${f.showExcluded}">顯示暫時隱藏</button>`
     +`<button data-f="multiSel" aria-pressed="${mobileMultiSelectMode}">${mobileMultiSelectMode?"✓ 多選模式":"☑ 多選景點"}</button>`
     +`<span class="vhFilterWrap"><label for="vhFilter">造訪紀錄</label>`      /* v22L3:欄位名稱改為造訪紀錄;僅記憶體 */
@@ -2512,7 +2534,6 @@ function cardList(){
   if(curTab==="custom")pts=pts.filter(p=>p.source==="custom");
   else if(curTab!=="all")pts=pts.filter(p=>p.mainCat===curTab);
   if(filters.customOnly)pts=pts.filter(p=>p.source==="custom");
-  if(filters.hideDone)pts=pts.filter(p=>!completedToday.has(p.uid));
   return pts;
 }
 /* 手機退回修正3:精簡多選清單——同篩選/排序,一列=勾選框+編號+名稱+分類|狀態|距離;整列可點(沿用 .pick 交易) */
@@ -2555,10 +2576,10 @@ function renderCards(now){
   renderedPts=pts;
   document.getElementById("main").innerHTML=`<div class="grid">`+pts.map((p,i)=>{
     const st=stateOf(p,now),m=meta[p.uid],a=arrivalOf(p,now);
-    const inTrip=trip.includes(p.uid),done=completedToday.has(p.uid);
+    const inTrip=trip.includes(p.uid);   /* v24 T5:done 已隨「完成今日行程」入口一併移除 */
     const exc=excluded.has(p.uid),vh=vhOf(p.uid),hist=vh?vh.count:0,isC=p.source==="custom";
     const ph=photoOf(p.uid);              /* v21:含正式預設回落 */
-    return `<div class="card ${catCls(p)}${done?" done":""}${exc?" excluded":""}" data-i="${i}" data-uid="${p.uid}">
+    return `<div class="card ${catCls(p)}${exc?" excluded":""}" data-i="${i}" data-uid="${p.uid}">
       <button class="moreBtn" data-more title="管理這個景點" aria-label="管理這個景點" aria-haspopup="dialog">管理</button>
       <div class="cardTop">
         ${ph?`<img class="cardPhoto" src="${esc(ph)}" alt="${esc(p.name)}照片" loading="lazy" onerror="this.style.display='none'">`:""}
@@ -2572,10 +2593,6 @@ function renderCards(now){
       <div class="nameRow">
         <div class="num">${i+1}</div>
         <div class="name">${p.icon?esc(p.icon)+" ":""}${esc(p.name)}</div>
-        <button class="visitBtn" data-v="${p.uid}" aria-pressed="${done}"
-          title="${done?"取消今日行程完成":"把這個景點標記為今日行程已完成"}"
-          aria-label="${done?"今日已完成:"+esc(p.name)+",點擊可取消":"完成今日行程:"+esc(p.name)}"
-          >${done?"✓ 今日已完成":"✓ 完成今日行程"}</button>
       </div>
       ${m?`<div class="dist">📏 約 ${m.km.toFixed(1)} km｜車程約 ${m.eta} 分(估) <span class="rank">｜第 ${m.rank} 近</span>${p.fixed?`<span class="fixed-tag">｜📌已校正</span>`:""}</div>`
          :(!p.hasCoord?`<div class="noCoord">⚠️ 尚未設定座標——可導航,但不參與距離/推薦 <button class="fixCoordBtn" data-fixcoord="${p.uid}">📌 補座標</button></div>`:"")}
@@ -4368,16 +4385,8 @@ document.getElementById("main").addEventListener("click",e=>{
   if(vo){vdTrigger=vo;openVisitDialog(vo.dataset.vhopen,"edit");return}
   const va=e.target.closest("[data-vhadd]");          /* v22L8.1:記錄造訪→開新增視窗;不切換今日完成 */
   if(va){vdTrigger=va;openVisitDialog(va.dataset.vhadd,"add");return}
-  const vb=e.target.closest(".visitBtn");
-  if(vb){
-    /* v22L9 §1:「完成?」只切換今日行程完成狀態,不再開造訪紀錄視窗。
-       新增造訪紀錄一律由卡片上的「✅ 記錄造訪」入口進行,兩者職責分離。 */
-    const wasDone=completedToday.has(vb.dataset.v);
-    if(togglePlaceCompleted(vb.dataset.v)){
-      renderAll();                                    /* 工單15#1:整組交易,成功才重繪 */
-      showToast(wasDone?"已取消今日行程完成":"已完成今日行程");   /* v22L12 §三 */
-    }
-    return}
+  /* v24 T5:卡片「✓ 完成今日行程」入口已砍,原 .visitBtn click 分支一併移除;
+     togglePlaceCompleted 本身保留(造訪視窗與跨日/備份路徑仍在用)。 */
 });
 
 /* ═══ 15b. 共用底部管理抽屜 ═══ */
@@ -5572,7 +5581,7 @@ function showToast(msg,action,ms,kind){
   el.innerHTML=`<span class="toastMsg">${esc(msg)}</span>`
     +`<span class="toastOps">`
     +(action&&action.label?`<button type="button" class="toastBtn" id="toastAction">${esc(action.label)}</button>`:"")
-    +`<button type="button" class="toastClose" id="toastClose" title="關閉提示" aria-label="關閉提示">✕</button>`
+    +`<button type="button" class="toastClose" id="toastClose" title="知道了,關閉提示" aria-label="知道了,關閉提示">✓ 知道了</button>`
     +`</span>`
     +`<span class="toastBar"><i style="animation-duration:${dur}ms"></i></span>`;
   el.classList.toggle("toastErr",kind==="error");
