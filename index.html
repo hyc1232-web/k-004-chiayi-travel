@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段2 批次3A 砍入口與文字修正)｜2026-07-28
- 本檔最新版本:APP_RELEASE = 24g(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 段2 批次3A-2 收合列系統名稱與死樣式清理)｜2026-07-28
+ 本檔最新版本:APP_RELEASE = 24h(以程式內 const APP_RELEASE 為準)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -338,9 +338,25 @@
      (邊框維持較淡,讓「↩ 復原」這類動作鈕仍是視覺主角),高度仍 ≥44px。
      倒數條 .toastBar、showToast/hideToast 邏輯、按住暫停、動作鈕 label 全部未動——
      「不用等他跑完」按這顆本來就會立刻關,不需要動計時器。
-   T13(系統名稱被截斷)本批未動,原因見交回報告:實機截斷發生在「收合」列,
-     而工單指的樣式組是 header:not(.hCollapsed)(展開列,該處名稱獨佔整行不會截斷),
-     且工單限制明文禁止改動收合版面。待使用者裁決後另批處理。
+   T13(系統名稱被截斷)批次3A 當下未動,原因:實機截斷發生在「收合」列,
+     而工單指的樣式組是 header:not(.hCollapsed)(展開列,該處 .sysName 獨佔整行不會截斷,
+     那組 ellipsis 是永不觸發的保險絲),且原工單限制明文禁止改動收合版面。
+     → 已於 3A-2 由使用者裁決解除該限制並完成,見下。
+ ═══ V24 段2 批次3A-2(2026-07-28,APP_RELEASE=24h):收合列系統名稱與死樣式清理 ═══
+   使用者裁決:原工單〈限制2〉「收合狀態的版面不准動」正式解除。
+     解除理由(使用者原話大意):那條限制是規劃端寫壞的——正因為收合是他的主畫面,
+     壞掉的地方才在那裡,保護它等於保護病灶。
+   T13 做法 A':收合列在 max-width:759px 時 .sysShort 也改 display:none,只留 🧭。
+     根因是批次2 把 ⚙️ 改成「⚙️ 設定」,#btnSettings 內在寬度多了兩個中文字,
+     把 .sysName 壓到 min-width:4.5rem 底線,短名「旅遊導航」被 ellipsis 截成「旅遊導…」。
+     不採 B'(窄螢幕退回只剩 ⚙️)——那會推翻批次2 剛做的正名,來回改。
+     min-width:4.5rem 與 v22L4.1 的歷史註解一併保留不動(前者改了也不會讓按鈕多拿空間,
+     因 .hRow 是 flex:0 0 auto;後者是歷史,依 D7 不改寫)。
+     展開列、<title>、頁尾的完整名稱「旅遊吃玩導航」全部未動,無資訊消失。
+   死樣式清理:.visitBtn 兩條規則(含 [aria-pressed="true"])、媒體查詢一行,
+     連同其 v22L12 §七 註解,共 9 行移除(810-817、1015)。
+     該按鈕已於 3A 隨 T5 砍除,JS 內 .visitBtn 參照已為 0,此 9 行為純死樣式。
+     不影響任何現存元素;非入口變動,進貨對帳淨值 0。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -433,8 +449,15 @@
   @media (max-width:759px){
     header.hCollapsed{padding:.35rem .6rem;gap:.4rem}
     header.hCollapsed .sysName{min-width:4.5rem}
+    /* v24 T13(做法 A'):收合列連短名也不顯示,只留 🧭。
+       根因是批次2 把 ⚙️ 改成「⚙️ 設定」,#btnSettings 內在寬度多了兩個中文字,
+       把 .sysName 壓到 min-width 底線,短名「旅遊導航」被截成「旅遊導…」。
+       收合＝現場模式,那一列的作用是給按鈕不是給人讀 APP 名字;
+       完整名稱在展開列、<title> 與頁尾都還在,沒有資訊消失。
+       min-width:4.5rem 保留不動——.sysName 是 flex:1 1 auto,.hRow 是 flex:0 0 auto,
+       改它不會讓按鈕多拿到空間,留著可確保版面預算與 24g 完全相同。 */
     header.hCollapsed .sysFull{display:none}
-    header.hCollapsed .sysShort{display:inline}
+    header.hCollapsed .sysShort{display:none}
     header.hCollapsed .hRow{gap:.3rem}
     header.hCollapsed .verChip{font-size:.7rem;padding:0 .3rem;letter-spacing:0}
     header.hCollapsed .hReload{padding:0 .45rem;font-size:.9rem}
@@ -807,14 +830,6 @@
   .a-warn{color:#8A4A06;border-color:#B45309;background:#FFF3E0}
   .a-bad{color:#96201F;border-color:#C22F2F;background:#FDEBEB}
   .a-unk{color:#4C5652;border-color:#8A9490;background:#F0F2F1}
-  /* v22L12 §七:完成今日行程=中性外框(不與「導航」的大面積綠爭焦);
-     今日已完成=淡綠狀態(讓人知道狀態,而非誘導再次點擊) */
-  .visitBtn{flex:0 0 auto;font:inherit;font-size:.72em;font-weight:800;
-    min-width:5.6rem;min-height:2.75rem;padding:0 .55rem;white-space:nowrap;
-    border-radius:.7rem;border:2px solid var(--line);
-    background:var(--paper);color:var(--ink-soft);cursor:pointer}
-  .visitBtn[aria-pressed="true"]{background:#EAF3EC;color:var(--sign-green-dark);
-    border-color:#BBD9C4;font-weight:800}
   .fixed-tag{color:#0B63A8;font-weight:800}
   .actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.3rem}
   .go{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;
@@ -1012,7 +1027,6 @@
     .card .name{font-size:1.12em}
     .card .addr,.card .note{margin:.15rem 0}
     .btn-nav,.card .btn{min-height:2.75rem}
-    .visitBtn{min-height:2.75rem}
     /* v22L16:子層改 rem 脫離 em 疊乘(原 .76em×.70em≈10.4px 違反 GS-P11);觸控區一律維持 ≥44px */
     #tripBar{font-size:.70em}                       /* v22G:原 .85em → -17.6%(規格 14) */
     #tripBar b{font-size:1rem}
@@ -1859,7 +1873,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24g";          /* v24 段2 批次3A:開發期版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24h";          /* v24 段2 批次3A-2:開發期版本代號,封版前才改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
