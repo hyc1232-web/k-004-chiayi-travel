@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 段2 批次3C 隔天回顧不綁載入與空轉入口清除)｜2026-07-29
- 本檔最新版本:APP_RELEASE = 24j(以程式內 const APP_RELEASE 為準)
+ 旅遊吃玩導航｜第二十四版(V24 封版前清理批 補正2:資料區開關加框、座標鈕正名)｜2026-07-29
+ 本檔最新版本:APP_RELEASE = 24n(以程式內 const APP_RELEASE 為準;l 已跳過,避免與數字 1 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -422,6 +422,80 @@
    本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、settings.currentRegion、
      #backupNotice 風險橫幅整組、兩步回顧視窗與 vhBatchAdd 的寫入行為、
      d.reviewed 欄位語意(null／"done"／"skipped")、header 的「🔄 更新」。
+ ═══ V24 封版前清理批(2026-07-29,APP_RELEASE=24k):匯入路徑補通與說謊文字清除 ═══
+   T25 按「⚙️ 設定」現在會把畫面帶到面板。使用者原話:「我的手機畫面在下面的時候,按設定
+     畫面不會跳到上面,會讓人以為沒有動作發生 或者這個案件壞掉的錯覺」。
+     新增 scrollToSettingsPanel(),只在「開啟」那個分支呼叫;關閉不捲(關掉不該把畫面拉走)。
+     沿用 v22L7.3 既有那組絕對定位捲動(headerHeightNow / getScrollParent / offsetTopIn / applyScroll),
+     **不用 scrollIntoView**——沿革 v22L7.2/v22L7.3 已記載它會撞 sticky 頁首、造成二次位移。
+     頁首高度每次當下量測(header 有展開/收合兩種高度),不寫死;等兩次 rAF 讓 hidden 切換與
+     版面重排完成才量座標,未新增任何計時器。
+   T26 造訪視窗兩處在 3C 砍掉勾選框(T21)之後開始說謊的字:
+     ①vdSetIntro 的 add 分支「需要完成今日行程,可在下方勾選。」整句刪除——**它明確叫使用者
+     去勾一個不存在的東西**;第一句「這會新增一筆紀錄,不會修改原有紀錄。」保留。
+     ②.vdSecTitle「日期與今日行程」→「造訪日期」(該區現在只剩造訪日期一個欄位)。
+   T27 #btnImportAll 按鈕文字「📥 還原備份」→「📥 匯入備份」;三句情境第 1 句同步改。
+     **根因記錄**:此鈕原名「📥 匯入完整旅遊資料」,批次1 的 E11 為了把「三顆按鈕兩個名字」
+     收成一組,改名「還原備份」去配「備份」——**名詞對齊了,動詞卻配錯**。程式自己的 confirm
+     至今仍寫「匯入方式／合併匯入」,畫面與程式從那時起就講兩種語言。id/函式/confirm 內文未動。
+   T28 匯入這條路在手機上原本是半斷的:框下面只有「複製」沒有「貼上」,而且貼完要回頭
+     **再按一次同一顆**才會執行——同一顆按鈕第一次是「開框」、第二次是「執行」。
+     (a)執行段原封抽成 runImportAll(),驗證與寫入邏輯**一行未改**,只換位置;
+     (b)#btnImportAll 只負責開框,不再有「再按一次」的分支、不跳 alert;
+     (c)原本那句 alert 改成 #ioHint 常駐一行,只在匯入流程顯示(對匯出座標校正不成立,不亂掛);
+     (d)既有 #btnIoCopy 與新增兩顆包進 #ioBtns,與交換框同步顯示——框沒開時那一區不佔畫面
+     (.bkOps 是 display:flex 會蓋掉 [hidden],故補一條 #ioBtns[hidden],#ioHint[hidden]{display:none});
+     (e)新增 #btnIoPaste「📋 貼上」,走 navigator.clipboard.readText();
+     **失敗必有回退**——瀏覽器不給讀剪貼簿時用既有 showToast 提示改長按貼上,不靜默失敗、不用 alert;
+     (f)新增 #btnIoRunImport「✅ 執行匯入」,呼叫 runImportAll();框內為空先擋下。
+   T29 renderDataOpsUsage() 掛進既有 renderAll() 尾端(與 3C 的 renderReviewNotice() 同位置同做法)。
+     原本只在模組載入與 details 的 toggle 呼叫,**匯入完數字停在舊值**;匯入路徑最後會走 renderAll(),
+     因此匯入完成後佔用立刻重算。toggle 那個呼叫保留,未新增計時器或事件監聽。
+   T23 3C 連帶產生的 6 條死樣式刪除:.vdCheck ×2(含 input)、.vdDoneWrap ×2(含 @media 內那條)、
+     .vdCheckNote、#vdDoneRow.vdDoneDisabled .vdCheck。刪前逐條實掃確認 HTML 與 JS 皆 0 引用。
+   T24 兩行會誤導的既有註解——**已於 3C 當下順手改掉**,本批查證後確認為 0 筆,無需再動。
+   本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、settings.currentRegion、
+     匯入的全部驗證與寫入邏輯(版本 5～6 相容、appVersion 較新拒收、IO_MAX 2MB、完整還原/合併匯入、
+     統計 alert)、exportFullBackup/buildFullBackupJson、completedToday 底層與 vdApplyMarkDone、
+     #backupNotice 整組、造訪視窗的評分/心得/日期/過去紀錄與 vhBatchAdd、#reviewNotice 與 renderReviewNotice()。
+ ═══ V24 封版前清理批 補正(2026-07-29,APP_RELEASE=24m):註解正名、死樣式、匯入鈕顯示條件 ═══
+   版號跳過 l:小寫 L 與數字 1 在畫面上難分辨,24k 之後直接跳 24m。
+   M1 .vdDateRow 上方那行註解原寫「日期獨立一列,勾選在其下方」——那個勾選已於 3C T21 砍除,
+     改寫成描述現況並保留 v22L15 §五 原本要記的版面決定。其餘提到「勾選」的註解全屬其他功能
+     (行程編輯清單、多點導航)或本來就是「已砍」紀錄,一律未動。
+   M2 死樣式 .vdIntroSub 刪除——24k 的 B1 拿掉造訪視窗那個 <span> 之後,HTML 與 JS 引用皆為 0。
+     刪前實掃確認(計數時已把樣式區與腳本區各自剝離,只看標記與程式本體)。
+     ⚠️ 施工中踩到並修掉的坑:本段初稿把腳本區的開頭標籤逐字寫進沿革,
+     結果 validatePublishSource 那條「抓整段腳本」的正則從沿革中途抓起,
+     new Function 編譯失敗 →「下載 APP 副本」的來源驗證閘門當場被擋。
+     **沿革內一律不得出現 script / style 的標籤字面值。** 見 DECISIONS D18。
+   M3 ioZoneShow 第二個參數由 withHint 改名 importMode,並擴大職責:
+     原本它只控 #ioHint,#ioBtns 內三顆一律同時出現——按「📋 匯出座標校正」時
+     「📋 貼上」與「✅ 執行匯入」也會露出來,對匯出流程沒有意義,誤按只會跑到版本檢查被擋。
+     改為:匯入流程三顆全開;匯出流程只留「📋 複製」。
+     三顆的事件處理與 runImportAll() 內容**一字未動**,本項只改「什麼時候看得到」;
+     兩顆的初始 HTML 補 hidden,並把它們列進既有的 [hidden]{display:none} 規則(防呆)。
+   本批未動:匯入的驗證與寫入邏輯、十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、
+     settings.currentRegion、#backupNotice 整組、沿革既有各段。
+ ═══ V24 封版前清理批 補正2(2026-07-29,APP_RELEASE=24n):資料區開關加框、座標鈕正名 ═══
+   N1 #dataOps summary 加框。原本只有字級與觸控高度,沒有邊框——使用者原話:
+     「資料備份與轉移 看起來像是使用標題,下方的立即備份 都有框框 主選單卻沒有框框」。
+     比照 .btn-ghost 的框線寫法(border:2px solid var(--line) + border-radius:.7rem),
+     左右 padding 由 .2rem 加到 .8rem 讓框不貼字;色票全部沿用既有變數,未新增任何色。
+     ▶/▼ 三角與 details 展開行為完全未動。
+   N2 資料區兩顆座標鈕正名,與卡片那顆分開:
+     #btnExport「📋 匯出座標校正」→「📋 匯出全部座標修正」
+     #btnImport「📥 匯入座標校正」→「📥 匯入座標修正」
+     **根因**:使用者找不到資料區那顆,因為它跟卡片上的「📌 座標校正」同名——
+     一個是「修這一個地點」,一個是「整批搬運」,同名就只能靠位置分辨。加「全部」二字才分得出來。
+     **本版只改這兩顆的按鈕標籤**;卡片「📌 座標校正」、sheetGroupTitle、清除鈕、
+     說明句與其餘 confirm/alert 一律未動——全面正名(約 13 處)排 V25,見 TODO T33。
+     連帶同步一處:btnImport 的引導 alert 原本寫「再按一次『匯入座標校正』」,
+     那顆按鈕已改名,不同步就會叫使用者去按一個不存在的名字(同 T26／M1 的病)。
+   本版另記:產出檢查⑤「HTML id 重複」是誤判,發布閘門目前形同壞的——
+     正則掃全檔文字不分區,四筆全誤報(見 TODO T32)。**本版不砍不動**,只登記。
+   本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、匯入的驗證與寫入邏輯、
+     settings.currentRegion、#backupNotice 整組、卡片上的「📌 座標校正」、沿革既有各段。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -692,10 +766,6 @@
   #vdSave{flex:2 1 9rem;min-width:0}
   #vdSkip{flex:1 1 6rem;min-width:0;white-space:nowrap}
   .vdOps .btn{min-height:2.75rem}
-  .vdCheck{display:inline-flex;align-items:center;gap:.45rem;min-height:2.75rem;
-    font-weight:400;min-width:0;cursor:pointer}
-  .vdCheck input{width:1.3rem;height:1.3rem}
-  /* v22L8:說明文字與勾選補充說明 */
   /* v22L15 §三:彈窗分段——區塊間距 ≥12px + 淡色分隔線,不做卡片套卡片 */
   .vdSec{padding:.75rem 0;border-top:1px solid var(--line)}
   .vdSec:first-child{padding-top:.4rem;border-top:none}
@@ -703,11 +773,11 @@
   .vdInfoRow{font-size:1em;font-weight:800;color:var(--ink);line-height:1.6;
     margin-top:.35rem;overflow-wrap:anywhere}
   .vdInfoSub{font-weight:400;font-size:.94em;color:var(--ink-soft)}
-  /* v22L15 §五:日期獨立一列,勾選在其下方 */
+  /* v22L15 §五:日期獨立一列。(當時其下方還有「今日完成」那一格,已於 v24 3C T21 砍除;
+     本段現在只剩日期,獨立一列的版面決定維持不變) */
   .vdDateRow{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
   .vdDateRow .vdLbl{flex:0 0 auto;font-weight:800}
   .vdDateRow input[type=date]{flex:1 1 10rem;min-width:0}
-  .vdDoneWrap{margin-top:.6rem;display:flex;flex-direction:column;align-items:flex-start;gap:.15rem}
   /* v22L15 §六:評價固定兩欄,等寬、觸控 ≥44px、不裁字 */
   .vdRadios{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
   .vdRadios label{display:flex;align-items:center;gap:.4rem;min-width:0;
@@ -723,7 +793,6 @@
   /* v22L15 §八:過去紀錄入口層級低於主要儲存鈕 */
   .vdPastRow{padding-top:.7rem}
   .vdIntro{font-size:.92em;color:var(--ink-soft);line-height:1.7;margin-top:.2rem}
-  .vdIntroSub{display:block;font-size:.96em;color:var(--ink-soft)}   /* v22L12 §四 */
   /* v22L10 §1:新增(綠)/編輯單筆(橘)識別 */
   .vdCard.vdKindAdd .vdHead{border-bottom-color:var(--sign-green)}
   .vdCard.vdKindAdd #vdTitle{color:var(--sign-green-dark)}
@@ -760,10 +829,7 @@
     .vdHistItem button{padding:0 .38rem;font-size:.82em}
   }
   .vdIntro[hidden]{display:none}
-  .vdDoneWrap{flex-direction:column;align-items:flex-start;gap:.15rem}
-  .vdCheckNote{font-size:.86em;color:var(--ink-soft);line-height:1.6;padding-left:1.75rem}
   .vdHNoteEmpty{opacity:.7;font-style:normal}        /* v22L9:未填心得 */
-  #vdDoneRow.vdDoneDisabled .vdCheck{opacity:.55;cursor:not-allowed}
   #vdSave,#vdSkip{min-height:2.75rem}
   /* v22L4.1:每筆獨立區塊,三列固定版面——①日期+評價 ②心得 ③編輯/刪除並排 */
   .vdHistItem{display:block;border:1px solid var(--line);border-radius:.6rem;
@@ -1086,7 +1152,14 @@
   footer{margin:2rem 1rem 1rem;color:var(--ink-soft);font-size:.72em;line-height:1.8;max-width:64rem}
   footer .btn{margin:.15rem .2rem .15rem 0}
   /* v24 3B T7:備份整區收成頁尾一個開關;summary 觸控區與字級不得小於既有按鈕(GS-P11 老花) */
-  #dataOps summary{min-height:2.75rem;font-size:1.05rem;cursor:pointer;padding:.6rem .2rem}
+  /* v24 24n N1:原本只有字級與觸控高度,沒有框——使用者原話「資料備份與轉移 看起來像是使用標題,
+     下方的立即備份 都有框框 主選單卻沒有框框」。比照 .btn-ghost 的框線寫法(2px var(--line)),
+     色票全部沿用既有變數;▶/▼ 三角與展開行為不動 */
+  #dataOps summary{min-height:2.75rem;font-size:1.05rem;cursor:pointer;padding:.6rem .8rem;
+    border:2px solid var(--line);border-radius:.7rem;background:var(--card);color:var(--ink)}
+  /* v24 24k T28:.bkOps 是 display:flex,會蓋掉 [hidden] 的 UA 樣式,必須明寫
+     v24 24m M3:兩顆匯入鈕改為單獨隱藏,一併列進來(.btn 本身未設 display,寫著是防呆) */
+  #ioBtns[hidden],#ioHint[hidden],#btnIoPaste[hidden],#btnIoRunImport[hidden]{display:none}
   #ioBox{width:100%;min-height:8rem;font-size:.85em;margin-top:.5rem;display:none;
     font-family:ui-monospace,monospace}
   /* ═══ 手機縮減統一塊(群組修正:CSS 順序)——必須位於所有一般規則之後,才能正確覆蓋 ═══
@@ -1444,7 +1517,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   <div id="vdSummary" class="vdMeta" hidden></div>
   <div id="vdForm">
     <div class="vdSec">
-      <div class="vdSecTitle">日期與今日行程</div>
+      <div class="vdSecTitle">造訪日期</div>
       <div class="vdRow vdDateRow"><label for="vdDate" class="vdLbl">造訪日期</label>
         <input type="date" id="vdDate"></div>
     </div>
@@ -1575,17 +1648,22 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
   <details id="dataOps">
     <summary>📦 資料備份與轉移</summary>
     <div class="bkLine" id="dataOpsUsage"></div>
-    1. 換手機、要把資料搬過去 → 按「立即備份」存成檔案,新手機按「還原備份」讀回來。<br>
+    1. 換手機、要把資料搬過去 → 按「立即備份」存成檔案,新手機按「匯入備份」讀回來。<br>
     2. 想把行程給家人一份 → 按「立即備份」,把檔案傳給他。<br>
     3. 怕手機清掉瀏覽器資料 → 資料只在這台手機裡,清掉就沒了,偶爾備一次。
     <div class="bkOps"><button class="btn btn-loc" id="btnBackupNow">📦 立即備份</button>
-      <button class="btn btn-ghost" id="btnImportAll">📥 還原備份</button></div>
-    <div class="bkOps"><button class="btn btn-ghost" id="btnExport">📋 匯出座標校正</button>
-      <button class="btn btn-ghost" id="btnImport">📥 匯入座標校正</button>
+      <button class="btn btn-ghost" id="btnImportAll">📥 匯入備份</button></div>
+    <div class="bkOps"><button class="btn btn-ghost" id="btnExport">📋 匯出全部座標修正</button>
+      <button class="btn btn-ghost" id="btnImport">📥 匯入座標修正</button>
       <button class="btn btn-ghost" id="btnPublish">📥 下載 APP 副本(含目前資料)</button></div>
     <input type="file" id="publishSrcFile" accept=".html,text/html" hidden>
+    <!-- v24 24k T28:原本是按完「匯入備份」跳 alert 叫人「再按一次」;改成常駐一行,只在匯入流程顯示 -->
+    <div class="bkLine" id="ioHint" hidden>把「📦 立即備份」下載的檔案內容貼進下面的框,再按「✅ 執行匯入」。</div>
     <textarea id="ioBox" aria-label="資料交換區" placeholder="匯出結果或貼上要匯入的 JSON"></textarea>
-    <div class="bkOps"><button class="btn btn-ghost" id="btnIoCopy">📋 複製</button></div>
+    <!-- v24 24k T28:三顆與框同步顯示;框沒開時不佔畫面 -->
+    <div class="bkOps" id="ioBtns" hidden><button class="btn btn-ghost" id="btnIoCopy">📋 複製</button>
+      <button class="btn btn-ghost" id="btnIoPaste" hidden>📋 貼上</button>
+      <button class="btn btn-loc" id="btnIoRunImport" hidden>✅ 執行匯入</button></div>
   </details>
   <input type="file" id="photoFile" accept="image/*" hidden>
   定位小知識:http:// 開啟會封鎖 GPS(需 HTTPS)→ 改用「我現在在」手動選點(GitHub Pages 是 HTTPS,不受影響)。
@@ -1942,7 +2020,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24j";          /* v24 段2 批次3C:開發期版本代號,封版前才改回無字尾 */
+const APP_RELEASE="24n";          /* v24 封版前清理批 補正2;封版時改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -2280,6 +2358,23 @@ function tickClock(){
   document.getElementById("hDay").textContent=dayStateText();
 }
 /* 設定面板 */
+/* v24 24k T25:按「⚙️ 設定」要把畫面帶到面板。使用者原話——人在頁面下方按設定,
+   面板在上方開但畫面不動,「會讓人以為沒有動作發生 或者這個案件壞掉的錯覺」。
+   沿用 v22L7.3 那組絕對定位捲動(headerHeightNow / getScrollParent / offsetTopIn / applyScroll),
+   **刻意不用瀏覽器內建那個「捲到元素」的 API**——沿革 v22L7.2/v22L7.3 已記載它會撞 sticky 頁首、
+   被後續 focus 造成二次位移,專案早已明文改用絕對定位。
+   頁首高度每次當下量測(header 有展開/收合兩種高度),不寫死。 */
+function scrollToSettingsPanel(){
+  const el=document.getElementById("settingsPanel");if(!el)return;
+  const go=()=>{
+    const container=getScrollParent(el);
+    const target=Math.max(0,Math.round(offsetTopIn(el,container)-headerHeightNow()-12));
+    applyScroll(container,target,"smooth");
+  };
+  /* 兩次 rAF:等 hidden 切換與版面重排完成才量座標(同 runEditScrollSequence 的做法) */
+  if(typeof requestAnimationFrame==="function")requestAnimationFrame(()=>requestAnimationFrame(go));
+  else go();
+}
 document.getElementById("btnSettings").addEventListener("click",()=>{
   const p=document.getElementById("settingsPanel");
   p.hidden=!p.hidden;
@@ -2288,6 +2383,7 @@ document.getElementById("btnSettings").addEventListener("click",()=>{
     document.getElementById("sDefSort").value=settings.defaultSortMode||"trip";
     renderBackupUI();                                 /* v22K */
     renderRegionList();
+    scrollToSettingsPanel();                          /* v24 24k T25:只在「開啟」捲;關閉不動畫面 */
   }
 });
 document.getElementById("btnSaveSettings").addEventListener("click",()=>{
@@ -4789,8 +4885,20 @@ document.addEventListener("keydown",e=>{
 /* ═══ 16. 匯出/匯入(座標+完整,工單十一) ═══ */
 const $io=document.getElementById("ioBox");
 const IO_MAX=2*1024*1024;
+/* v24 24k T28(d):操作鈕與交換框同步顯示,框沒開時那一區不佔畫面。
+   v24 24m M3:第二個參數改名 importMode,並同時決定「看得到哪幾顆」——
+     匯入流程 → 📋 複製 / 📋 貼上 / ✅ 執行匯入 三顆全開;
+     匯出流程 → 只留 📋 複製(貼上與執行匯入對那顆匯出鈕沒有意義,擺著只會讓人誤按)。
+   三顆的事件處理與 runImportAll() 內容一字未動,本項只改「什麼時候看得到」。 */
+function ioZoneShow(on,importMode){
+  const forImport=!!(on&&importMode);
+  const b=document.getElementById("ioBtns");if(b)b.hidden=!on;
+  const h=document.getElementById("ioHint");if(h)h.hidden=!forImport;
+  const paste=document.getElementById("btnIoPaste");if(paste)paste.hidden=!forImport;
+  const run=document.getElementById("btnIoRunImport");if(run)run.hidden=!forImport;
+}
 document.getElementById("btnExport").addEventListener("click",()=>{
-  $io.style.display="block";
+  $io.style.display="block";ioZoneShow(true,false);
   $io.value=Object.keys(coordFix).length?JSON.stringify(coordFix,null,1)
     :'(尚無校正資料——到現場按各卡「📌 座標校正」)';   /* v24 3B T11:不再自動全選,改用下方「📋 複製」 */
 });
@@ -4822,9 +4930,24 @@ document.getElementById("btnIoCopy").addEventListener("click",()=>{
     navigator.clipboard.writeText(text).then(()=>done(true)).catch(()=>done(execCopyText(text)));
   else done(execCopyText(text));
 });
+/* v24 24k T28(e):貼上。手機上框內選字困難,沒有這顆等於匯入這條路是斷的。
+   ⚠️ 失敗一定要有回退——瀏覽器可能不給讀剪貼簿,不可以按了沒反應。走既有 showToast,不用 alert */
+document.getElementById("btnIoPaste").addEventListener("click",()=>{
+  const fallback=()=>showToast("這個瀏覽器不給讀剪貼簿 —— 請長按框內,選「貼上」。",null,null,"error");
+  if(!(navigator.clipboard&&navigator.clipboard.readText)){fallback();return}
+  navigator.clipboard.readText().then(t=>{
+    if(!t){showToast("剪貼簿是空的");return}
+    $io.value=t;showToast("已貼上,確認內容後按「✅ 執行匯入」");
+  }).catch(fallback);
+});
+/* v24 24k T28(f):執行匯入。內容為空就擋下,不要空跑一輪 JSON 解析錯誤 */
+document.getElementById("btnIoRunImport").addEventListener("click",()=>{
+  if(!$io.value){showToast("框內還沒有內容");return}
+  runImportAll();
+});
 document.getElementById("btnImport").addEventListener("click",()=>{
-  if($io.style.display!=="block"){$io.style.display="block";$io.value="";$io.focus();
-    alert("把匯出的座標 JSON 貼進框內,再按一次「匯入座標校正」。");return}
+  if($io.style.display!=="block"){$io.style.display="block";ioZoneShow(true,false);$io.value="";$io.focus();
+    alert("把匯出的座標 JSON 貼進框內,再按一次「📥 匯入座標修正」。");return}   /* v24 24n N2:只同步那顆按鈕的新名字,其餘文案不動 */
   if($io.value.length>IO_MAX){alert("匯入內容超過 2MB,已拒絕。");return}
   try{
     const obj=JSON.parse($io.value);
@@ -4852,9 +4975,9 @@ document.getElementById("btnImport").addEventListener("click",()=>{
   }catch(e){alert("JSON 格式解析失敗,確認是從「匯出」複製的完整內容。")}
 });
 /* v22K:與「📦 立即備份」共用同一函式——同一份格式,另建下載檔並記錄備份日期 */
-document.getElementById("btnImportAll").addEventListener("click",()=>{
-  if($io.style.display!=="block"){$io.style.display="block";$io.value="";$io.focus();
-    alert("把「📦 立即備份」下載的 JSON 貼進框內,再按一次「📥 還原備份」。");return}
+/* v24 24k T28(a):執行段原封抽成 runImportAll() —— 驗證與寫入邏輯**一行未改**,只換位置(X4)。
+   原本這顆按鈕第一次是「開框」、第二次才是「執行」,兩種職責混在同一顆;現在拆開。 */
+function runImportAll(){
   if($io.value.length>IO_MAX){alert("匯入內容超過 2MB,已拒絕。");return}
   let d;
   try{d=JSON.parse($io.value)}catch(e){alert("JSON 格式解析失敗。");return}
@@ -5049,6 +5172,12 @@ document.getElementById("btnImportAll").addEventListener("click",()=>{
     +`座標校正:成功 ${R.fix.ok}、失敗 ${R.fix.fail}\n`
     +`想去清單:${R.trip} 站｜今日完成:${R.ct} 筆｜歷史紀錄:${R.hist} 筆｜照片:${R.photo} 筆\n`
     +`旅遊設定:${R.set?"已套用":"未包含"}`);
+}
+/* v24 24k T28(b):這顆只負責開框——不再有「再按一次」的分支,也不跳 alert。
+   說明改由 #ioHint 常駐顯示,執行改按「✅ 執行匯入」 */
+document.getElementById("btnImportAll").addEventListener("click",()=>{
+  $io.style.display="block";ioZoneShow(true,true);
+  $io.value="";$io.focus();
 });
 
 /* ═══ 17. 定時局部更新+總渲染 ═══ */
@@ -5082,6 +5211,7 @@ function renderAll(){
   renderCards(now);renderReco(now);renderTripBar(now);
   renderSelect();renderLocExtras();renderMultiNavBar();   /* v23 E4-3 */
   renderReviewNotice();                                  /* v24 3C T4:與 renderBackupUI() 同層級,不綁載入 */
+  renderDataOpsUsage();                                  /* v24 24k T29:匯入完會走到這裡,佔用數字立刻重算 */
   if(ref){
     $st.innerHTML=`目前位置:<b>${esc(ref.label)}</b>`
       +(ref.acc!=null?`(±${ref.acc}m)`:"")
@@ -5543,7 +5673,7 @@ function copyTodayTrip(){                               /* 複製今日行程文
   const finish=ok=>{
     if(ok){alert("已複製想去清單,可貼到 LINE");return}
     const box=document.getElementById("ioBox");         /* 最終 fallback:顯示於資料交換區手動複製 */
-    if(box){box.style.display="block";box.value=text;}   /* v24 3B T11:不再自動全選 */
+    if(box){box.style.display="block";ioZoneShow(true,false);box.value=text;}   /* v24 3B T11:不再自動全選 */
     alert("複製失敗,請手動選取文字");
   };
   if(navigator.clipboard&&navigator.clipboard.writeText)
@@ -5846,8 +5976,9 @@ function vdSetMode(kind,dateStr){                      /* v22L10 §1:新增=綠�
   const ed=vdEl("vdEditDate");
   if(kind==="add"){intro.hidden=false;
     /* v22L15 §四:說明整理成兩行,與景點名稱分開 */
-    intro.innerHTML="這會新增一筆紀錄,不會修改原有紀錄。"
-      +'<span class="vdIntroSub">需要完成今日行程,可在下方勾選。</span>';
+    /* v24 24k T26:原第二句叫使用者去勾一個已被 3C 的 T21 砍掉的勾選框(原文見本版沿革),
+       整句刪除;第一句保留 */
+    intro.innerHTML="這會新增一筆紀錄,不會修改原有紀錄。";
     if(ed){ed.hidden=true;ed.textContent=""}}
   else if(kind==="editOne"){intro.hidden=false;
     intro.textContent="修改後會更新這一筆紀錄,不會新增另一筆。";
@@ -6268,7 +6399,7 @@ function exportFullBackup(){                       /* 成功建立下載檔且�
   let text;
   try{text=buildFullBackupJson()}
   catch(err){alert("備份未完成:資料轉換失敗("+err.message+")。");return false}
-  try{$io.style.display="block";$io.value=text;}catch(_){}   /* v24 3B T11:不再自動全選 */
+  try{$io.style.display="block";ioZoneShow(true,false);$io.value=text;}catch(_){}   /* v24 3B T11:不再自動全選 */
   const stamp=new Date();
   const fname=`旅遊吃玩導航_完整備份_${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}`
     +`_${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.json`;
