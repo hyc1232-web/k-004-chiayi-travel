@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 封版前清理批 補正2:資料區開關加框、座標鈕正名)｜2026-07-29
- 本檔最新版本:APP_RELEASE = 24n(以程式內 const APP_RELEASE 為準;l 已跳過,避免與數字 1 混淆)
+ 旅遊吃玩導航｜第二十四版(V24 窄修:修改這趟資料的關閉與返回鍵)｜2026-07-30
+ 本檔最新版本:APP_RELEASE = 24p(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -496,6 +496,31 @@
      正則掃全檔文字不分區,四筆全誤報(見 TODO T32)。**本版不砍不動**,只登記。
    本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、匯入的驗證與寫入邏輯、
      settings.currentRegion、#backupNotice 整組、卡片上的「📌 座標校正」、沿革既有各段。
+ ═══ V24 窄修(2026-07-30,APP_RELEASE=24p):修改這趟資料的關閉與返回鍵(T35) ═══
+   版號跳過 o:小寫 o 與數字 0 在畫面上難分辨,24n 之後直接跳 24p。
+   **使用者原話**:「我點選(修改這趟資料),選項打開後 要關閉他,因為沒有開關符號,
+     使用手機習慣步驟就會按右下角 上一部,結果就整個跳出APP畫面,回到LINE對話」
+   P1 「修改旅行資料」標題列右側加 #tvEditClose「✕」。標題列包成 .tvEditHead(flex,✕ 靠右);
+     樣式併進既有 .tvStopOps button 那一組——它跟「✕ 移除一站」是同面板同一顆符號,
+     不另訂大小與色票,觸控區維持 44px。既有「取消」鈕保留不動。
+     委派分支條件擴成 tvEditCancel||tvEditClose,**不另寫一套關閉邏輯**;
+     兩者與返回鍵共同呼叫新增的 closeTravelEdit()(內容就是原本那兩行:travelEditing=false + 重繪)。
+   P2 手機返回鍵改成關掉表單,不離開頁面。**沿用 v22L7(七-7) 同一支 pattern,不自創第二套**:
+     新增 pushTravelEditHistory(),在 travelEditing 由 false 轉 true 時呼叫;
+     並在**既有那一個** popstate handler 的最前面加 travelEditing 分支——
+     該 handler 原本第一行就 if(!editingUid) return,**旅行編輯完全沒被攔到**,這是根因。
+     popstate handler 仍只有 1 個,pushState 由 1 處變 2 處。
+     新分支的條件是 `travelEditing && !editingUid` —— **`!editingUid` 是必要守衛**:
+     startEdit／switchTravel／setHomeTab 都不清 travelEditing,「旅行表單開著 → 切到景點管理
+     → 編輯某個景點」時兩個狀態會同時為真;少了它,景點編輯的返回鍵會被搶走,
+     那就動到了本批明文禁止的「其他面板的返回鍵行為」。有它 → 景點編輯永遠優先,該路徑與 24n 相同。
+     **刻意不主動呼叫 history.back()**(沿革已記:會與「更新」的 location.replace 互相干擾);
+     **刻意不問「要不要放棄修改」**——原本的「取消」也是直接關,加確認會多一下(D2)。
+     守衛旗標 travelEditHistoryPushed 的用法與既有 editHistoryPushed 完全一致:
+     按「取消」/✕ 關閉時**不重設**它,所以下次展開不會再 push,歷史堆疊不會每開一次就長一格。
+   本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、匯入的驗證與寫入邏輯、
+     travelAddStops／travelSaveEdit／pendingReviewDays、#backupNotice 整組、
+     **其他面板的返回鍵行為**(造訪視窗／旅行加站／設定／景點管理的通用化排 V25)、沿革既有各段。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -1256,7 +1281,9 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvNo{font-weight:800;min-width:1.8rem}
 .tvStopName{flex:1 1 8rem;font-size:1.05rem;font-weight:700}
 .tvStopOps{display:flex;gap:.35rem}
-.tvStopOps button{min-width:2.75rem;min-height:2.75rem;font-size:1rem;border:1px solid var(--line);
+/* v24 24p T35:#tvEditClose 併進來共用同一組樣式——它跟「✕ 移除一站」是同一個面板裡的同一顆符號,
+   不另訂大小與色票。觸控區維持 44px(2.75rem) */
+.tvStopOps button,#tvEditClose{min-width:2.75rem;min-height:2.75rem;font-size:1rem;border:1px solid var(--line);
   border-radius:.5rem;background:#fff;cursor:pointer}
 .tvGoOne{display:inline-flex;align-items:center;justify-content:center;
   min-height:2.75rem;padding:0 .7rem;border-radius:.7rem;text-decoration:none;
@@ -1276,6 +1303,9 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvDanger{margin:2.4rem 0 1.2rem;padding-top:1rem;border-top:1px dashed var(--line)}  /* 與其他操作拉開,避免誤觸 */
 .tvDanger .meta{margin-top:.4rem;line-height:1.6}
 .tvEdit{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}   /* v23 E4 追加4:改名稱/日期 */
+/* v24 24p T35:標題列改成一列,✕ 靠右——使用者原話「因為沒有開關符號」,要一眼看得到怎麼關 */
+.tvEditHead{display:flex;align-items:center;gap:.5rem}
+.tvEditHead #tvEditClose{margin-left:auto}
 /* v23 E4-2:排進行程小視窗 */
 #planDlg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
 #planDlg[hidden]{display:none}
@@ -2020,7 +2050,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24n";          /* v24 封版前清理批 補正2;封版時改回無字尾 */
+const APP_RELEASE="24p";          /* v24 窄修 T35;跳過 o(易與 0 混淆);封版時改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -3646,7 +3676,29 @@ function pushEditHistory(){
   if(editHistoryPushed)return;
   try{history.pushState({tnEdit:1},"");editHistoryPushed=true}catch(_){}
 }
+/* v24 24p T35:旅行「修改這趟資料」也要攔返回鍵。比照上面 v22L7(七-7) 同一支 pattern,
+   不自創第二套:進入時 push 一個歷史狀態,離開時**不主動 back**(沿革已記:會與「更新」的
+   location.replace 互相干擾)。守衛旗標的用法與 editHistoryPushed 完全一致——
+   按「取消」/✕ 關閉時刻意不重設它,所以下次展開不會再 push,歷史堆疊不會每開一次就長一格。 */
+let travelEditHistoryPushed=false;
+function pushTravelEditHistory(){
+  if(travelEditHistoryPushed)return;
+  try{history.pushState({tnTravelEdit:1},"");travelEditHistoryPushed=true}catch(_){}
+}
 window.addEventListener("popstate",async()=>{
+  /* v24 24p T35:旅行編輯要先攔——本 handler 原本第一行就 if(!editingUid) return,
+     旅行編輯完全沒被攔到,返回鍵直接離站(使用者實測:跳回 LINE 對話)。
+     關閉走 closeTravelEdit(),與「取消」/✕ 同一條路;**刻意不問「要不要放棄修改」**,
+     因為原本的「取消」也是直接關,加確認會多一下(D2:每多一個要使用者決定的就多一下)。 */
+  /* ⚠️ `&&!editingUid` 是必要守衛,不可省:startEdit／switchTravel／setHomeTab 都不清 travelEditing,
+     所以「旅行表單開著 → 切到景點管理 → 編輯某個景點」時兩個狀態會同時為真。
+     少了這個守衛,景點編輯的返回鍵會被本分支搶走(=動到其他面板的返回鍵行為,本批明文禁止)。
+     有它:景點編輯永遠優先,那條路與 24n 行為完全相同;兩者各自 push 一格,連按兩次會依序關掉。 */
+  if(travelEditing&&!editingUid){
+    travelEditHistoryPushed=false;                   /* 攔截點已被這次返回消耗掉 */
+    closeTravelEdit();
+    return;
+  }
   if(!editingUid){editHistoryPushed=false;return}
   editHistoryPushed=false;
   const done=await cancelEdit();                     /* 有修改會先問;取消放棄則留在編輯 */
@@ -4067,7 +4119,11 @@ function renderTravelPanel(){
     +`｜共 ${t.days.length} 天</span>`
     +`<button class="btn btn-ghost" id="tvEditOpen">✏️ 修改這趟資料</button></div>`;
   if(travelEditing){                        /* v23 追加4:建立後可改名稱與起訖日期 */
-    h+=`<div class="tvEdit"><b>修改旅行資料</b>
+    h+=`<div class="tvEdit">`
+      /* v24 24p T35:標題列右側加關閉鈕。使用者原話——「選項打開後 要關閉他,因為沒有開關符號,
+         使用手機習慣步驟就會按右下角 上一部,結果就整個跳出APP畫面」 */
+      +`<div class="tvEditHead"><b>修改旅行資料</b>`
+      +`<button type="button" id="tvEditClose" title="關閉" aria-label="關閉修改旅行資料">✕</button></div>
       <div class="frow"><label for="tvEditName">名稱*</label>
         <input type="text" id="tvEditName" maxlength="80" value="${esc(t.name)}" style="flex:1;min-width:10rem"></div>
       <div class="frow"><label for="tvEditStart">開始</label>
@@ -4185,8 +4241,12 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.dataset.down!==undefined){const i=+b.dataset.down;travelMoveStop(i,i+1);return}
   if(b.dataset.del!==undefined){travelRemoveStop(+b.dataset.del);return}
   if(b.id==="tvDelete"){travelDelete();return}
-  if(b.id==="tvEditOpen"){travelEditing=!travelEditing;renderTravelPanel();return}   /* v23 追加4 */
-  if(b.id==="tvEditCancel"){travelEditing=false;renderTravelPanel();return}
+  if(b.id==="tvEditOpen"){                  /* v23 追加4 */
+    travelEditing=!travelEditing;
+    if(travelEditing)pushTravelEditHistory();   /* v24 24p T35:展開才 push 攔截點 */
+    renderTravelPanel();return}
+  /* v24 24p T35:條件擴成同時吃 ✕,不另寫一套關閉邏輯;返回鍵也呼叫同一個 closeTravelEdit() */
+  if(b.id==="tvEditCancel"||b.id==="tvEditClose"){closeTravelEdit();return}
   if(b.id==="tvEditSave"){travelSaveEdit();return}
   if(b.id==="tvReview"){                                   /* v23 E5:手動記錄這一天 */
     const t=currentTravel();if(t)openReviewFor(t.id,curDayIdx,true);return}
@@ -4306,6 +4366,12 @@ document.getElementById("multiNavBar").addEventListener("click",e=>{
 });
 /* ── 追加 4:建立後修改旅行名稱與起訖日期 ── */
 let travelEditing=false;     /* 僅記憶體:編輯區是否展開 */
+/* v24 24p T35:關閉修改表單的唯一出口——「取消」鈕、✕、手機返回鍵三者共用這一條。
+   行為與 24n 的「取消」完全相同:不寫入任何 localStorage、不問要不要放棄修改。 */
+function closeTravelEdit(){
+  travelEditing=false;
+  renderTravelPanel();
+}
 function travelSaveEdit(){
   const t=currentTravel();if(!t)return;
   const $=id=>document.getElementById(id);
