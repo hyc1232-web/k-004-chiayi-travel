@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十四版(V24 窄修:修改這趟資料的關閉與返回鍵)｜2026-07-30
- 本檔最新版本:APP_RELEASE = 24p(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 旅遊吃玩導航｜第二十四版(V24 窄修2:產出檢查⑤ 修正與部署入口正名)｜2026-07-30
+ 本檔最新版本:APP_RELEASE = 24q(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -521,6 +521,24 @@
    本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、匯入的驗證與寫入邏輯、
      travelAddStops／travelSaveEdit／pendingReviewDays、#backupNotice 整組、
      **其他面板的返回鍵行為**(造訪視窗／旅行加站／設定／景點管理的通用化排 V25)、沿革既有各段。
+ ═══ V24 窄修2(2026-07-30,APP_RELEASE=24q):產出檢查⑤ 修正與部署入口正名(T32/T38) ═══
+   T32 產出檢查⑤ 判「標籤識別碼重複」是誤判,把部署入口整條擋死。
+     根因:那條正則掃全檔文字,不分檔頭沿革、樣式區、腳本區的樣板字串。
+     實測四筆全誤報——沿革提到的名稱撞上真標籤、屬性後綴被吃進去、
+     兩組同一 if/else 的互斥分支各被當成兩顆。
+     修法:先剝腳本區、再剝樣式區、最後剝所有註解,只留靜態標記區再比對;屬性前要求一個空白。
+     註解樣板改用拼接寫法,不讓該字面值出現在本檔(沿用 ⑦ 錨串同一手法)。
+     實測:修正前全檔 222 筆、重複 4 種;修正後靜態標記區 169 筆、重複 0。
+     ⚠️ 空白判斷只能用消耗式寫法,不可改成 lookbehind——舊瀏覽器在解析期就會整支腳本失敗。
+     這是 D7 家族第四變形(書寫位置與掃描範圍沒對齊),見 DECISIONS D19。
+   T38 部署入口正名:#btnPublish 標籤改為帶「建立…版本」語意,並標明包進去的是景點;
+     確認框首行同步同名。根因:24k 的 T6 改名只解了「會不會把東西送出去」,
+     沒顧到它在工作流裡的角色——它不是備份,是拿去部署的產出,改名後使用者認不出來了。
+     另,舊標籤把烙進去的東西說成「資料」並不準確:它只烙自訂景點與座標校正,
+     不含想去清單、旅行、造訪紀錄、本機照片。
+   本批未動:十二鍵與 APP_STORAGE_KEYS、DATA_SCHEMA_VERSION(維持 6)、PUBLISH_BUILD(維持 false)、
+     產出流程其餘七道檢查與寫檔邏輯、匯入的驗證與寫入、pendingReviewDays 與隔天回顧五支函式、
+     座標校正全面正名(排 V25,見 TODO T33)、沿革既有各段。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -1685,7 +1703,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <button class="btn btn-ghost" id="btnImportAll">📥 匯入備份</button></div>
     <div class="bkOps"><button class="btn btn-ghost" id="btnExport">📋 匯出全部座標修正</button>
       <button class="btn btn-ghost" id="btnImport">📥 匯入座標修正</button>
-      <button class="btn btn-ghost" id="btnPublish">📥 下載 APP 副本(含目前資料)</button></div>
+      <button class="btn btn-ghost" id="btnPublish">🏗 建立可部署版本(含目前景點)</button></div>
     <input type="file" id="publishSrcFile" accept=".html,text/html" hidden>
     <!-- v24 24k T28:原本是按完「匯入備份」跳 alert 叫人「再按一次」;改成常駐一行,只在匯入流程顯示 -->
     <div class="bkLine" id="ioHint" hidden>把「📦 立即備份」下載的檔案內容貼進下面的框,再按「✅ 執行匯入」。</div>
@@ -2050,7 +2068,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="24p";          /* v24 窄修 T35;跳過 o(易與 0 混淆);封版時改回無字尾 */
+const APP_RELEASE="24q";          /* v24 窄修2 T32/T38;跳過 o(易與 0 混淆);封版時改回無字尾 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
 const PUBLISH_BUILD=false;
@@ -5453,7 +5471,17 @@ function runPublishChecks(outText,expect){
       }
     }
   }
-  const ids=[...outText.matchAll(/id="([^"]+)"/g)].map(m=>m[1]);
+  /* v24 T32:⑤ 只掃靜態標記區——先剝腳本區、再剝樣式區、最後剝所有 HTML 註解(含檔頭沿革)。
+     舊寫法掃全檔文字,四筆全誤報:沿革提到的名稱撞上真標籤、屬性後綴被吃進去、
+     同一 if/else 互斥分支被當成兩顆(見 DECISIONS D19)。
+     剝離順序不可調換:腳本區先剝掉,本段自己寫的樣板才不會反過來干擾。
+     註解樣板一律拼接寫,不讓該字面值出現在本檔(沿用 ⑦ 錨串同一手法)。
+     屬性前的空白用消耗式 \s,不可改成 lookbehind——舊瀏覽器在解析期就會整支腳本失敗。 */
+  const reCmt=new RegExp("<"+"!--[\\s\\S]*?--"+">","g");
+  const htmlOnly=outText.replace(/<script[\s\S]*?<\/script>/g,"")
+                        .replace(/<style[\s\S]*?<\/style>/g,"")
+                        .replace(reCmt,"");
+  const ids=[...htmlOnly.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]);
   if(new Set(ids).size!==ids.length)errs.push("⑤HTML id 重複");
   const js=(outText.match(/<script>([\s\S]*)<\/script>/)||[])[1];
   try{new Function(js)}catch(err){errs.push("⑥產出 JS 無法編譯:"+err.message)}
@@ -5513,7 +5541,7 @@ async function generatePublishHtml(){
   const uidSet=new Set(pub.list.map(p=>p.uid));
   const dp=buildPublishDefaultPhotos(uidSet);
   const okGo=confirm(
-    `將建立可攜離線版本(來源:${src.mode})\n\n`
+    `將建立可部署版本(來源:${src.mode})\n\n`
     +`正式景點:${pub.list.length} 筆 = 原內建 ${pub.stats.builtin} − 移除 ${pub.stats.removed} + 自訂併入 ${pub.stats.merged}\n`
     +`├ 內建修改套用:${pub.stats.overridden} 筆\n`
     +`├ 座標校正烙入:${pub.stats.coordFixed} 筆\n`
