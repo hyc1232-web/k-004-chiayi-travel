@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十五版(V25 開發中:現場模式距離篩選——頂部收合即現場型)｜2026-08-01
- 本檔最新版本:APP_RELEASE = 25d(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 本檔最新版本:APP_RELEASE = 25e(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -578,13 +578,14 @@
      兩個方向都會誤寫資料;改用既有的自訂確認框做三選——完整還原、合併匯入、不匯入,
      預設焦點落在不匯入,誤按不會寫入任何資料;
      驗證與寫入邏輯一行未動,只換怎麼問。
- ═══ V25 批次3(2026-08-01,APP_RELEASE=25d):景點身世欄位與兩道白名單關卡 ═══
+ ═══ V25 批次3(2026-08-01,APP_RELEASE=25e):景點身世欄位與兩道白名單關卡 ═══
    T40-A 加一個記錄「這一筆哪來的」的欄位,值域為外部抓取、手動建立、不認得三種;
      沒有這個欄位或空字串的舊資料一律當手動建立(最壞是漏更新,不是被洗掉),
      有值但不認得的一律歸為不認得那一類,不得降成手動——手動那側綁著永不覆蓋,不是中性值;
      非字串一律先轉空值再判,避免型別問題被既有字串處理函式吃掉;
      兩道白名單各補一處,序連不可只補其一,否則重開一次或上傳一次就被洗掉;
-     不做開機全量遷移,只在讀取時補預設值,落盤時機是使用者自己的存檔動作。
+     不做開機全量遷移,只在讀取時補預設值,落盤時機是使用者自己的存檔動作;
+     內建景點的覆蓋資料不得夾帶身世欄,補進既有的刪除串,避免經由產出檔永久污染內建資料。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2004,7 +2005,7 @@ function normalizeTravels(raw){
 function normalizeOverride(raw){
   if(!raw||typeof raw!=="object")return null;
   const o={...raw};
-  delete o.uid;delete o.lat;delete o.lng;delete o.source;
+  delete o.uid;delete o.lat;delete o.lng;delete o.source;delete o.origin;
   delete o.facilityName;delete o.facilityHours;delete o.type;delete o.hasCoord;delete o.fixed;
   ["name","cat","mainCat","addr","nav","hours","phone","parkingType","indoorType",
    "note","icon","schedType","updatedAt"].forEach(k=>{
@@ -2122,7 +2123,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="25d";          /* V25 批次3 開發期(字尾 d),封版才拿掉 */
+const APP_RELEASE="25e";          /* V25 批次3 開發期(字尾 e),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
