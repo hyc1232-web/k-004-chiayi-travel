@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十五版(V25 開發中:現場模式距離篩選——頂部收合即現場型)｜2026-08-01
- 本檔最新版本:APP_RELEASE = 25f(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 本檔最新版本:APP_RELEASE = 25g(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -593,6 +593,14 @@
    B 景點管理面板標題列加關閉鈕,沿用旅行編輯那一支既有的彈性標題列樣式,不新增樣式類別;
      原本只能捲回面板上方再按一次入口鍵,新增表單很長時要捲很久;
    ⚠️ 其餘面板的返回鍵攔截本批未做——原設計經施工端實檢發現四處缺陷,設計重寫後另版交付。
+ ═══ V25 批次5(2026-08-01,APP_RELEASE=25g):其餘面板的返回鍵攔截 ═══
+   T36 造訪紀錄視窗、管理抽屜、旅行加站、景點管理、設定五處,按手機返回鍵原本一律離站,
+     在通訊軟體內建瀏覽器要重新點連結;改為攔截並關掉最上層那一個,人留在原地。
+   刻意不記錄「哪些面板開著」——那份狀態在全檔有七個地方可以被改變,漏掛任一處就留下
+     與事實不符的殘留而且不報錯;改成每次現場問面板本身,唯一真相就是面板自己。
+   優先權以視覺層級固定排序,浮層先於面板;攔截點全域只推一格,關掉上層後若下層還開著就補推。
+   造訪紀錄視窗維持未儲存保護,使用者選繼續編輯時攔截點會被補回,視窗不會被關掉。
+   既有的景點編輯與旅行編輯兩支一行未動,新分支接在它們之後;兩個旗標都隨每次返回一起歸零。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2132,7 +2140,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="25f";          /* V25 批次4 開發期(字尾 f),封版才拿掉 */
+const APP_RELEASE="25g";          /* V25 批次5 開發期(字尾 g),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
@@ -2488,9 +2496,14 @@ function scrollToSettingsPanel(){
   if(typeof requestAnimationFrame==="function")requestAnimationFrame(()=>requestAnimationFrame(go));
   else go();
 }
+function closeSettingsPanel(){                       /* v25 T36:與返回鍵共用同一條關閉路徑 */
+  const p=document.getElementById("settingsPanel");
+  if(p&&!p.hidden)p.hidden=true;
+}
 document.getElementById("btnSettings").addEventListener("click",()=>{
   const p=document.getElementById("settingsPanel");
   p.hidden=!p.hidden;
+  if(!p.hidden)armBack();
   if(!p.hidden){
     document.getElementById("sDefRegion").value=settings.defaultRegionMode||"all";   /* v22J */
     document.getElementById("sDefSort").value=settings.defaultSortMode||"trip";
@@ -3271,7 +3284,7 @@ function closeManagePanel(){
 document.getElementById("btnManage").addEventListener("click",()=>{
   const p=document.getElementById("managePanel");
   p.hidden=!p.hidden;
-  if(!p.hidden){renderManage();autofillAddCity();}
+  if(!p.hidden){renderManage();autofillAddCity();armBack();}
 });
 document.getElementById("mpClose").addEventListener("click",()=>{closeManagePanel()});
 document.querySelector(".mtabs").addEventListener("click",e=>{
@@ -3784,6 +3797,29 @@ function pushTravelEditHistory(){
   if(travelEditHistoryPushed)return;
   try{history.pushState({tnTravelEdit:1},"");travelEditHistoryPushed=true}catch(_){}
 }
+/* v25 T36:其餘面板的返回鍵攔截。
+   ⚠️ 刻意不維護「哪些面板開著」的變數——那份狀態在全檔有七個地方可以被改變(D29),
+   漏掛任一處就留下與事實不符的殘留,而且不報錯。改成現場問面板本身。
+   陣列順序=視覺層級:浮層在上、面板在下,越上面的先關。
+   沿用 v22L7 同一支寫法:全域只推一格、關閉時不主動退回(會與更新鍵的整頁重載互相干擾)。 */
+const BACK_PANELS=[
+  {is:()=>!vdEl("visitDlg").hidden,
+   close:()=>{let ok=false;guardVisitLeave(()=>{closeVisitDialog();ok=true});return ok}},
+  {is:()=>!$sheet.hidden,
+   close:()=>{closePlaceSheet();return true}},
+  {is:()=>travelPicking,
+   close:()=>{travelPicking=false;renderTravelPanel();return true}},
+  {is:()=>{const p=document.getElementById("managePanel");return !!p&&!p.hidden},
+   close:()=>{closeManagePanel();return true}},
+  {is:()=>{const p=document.getElementById("settingsPanel");return !!p&&!p.hidden},
+   close:()=>{closeSettingsPanel();return true}}
+];
+function topBackPanel(){for(const p of BACK_PANELS)if(p.is())return p;return null}
+let backArmed=false;
+function armBack(){                                  /* 面板開啟時呼叫;已有攔截點就不重複推 */
+  if(backArmed)return;
+  try{history.pushState({tnPanel:1},"");backArmed=true}catch(_){}
+}
 window.addEventListener("popstate",async()=>{
   /* v24 24p T35:旅行編輯要先攔——本 handler 原本第一行就 if(!editingUid) return,
      旅行編輯完全沒被攔到,返回鍵直接離站(使用者實測:跳回 LINE 對話)。
@@ -3797,6 +3833,17 @@ window.addEventListener("popstate",async()=>{
     travelEditHistoryPushed=false;                   /* 攔截點已被這次返回消耗掉 */
     closeTravelEdit();
     return;
+  }
+  /* v25 T36:攔截點已被這次返回消耗掉,旗標必須同步重設——否則下次開面板不會再推,
+     返回鍵就沒有攔截點,會直接離站,而且是間歇性的。既有兩支各自重設自己的旗標,本支比照。 */
+  if(!editingUid&&!travelEditing){
+    backArmed=false;
+    const p=topBackPanel();
+    if(p){
+      const closed=p.close();
+      if(!closed||topBackPanel())armBack();      /* 關不成,或關掉後下面還有面板 → 補回攔截點 */
+      return;
+    }
   }
   if(!editingUid){editHistoryPushed=false;return}
   editHistoryPushed=false;
@@ -4324,7 +4371,7 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.id==="tvCreate"){createTravelFromForm();return}
   if(b.id==="tvAddDay"){travelAddDay();return}
   if(b.id==="tvDelDay"){travelRemoveDay();return}
-  if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();return}
+  if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();armBack();return}
   if(b.id==="tvPickClose"){travelPicking=false;renderTravelPanel();return}
   if(b.dataset.pickone!==undefined){          /* v24 1-C:點整列即加入,面板不關,可連續點 */
     const uid=b.dataset.pickone;              /* v24 3B T17:已加入的再點一次 → 走既有移除路徑,與 ✕ 同一個函式 */
@@ -4333,7 +4380,7 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
     if(at>=0){travelRemoveStop(at);return}    /* travelRemoveStop 內部會重繪,travelPicking 不動,清單維持展開 */
     travelAddStops([uid]);
     /* travelAddStops 內部會把 travelPicking 設回 false(其邏輯一字不動),這裡重新打開讓使用者連續加 */
-    if(!travelPicking){travelPicking=true;renderTravelPanel()}
+    if(!travelPicking){travelPicking=true;renderTravelPanel();armBack()}
     return}
   if(b.dataset.day!==undefined){curDayIdx=+b.dataset.day;travelPicking=false;renderTravelPanel();return}
   if(b.dataset.up!==undefined){const i=+b.dataset.up;travelMoveStop(i,i-1);return}
@@ -4772,6 +4819,7 @@ function openPlaceSheet(uid,trigger){
   }));
   const c=document.getElementById("closePlaceSheet");
   if(c)c.focus();                                    /* 焦點入抽屜(工單十五) */
+  armBack();                                         /* v25 T36:開啟時推攔截點 */
 }
 function closePlaceSheet(){
   if(sheetClosing)return;                            /* 工單14#3:重複關閉守門,退場中再點不清 trigger */
@@ -6236,6 +6284,7 @@ function openVisitDialog(uid,mode,editIndex,prefill){
   vdEl("visitDlg").hidden=false;
   scrollVisitDialogTop();                             /* v22L13:內容渲染完成後回到最上方 */
   vdTakeSnapshot();                                   /* v22L14 §1:欄位填入完成後記錄初始快照 */
+  armBack();                                          /* v25 T36:開啟時推攔截點 */
 }
 /* ═══ v22L13:造訪紀錄彈窗回頂 ═══
    真正負責捲動的是 #vdBody(.vdCard 為 overflow:hidden,#visitDlg 僅為遮罩),
