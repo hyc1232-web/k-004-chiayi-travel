@@ -1371,6 +1371,7 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 /* v24 24p T35:標題列改成一列,✕ 靠右——使用者原話「因為沒有開關符號」,要一眼看得到怎麼關 */
 .tvEditHead{display:flex;align-items:center;gap:.5rem}
 .tvEditHead #tvEditClose{margin-left:auto}
+.tvEditHead #mpClose{margin-left:auto}   /* v25 T36:景點管理標題列沿用同一支 flex 標題列,不新增 class */
 /* v23 E4-2:排進行程小視窗 */
 #planDlg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
 #planDlg[hidden]{display:none}
@@ -1488,7 +1489,8 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 <!-- 🗂 景點管理 -->
 <div class="panel" id="managePanel" hidden>
   <div id="placeEditTopAnchor" aria-hidden="true"></div>
-  <h2>🗂 景點管理</h2>
+  <div class="tvEditHead"><h2>🗂 景點管理</h2>
+    <button class="btn btn-ghost" id="mpClose" title="關閉景點管理" aria-label="關閉景點管理">✕</button></div>
   <div class="mtabs">
     <button data-mt="add" aria-pressed="true">➕ 新增景點</button>
     <button data-mt="list" aria-pressed="false">📋 管理景點</button>
@@ -3251,11 +3253,20 @@ function deletePlace(uid){
 }
 
 /* ═══ 13. 景點管理面板(工單三、六) ═══ */
+/* v25 T36:✕ 與(日後的)返回鍵共用同一條關閉路徑。
+   ⚠️ C 區(返回鍵通用化)本批停工待裁定,故此處尚未掛面板關閉登記;
+   C 區實作時在 p.hidden=true 之後補一行登記即可,本函式其餘不必動。
+   (識別字刻意不寫成可被自檢計數的形式——D27) */
+function closeManagePanel(){
+  const p=document.getElementById("managePanel");
+  if(p&&!p.hidden){p.hidden=true}
+}
 document.getElementById("btnManage").addEventListener("click",()=>{
   const p=document.getElementById("managePanel");
   p.hidden=!p.hidden;
   if(!p.hidden){renderManage();autofillAddCity();}
 });
+document.getElementById("mpClose").addEventListener("click",()=>{closeManagePanel()});
 document.querySelector(".mtabs").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   manageTab=b.dataset.mt;
@@ -3908,7 +3919,7 @@ document.getElementById("fSave").addEventListener("click",()=>{
   }else{
     const uid=createCustomUid();                    /* 工單16#7:共用產生器 */
     if(byUid[uid]){alert("uid 撞號,請再按一次儲存。");return}
-    const newPlace=Object.assign({uid,source:"custom",
+    const newPlace=Object.assign({uid,source:"custom",origin:"manual",
       lat:la,lng:ln,createdAt:new Date().toISOString()},rec);
     customPlaces.push(newPlace);
     if(!saveCustom()){
