@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十五版(V25 開發中:現場模式距離篩選——頂部收合即現場型)｜2026-08-01
- 本檔最新版本:APP_RELEASE = 25g(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 旅遊吃玩導航｜第二十五版(V25 開發中:現場模式距離篩選——頂部收合即現場型)｜2026-08-02
+ 本檔最新版本:APP_RELEASE = 25h(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
 版本狀態:實機驗收候選(v22B 實用小改版;交 ChatGPT 靜態審查後才部署)
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -601,6 +601,16 @@
    優先權以視覺層級固定排序,浮層先於面板;攔截點全域只推一格,關掉上層後若下層還開著就補推。
    造訪紀錄視窗維持未儲存保護,使用者選繼續編輯時攔截點會被補回,視窗不會被關掉。
    既有的景點編輯與旅行編輯兩支一行未動,新分支接在它們之後;兩個旗標都隨每次返回一起歸零。
+ ═══ V25 批次6(2026-08-02,APP_RELEASE=25h):加減天後頂部同步、長名單對話框摘要化 ═══
+   E47 加一天與減一天會改動旅程結束日,資料層本來就算對也存好了,但收尾只重繪行程面板、
+     沒重繪頂部,於是頂部的旅遊日期停在舊值,讓人以為加天沒生效;重整後會對,無資料損壞。
+     兩處各補一行重繪頂部;檔頭沿革先前列的同步名單漏了這兩個操作,本版補齊。
+   E48 三處會把整份名單塞進系統對話框:產出前的併入清單、清理本機殘留的確認、
+     以及併入核對失敗時的錯誤訊息;灌入 839 筆之後,產出前那個框會長到把底部的
+     確定與否那句話擠出畫面,而它正是使用者要按下去的地方。
+     三處一律改成摘要——總數照舊在最前面,只列前五筆,其餘以筆數帶過。
+   清理本機殘留的確認另補一句提醒:該動作沒有復原,清理前請先備份;
+     實查確認記憶體快照只在函式內存活,函式結束即消失,那個確認框是唯一的煞車。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2140,7 +2150,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="25g";          /* V25 批次5 開發期(字尾 g),封版才拿掉 */
+const APP_RELEASE="25h";          /* V25 批次6 開發期(字尾 h),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
@@ -3195,7 +3205,9 @@ function clearPublishedPermRemoved(){
 function cleanupPublishedLocals(){
   const dup=customPlaces.filter(c=>BUILTIN_UIDS.has(c.uid));
   if(!dup.length){alert("沒有需要清理的本機資料。");return false}
-  if(!confirm(`清理以下已正式化的本機自訂景點(${dup.length} 筆)?\n${dup.map(c=>c.name).join("、")}\n(正式版已包含,清理不影響顯示)`))return false;
+  if(!confirm(`清理以下已正式化的本機自訂景點(${dup.length} 筆)?\n`
+    +nameDigest(dup.map(c=>c.name))
+    +`(正式版已包含,清理不影響顯示)\n\n⚠️ 這個動作沒有復原,清理前請先按「📦 立即備份」。`))return false;
   const oldCustom=[...customPlaces];
   customPlaces=customPlaces.filter(c=>!BUILTIN_UIDS.has(c.uid));
   if(!saveCustom()){
@@ -4172,6 +4184,7 @@ function travelAddDay(){
   if(tt.startDate)tt.endDate=travelDayDate(tt,tt.days.length-1);   /* v24 E:天數變,結束日跟著變 */
   if(!commitTravels(next,"加一天失敗,未變更(見儲存提醒)。"))return;
   curDayIdx=currentTravel().days.length-1;
+  renderHeader();                            /* v25 E47:天數變→結束日變,頂部旅遊日期要跟著更新(沿革 311 名單漏了加減天) */
   renderTravelPanel();
 }
 function travelRemoveDay(){                 /* 減天前若該天有站,必須先確認 */
@@ -4186,6 +4199,7 @@ function travelRemoveDay(){                 /* 減天前若該天有站,必須�
   if(tt.startDate)tt.endDate=tt.days.length?travelDayDate(tt,tt.days.length-1):tt.startDate;   /* v24 E */
   if(!commitTravels(next,"減一天失敗,未變更(見儲存提醒)。"))return;
   clampDayIdx(currentTravel());
+  renderHeader();                            /* v25 E47:同上,減天也會改結束日 */
   renderTravelPanel();
 }
 function travelDayOf(next,t){const nt=next.travels.find(x=>x.id===t.id);return nt?nt.days[curDayIdx]:null}
@@ -5553,11 +5567,17 @@ function diagnoseCustomMergeSkips(){        /* 唯讀重跑核心的兩個略過
   }
   return out;
 }
+function nameDigest(names,head){                /* v25 E48:長名單摘要——原生對話框塞不下 839 個名字,底部關鍵句會被擠掉 */
+  const a=Array.isArray(names)?names:[];
+  if(!a.length)return"";
+  const n=head||5,shown=a.slice(0,n).map((x,i)=>`   ${i+1}. ${x}`).join("\n");
+  return shown+(a.length>n?`\n   …其餘 ${a.length-n} 筆(共 ${a.length} 筆)`:"")+"\n";
+}
 function publishMergedBlock(pub){           /* 併入名單醒目區塊(規格 3/4/10) */
   const line="═══════════════════════════════";
   let t=line+`\n★ 自訂景點併入:${pub.stats.merged} 筆\n`;
   if(pub.mergedNames.length)
-    t+=pub.mergedNames.map((n,i)=>`   ${i+1}. ${n}`).join("\n")+"\n";
+    t+=nameDigest(pub.mergedNames)+"";        /* v25 E48:原本逐筆列出,839 筆時把底部的「確定產生?」擠出畫面 */
   if(customPlaces.length>0&&pub.stats.merged===0){
     const why=diagnoseCustomMergeSkips();
     t+=`\n⚠️ 警告:本機有 ${customPlaces.length} 筆自訂景點,但併入 0 筆!\n原因:\n`
@@ -5620,7 +5640,8 @@ function runPublishChecks(outText,expect){
   /* v22H ⑧:併入名單逐一核對(任一未寫入→停止下載並列名) */
   if(expect.mergedUids&&expect.mergedUids.length){
     const miss=verifyMergedInOutput(arr,expect.mergedUids,expect.mergedNames);
-    if(miss.length)errs.push("⑧自訂景點未寫入產出("+miss.length+" 筆):"+miss.join("、"));
+    /* v25 E48:單行截斷,不用 nameDigest() —— 這是 errs 陣列的一個元素,換行會破壞錯誤清單排版 */
+    if(miss.length)errs.push("⑧自訂景點未寫入產出("+miss.length+" 筆):"+miss.slice(0,5).join("、")+(miss.length>5?` …等共 ${miss.length} 筆`:""));
   }
   return errs;
 }
@@ -5675,7 +5696,7 @@ async function generatePublishHtml(){
     +`正式景點:${pub.list.length} 筆 = 原內建 ${pub.stats.builtin} − 移除 ${pub.stats.removed} + 自訂併入 ${pub.stats.merged}\n`
     +`├ 內建修改套用:${pub.stats.overridden} 筆\n`
     +`├ 座標校正烙入:${pub.stats.coordFixed} 筆\n`
-    +`├ 自正式版移除:${pub.stats.removed} 筆${pub.removedNames.length?"\n│   → "+pub.removedNames.join("、"):""}\n`
+    +`├ 自正式版移除:${pub.stats.removed} 筆${pub.removedNames.length?"\n│   → "+pub.removedNames.slice(0,5).join("、")+(pub.removedNames.length>5?` …等共 ${pub.removedNames.length} 筆`:""):""}\n`   /* v25 E48:單行截斷,不用 nameDigest()——這行在 ├└ 樹狀排版內 */
     +`└ 正式預設照片:${Object.keys(dp).length} 張(僅 https)\n\n`
     +publishMergedBlock(pub)                      /* v22H:併入名單醒目區塊(含 0 筆警告與原因) */
     +`\n不包含:今日完成/曾去過/想去清單/手動排序/本機拍攝照片/旅遊日期住宿/暫時隱藏\n\n確定產生?`);
