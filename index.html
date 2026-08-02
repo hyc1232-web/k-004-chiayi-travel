@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十六版(V26 開發中:單次渲染上限、字級可調)｜2026-08-02
- 本檔最新版本:APP_RELEASE = 26b(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 本檔最新版本:APP_RELEASE = 26c(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V25 定版(2026-08-02);外部景點 839 筆已灌入,回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -639,12 +639,15 @@
      請用地區分類或搜尋縮小:主卡片區、多選模式列表、以及所在景點下拉。
    所在景點下拉另修一個既有的白做工:原本建完選項才濾掉沒座標的,改成先濾再限筆數。
    卡片索引反查用的那份清單維持全量,前一百筆的索引在全量清單裡指的是同一筆,對得上。
- ═══ V26 批次2(2026-08-02,APP_RELEASE=26b):字級大小三段可調 ═══
+ ═══ V26 批次2(2026-08-02,APP_RELEASE=26c):字級大小三段可調 ═══
    同一個網址給不同人用,有老花的要大字,沒老花的嫌佔版面看不到幾筆;
      設定面板加一個三段下拉,存在既有的設定鍵裡,不新增儲存鍵。
    只改內文基準那一個變數,不動根元素字級——全檔內容用的是相對父元素的單位會跟著變,
      而觸控區與輸入框用的是相對根元素的單位,不會跟著縮,按鈕維持好按。
    非白名單值一律回落大字;存檔失敗時不套用,與既有的存成功才生效一致。
+   26c 補兩處漏套用:恢復預設值與匯入還原都會整包換掉設定,資料換了畫面也要跟著換——
+     原本只有存檔那一處會套用,另兩處要重整才會對;恢復預設更會讓下拉顯示大、畫面還是小。
+     兩處都放在存檔成功之後,匯入失敗回滾那條刻意不加(設定已還原成舊值,畫面本來就是舊的)。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2201,7 +2204,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="26b";          /* V26 批次3 開發期(字尾 b),封版才拿掉 */
+const APP_RELEASE="26c";          /* V26 批次2 開發期(字尾 c),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
@@ -2597,6 +2600,7 @@ document.getElementById("btnResetSettings").addEventListener("click",()=>{
   if(!saveSettings()){
     settings=oldSettings;renderHeader();
     alert("恢復預設失敗,未變更(見儲存提醒)。");return}
+  applyFontScale();                                  /* v26c:重設範圍與回滾邏輯一字未動,只補這一行——資料回大字了畫面也要跟著回,否則下拉顯示大、畫面還是小 */
   renderHeader();
   document.getElementById("btnSettings").click();document.getElementById("btnSettings").click();
 });
@@ -5457,6 +5461,7 @@ async function runImportAll(){
   settings.lastFullBackupAt="";settings.backupChangeCount=1;
   lsSet("cy_trip_settings_v5",settings);
   backupNoticeSnoozed=false;
+  applyFontScale();                                        /* v26c:還原/合併會整包重指派 settings,字級偏好跟著換人,畫面要一起換;失敗回滾那條不加——settings 已還原成舊值,畫面本來就是舊值(存成功才生效) */
   buildAll();reconcileCurrentRegion();renderHeader();renderAll();renderManage();renderBackupUI();
   alert("資料匯入完成,建議立即重新匯出一份本機完整備份。");
   alert((mode==="replace"
