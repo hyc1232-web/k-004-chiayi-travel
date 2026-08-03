@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十八版(V28 開發中:現場臨時找去處)｜2026-08-03
- 本檔最新版本:APP_RELEASE = 28a(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 旅遊吃玩導航｜第二十八版(V28 開發中:現場臨時找去處、定位顯示修正)｜2026-08-03
+ 本檔最新版本:APP_RELEASE = 28b(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V27 定版(2026-08-03);全台二十二縣市已備妥,上線檔由抓取腳本直接產出,版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -690,6 +690,15 @@
      一個是不限地區、跨縣市也要找得到。已立為 D34。
      只改記憶體不寫進偏好是刻意的——一次臨時操作不該改掉使用者的長期習慣,
      重整後仍回到他原本的收合狀態。
+ ═══ V28 批次2(2026-08-03,APP_RELEASE=28b):定位顯示與所在景點下拉 ═══
+   使用者在台南定位,精度只差十五公尺,畫面卻寫「余慈爺公廟 約四十五點八公里處」,
+     讀起來像人在嘉義;那句的原意是「離該地四十五點八公里」,但沒人會那樣讀。
+     改成先講已定位,再補最近的地點在多遠;五公里以外另用一句,明說附近沒有景點庫裡的地點。
+   所在景點下拉原本取前一百筆卻沒有排序,而清單的原始順序把內建那二十二筆永遠放最前面,
+     於是人在台南只列得出嘉義的內建景點,台南四千多筆一家都排不進來。
+     改成已定位時先按距離排再取前一百,選項並顯示距離。
+   ⚠️ 這是前一輪加上限時留下的副作用——加上限之前要先問:
+     這個清單有沒有排序?沒有的話,前一百筆到底是什麼?
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2256,7 +2265,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="28a";          /* V28 批次1 開發期(字尾 a),封版才拿掉 */
+const APP_RELEASE="28b";          /* V28 批次2 開發期(字尾 b),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v22H:發布版標記。施工版恆為 false;「建立可攜離線版本」產出時會被改寫為 true,
    讓右上角顯示 V22H-P,一眼分辨手上開的是發布檔還是原始施工檔。此行必須唯一。 */
@@ -2772,7 +2781,8 @@ function locate(){
       const m=Math.round(n.d*1000);
       if(n.d<=0.1&&r.acc<50){r.uid=n.p.uid;r.label=`${n.p.name}(${m}m 內)`}
       else if(n.d<=0.4){pendingUid={uid:n.p.uid,m};r.label=`可能在「${n.p.name}」附近(${m}m)`}
-      else r.label=`${n.p.name} 約${n.d.toFixed(1)}km 處`;
+      else if(n.d<=5)r.label=`已定位——最近的是「${n.p.name}」,${n.d.toFixed(1)}km`;
+      else r.label=`已定位——附近沒有景點庫裡的地點(最近的「${n.p.name}」在 ${n.d.toFixed(1)}km 外)`;
     }else r.label="已定位";
     document.getElementById("btnRelo").hidden=false;
     lastGpsRef={...r};                               /* 手機退回修正2 */
@@ -2792,12 +2802,17 @@ function renderSelect(){
   $sel.innerHTML=`<option value="">(手動選所在景點)</option>`;
   const groups={};
   const all=visList().filter(p=>p.hasCoord);              /* v26:先濾掉無座標,再限筆數——原本是建完 option 才濾,白做工 */
+  /* v28:限筆數之前先按距離排,否則前 N 筆是清單原始順序(內建 22 筆永遠在最前面),
+         人在台南卻只列得出嘉義的內建景點。已定位才排,沒定位維持原順序。 */
+  if(ref)all.sort((a,b)=>distKm(ref,a)-distKm(ref,b));
   const over=all.length>RENDER_MAX;
   all.slice(0,RENDER_MAX).forEach(p=>{(groups[p.mainCat]=groups[p.mainCat]||[]).push(p)});
   for(const g in groups){
     const og=document.createElement("optgroup");og.label=g;
     groups[g].forEach(p=>{
-      const o=document.createElement("option");o.value=p.uid;o.textContent=p.name;og.appendChild(o);
+      const o=document.createElement("option");o.value=p.uid;
+      o.textContent=ref?`${p.name}(${distKm(ref,p).toFixed(1)}km)`:p.name;   /* v28:有定位才顯示距離 */
+      og.appendChild(o);
     });
     if(og.children.length)$sel.appendChild(og);
   }
