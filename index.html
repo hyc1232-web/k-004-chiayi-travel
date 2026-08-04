@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十八版(V28 定版:現場真的按得動 —— 一鍵找去處、定位講人話、外部景點有營業時間)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 28(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入)｜2026-08-04
+ 本檔最新版本:APP_RELEASE = 29a(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
- 版本狀態:V28 定版(2026-08-04);全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
+ 版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
    複製給家人(行程面板主要操作列)、無座標卡片「📌 補座標」快捷、未分類顯示筆數、
    頂部版本標籤(APP_RELEASE)、景點管理「📍 尚未設定座標（N）」篩選入口;
@@ -794,6 +794,27 @@
      ・快打烊的店仍然會被推進「現在適合去」(最少仍有三十分鐘,不是到了就關門)
      ・外部景點還有兩千五百六十二筆的營業時間認不得,一律維持「時間待確認」——
        ⛔ 標錯營業中讓人開三十分鐘過去撲空,比不講更糟
+ ═══ V29 批次1(2026-08-04,APP_RELEASE=29a):共享行程,家人打開網址就有(T53)═══
+   使用者原話:「匯出 .json 長輩 60 歲以上老人不會用,我也不會,是因為我研究了才會」
+     「行程也烙進 HTML,家人打開網址就有,不用匯入任何東西」
+     「我用電腦上傳了,是因為我要把景點確認好,大概會去哪裡,
+       旅途中如有變卦在各自新增,顯示在自己的手機裡面」
+   ➡️ 共享行程是「出發前排好的底稿」,路上各自加的留在各自手機。
+   使用者裁定走唯讀:⛔ 不做「載入到家人手機」、不做版本號比對、不做「要載入嗎」詢問框——
+     那兩個難點是「要寫進去」才產生的,唯讀之後不存在。
+   ⛔ 不新增任何按鈕。使用者按現有的匯出備份拿到 JSON,交給腳本,腳本只挑四樣烙進來:
+     旅行(名稱、日期、住宿、每天去哪)、想去清單、手動排序、以及行程實際用到的自訂景點。
+   ⛔ 一律不烙:照片、造訪紀錄、今日完成、旅遊設定、內建景點覆蓋、座標校正、
+     暫時隱藏、下次移除名單,以及行程沒用到的自訂景點——那些是私人紀錄與偏好,
+     烙進去等於推給所有家人。
+   🔴 共享行程是**完全獨立的常數**,不經過旅行資料的正規化與存檔,也不寫進任何一個鍵。
+     為什麼不是插一個「這是分享來的」旗標:旅行正規化那一支回傳的是白名單字面量,
+     旗標會被靜靜丟掉,共享行程就變成使用者自己的,他重傳也蓋不掉,而且不報錯。
+     **靠結構隔離,不靠記得濾。**
+   ⚠️ 使用者自己的手機也會看到這一區(大家開的是同一顆檔案),所以刻意做得跟自己建的那趟
+     長得不一樣:左側粗綠邊、淡底色、標題寫明是分享來的、右邊掛一個唯讀標記。
+   ⚠️ 行程用到的自訂景點併進內建景點那一區(來源標為手動),讓卡片、導航、距離全部沿用既有邏輯。
+     代價是那幾筆會出現在所有人的景點列表裡——它們本來就是這趟要去的地方,可接受。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -1574,6 +1595,23 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
 .tvGo a{display:inline-block;text-align:center;min-height:3rem;line-height:3rem;padding:0 1rem;
   border-radius:.6rem;background:var(--open);color:#fff;font-weight:800;font-size:1.05rem;text-decoration:none}
 .tvEmpty{padding:1rem 0;line-height:1.8}
+/* v29a T53:共享行程(唯讀)。⚠️ 刻意與自己建的那趟長得不一樣——
+   使用者自己的手機也會看到這一區(大家開同一顆檔案),分不出來的話他自己會混淆。
+   用左側粗邊 ＋ 淡底色,一眼看得出「這一塊跟下面那塊不是同一種東西」。 */
+.shTrip{border:1px solid var(--line);border-left:5px solid var(--sign-green);
+  border-radius:.6rem;background:#F4F9F6;padding:.7rem .8rem;margin:.6rem 0 1rem}
+.shHead{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;margin-bottom:.4rem}
+.shTitle{font-size:1.1rem;font-weight:800;color:var(--sign-green)}
+.shRO{font-size:.85rem;font-weight:800;color:#fff;background:var(--ink-soft);
+  border-radius:999px;padding:.1rem .5rem}
+.shNote{color:var(--ink-soft);font-size:.9rem;line-height:1.6;margin-bottom:.5rem}
+.shOne{border-top:1px dashed var(--line);padding-top:.5rem;margin-top:.5rem}
+.shOne:first-of-type{border-top:none;padding-top:0;margin-top:0}
+.shName{font-size:1.05rem;font-weight:800}
+.shSub{color:var(--ink-soft);font-size:.95rem}
+.shDay{margin:.35rem 0 0 .2rem}
+.shDayT{font-weight:800;font-size:.95rem}
+.shList{margin:.1rem 0 0 1.1rem;padding:0;line-height:1.7}
 .tvDanger{margin:2.4rem 0 1.2rem;padding-top:1rem;border-top:1px dashed var(--line)}  /* 與其他操作拉開,避免誤觸 */
 .tvDanger .meta{margin-top:.4rem;line-height:1.6}
 .tvEdit{border:1px solid var(--line);border-radius:.6rem;padding:.6rem;margin:.5rem 0}   /* v23 E4 追加4:改名稱/日期 */
@@ -1923,6 +1961,9 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <input type="text" id="tvNewHotel" maxlength="80" placeholder="例:天成文旅－繪日之丘" style="flex:1;min-width:10rem"></div>
     <div class="frow"><button class="btn btn-loc" id="tvCreate">＋ 建立旅行</button></div>
   </div>
+  <!-- v29a T53:共享行程(唯讀)。內容由開機時的 renderSharedTrip() 畫一次;
+       SHARED_TRIP 是烙進檔案的常數,不會變,⛔ 不必跟著 renderTravelPanel() 重畫。 -->
+  <div id="sharedTripBox"></div>
   <div id="travelBody"></div>
 </section>
 
@@ -72205,11 +72246,23 @@ const PLACES=[
 /*__DEFAULT_PHOTOS_START__*/
 const DEFAULT_PHOTOS={};   /* v21:正式預設照片(uid→https);發布時由本機 https 照合成寫入 */
 /*__DEFAULT_PHOTOS_END__*/
+/* ═══ v29a T53:共享行程(唯讀)═══
+   使用者原話:「匯出 .json 長輩 60 歲以上老人不會用」「行程也烙進 HTML,家人打開網址就有」。
+   ⛔ 這是**完全獨立**的常數,與 travelsData 沒有任何關係:
+      不經過 normalizeTravel()、不經過 commitTravels()、不寫進任何 localStorage 鍵。
+   🔴 為什麼靠結構隔離而不是插旗標:normalizeTravel() 回傳的是白名單字面量
+      (id/name/hotel/startDate/endDate/days/createdAt),任何 shared:true 之類的標記
+      **會被靜靜丟掉**——共享行程會變成使用者自己的,他重傳也蓋不掉,而且不報錯。
+      「記得濾掉」是靠人記性的方案,結構隔離才是靠不住也不會壞的那種。
+   產出時由 PY 整段換掉;沒有備份可烙時維持 null(⛔ 不留舊資料、⛔ 不報錯)。 */
+/*__SHARED_TRIP_START__*/
+const SHARED_TRIP=null;
+/*__SHARED_TRIP_END__*/
 const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="28";           /* V28 定版(2026-08-04);開發期字尾已拿掉 */
+const APP_RELEASE="29a";          /* V29 批次1 開發期(字尾 a),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -74373,6 +74426,64 @@ function switchTravel(id){
   renderHeader();                            /* v24 2-3:換趟之後 header 的名稱/日期/住宿要跟著換 */
   curDayIdx=0;travelPicking=false;
   renderTravelPanel();
+}
+/* ═══ v29a T53:共享行程(唯讀)的讀取與顯示 ═══
+   ⛔ 本段完全不碰 travelsData、不呼叫 normalizeTravel()／commitTravels()／saveTravels(),
+      也不寫任何 localStorage 鍵。SHARED_TRIP 只被讀,不被存。
+   ⚠️ 仍然要自己做型別防禦:烙進來的東西壞掉時只能不顯示,⛔ 不可以炸掉開機。 */
+function sharedTripSafe(){
+  const s=(typeof SHARED_TRIP!=="undefined")?SHARED_TRIP:null;
+  if(!s||typeof s!=="object")return null;
+  const S=v=>typeof v==="string"?v:"";
+  const list=(Array.isArray(s.travels)?s.travels:[]).map(t=>{
+    if(!t||typeof t!=="object")return null;
+    const name=S(t.name).trim().slice(0,80);
+    if(!name)return null;
+    return{name,hotel:S(t.hotel).trim().slice(0,80),
+      startDate:S(t.startDate),endDate:S(t.endDate),
+      days:(Array.isArray(t.days)?t.days:[]).slice(0,TRAVEL_MAX_DAYS).map(d=>
+        (d&&Array.isArray(d.uids))?d.uids.filter(u=>typeof u==="string"&&u):[])};
+  }).filter(Boolean);
+  const trip=(Array.isArray(s.trip)?s.trip:[]).filter(u=>typeof u==="string"&&u);
+  if(!list.length&&!trip.length)return null;      /* 空的就當作沒有,⛔ 不畫空殼 */
+  return{travels:list,trip,builtAt:S(s.builtAt)};
+}
+/* uid → 顯示名稱。查不到就原樣列 uid ——⛔ 不要靜靜吞掉,那會讓人以為那一站不見了。 */
+function sharedPlaceName(uid){
+  const p=byUid[uid];
+  return p&&p.name?p.name:uid;
+}
+function renderSharedTrip(){
+  const box=document.getElementById("sharedTripBox");
+  if(!box)return;
+  const s=sharedTripSafe();
+  if(!s){box.innerHTML="";box.hidden=true;return}   /* 沒有就完全不出現 */
+  box.hidden=false;
+  let h=`<div class="shTrip"><div class="shHead">`
+    +`<span class="shTitle">📤 分享來的行程</span>`
+    +`<span class="shRO">唯讀</span></div>`
+    +`<div class="shNote">不會存進你的手機。你自己的旅行在下面。</div>`;
+  for(const t of s.travels){
+    h+=`<div class="shOne"><div class="shName">${esc(t.name)}</div>`
+      +`<div class="shSub">`
+      +(t.startDate?esc(t.startDate)+(t.endDate?" ～ "+esc(t.endDate):""):"未設定日期")
+      +`｜共 ${t.days.length} 天`
+      +(t.hotel?`｜住 ${esc(t.hotel)}`:"")+`</div>`;
+    t.days.forEach((uids,i)=>{
+      h+=`<div class="shDay"><div class="shDayT">第 ${i+1} 天`
+        +(uids.length?`・${uids.length} 站`:"")+`</div>`;
+      if(uids.length)
+        h+=`<ol class="shList">`+uids.map(u=>`<li>${esc(sharedPlaceName(u))}</li>`).join("")+`</ol>`;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  }
+  if(s.trip.length){
+    h+=`<div class="shOne"><div class="shName">想去清單 ${s.trip.length} 站</div>`
+      +`<ol class="shList">`+s.trip.map(u=>`<li>${esc(sharedPlaceName(u))}</li>`).join("")+`</ol></div>`;
+  }
+  h+=`</div>`;
+  box.innerHTML=h;
 }
 function renderTravelPanel(){
   const box=document.getElementById("travelBody");if(!box)return;
@@ -77004,6 +77115,7 @@ if(v23FromV22&&!settings.v23UpgradeNoticed){
   settings.v23UpgradeNoticed=true;
   if(!saveSettings())settings.v23UpgradeNoticed=false;
 }
+renderSharedTrip();                 /* v29a T53:共享行程是烙進檔案的常數,畫一次就好,⛔ 不跟著重畫 */
 autoJumpToToday();                  /* v24 A:先把背景切到今天 */
 /* v24 3C T4:開機不再自動彈出隔天回顧。改由 renderAll() 尾端的 renderReviewNotice()
    畫出常駐提示,使用者按「📝 現在記錄」才呼叫 startReviewFlow()。
