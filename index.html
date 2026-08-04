@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29a(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
+ 本檔最新版本:APP_RELEASE = 29b(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -815,6 +815,21 @@
      長得不一樣:左側粗綠邊、淡底色、標題寫明是分享來的、右邊掛一個唯讀標記。
    ⚠️ 行程用到的自訂景點併進內建景點那一區(來源標為手動),讓卡片、導航、距離全部沿用既有邏輯。
      代價是那幾筆會出現在所有人的景點列表裡——它們本來就是這趟要去的地方,可接受。
+ ═══ V29 批次2(2026-08-04,APP_RELEASE=29b):建立可部署版本自己烙行程(T54)═══
+   使用者原話:「我沒有要給 CC 做這個,要能匯出,取代的方法」。
+   ➡️ 上一批做出來的流程是「匯出備份 → 交給施工端 → 腳本烙 → 產出」,
+     他每改一次行程就要找人,自己做不完。本批讓那顆「建立可部署版本」自己就做得到。
+   ⚠️ 改之前那顆按鈕其實是走不通的:來源檔大小上限卡在兩百萬位元組,
+     而含全台資料的上線檔一千七百多萬位元組塞不進去,唯一通得過的是只有內建景點的開發檔——
+     **按下去等於把線上打回內建那二十二筆**,而且傳上去之後不會有人馬上發現。
+   所以放寬上限的同時**必須**加一道景點數守門:來源檔的景點比執行中的少就直接中止,
+     ⛔ 不給「仍要繼續」的選項——給了等於沒擋。
+   確認框那句「不包含:…想去清單/手動排序/旅遊日期住宿…」本批之後不成立,已一句換一句:
+     那三項移出「不包含」,另起一行講明烙進去的是哪一趟、幾天、幾站。
+   ⚠️ 十七MB 的來源在瀏覽器裡做字串處理,尖峰記憶體遠大於檔案本身。
+     撐不住時明確中止並告訴使用者「這一步請用電腦做」,⛔ 不整頁當掉、⛔ 不產出半截檔案。
+   ⚠️ 兩邊的判準要一致但不可能共用同一份程式碼(一邊是瀏覽器一邊是腳本),
+     所以靠交叉驗證擋漂移:同一份資料兩邊各產一次,那一段必須逐位元組相同。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -72262,7 +72277,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29a";          /* V29 批次1 開發期(字尾 a),封版才拿掉 */
+const APP_RELEASE="29b";          /* V29 批次2 開發期(字尾 b),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -75754,10 +75769,21 @@ function parseSentinelArray(inner,varName){
     return new Function("return ("+m[1].trim()+")")(); /* 手寫 JS 字面量與 JSON 皆可回讀 */
   }catch(_){return null}
 }
+/* v29b T54:來源檔大小護欄。
+   ⚠️ **這是自訂護欄,不是技術限制** —— 它擋的是「選到完全不相干的檔」,
+      不是瀏覽器或格式有什麼上限。
+   🔴 為什麼要放寬:上線檔含全台六萬九千多筆,現行約 17.1 MB。舊的 2MB 上限之下
+      **唯一通得過的只剩開發檔(內建 22 筆)** —— 那等於逼使用者選錯,
+      而選錯的後果是傳上去之後家人全部只剩 22 筆。
+   ⛔ 與匯入路徑的 IO_MAX(2MB)無關 —— 那是「貼上備份文字」那條路,本批一行未動。 */
+const SRC_HTML_MIN_BYTES=50*1024;              /* 50 KB:小於這個一定不是完整的 APP 檔 */
+const SRC_HTML_MAX_BYTES=48*1024*1024;         /* 48 MB:現行上線檔 17.1 MB 的近三倍餘裕 */
+const 位元組人話=n=>n>=1024*1024?(n/1024/1024).toFixed(0)+"MB":(n/1024).toFixed(0)+"KB";
 /* file:// 選檔守門八步(規格補充4) */
 function validateSourceHtml(text,fileName,fileSize){
   if(fileName!==undefined&&!/\.html?$/i.test(fileName))return"檔名必須是 .html";
-  if(fileSize!==undefined&&(fileSize<50*1024||fileSize>2*1024*1024))return"檔案大小異常(需 50KB–2MB)";
+  if(fileSize!==undefined&&(fileSize<SRC_HTML_MIN_BYTES||fileSize>SRC_HTML_MAX_BYTES))
+    return`檔案大小異常(需 ${位元組人話(SRC_HTML_MIN_BYTES)}–${位元組人話(SRC_HTML_MAX_BYTES)})`;
   const av=readUniqueConst(text,"APP_VERSION");
   if(av===null)return"來源檔 APP_VERSION 宣告不是唯一一筆";
   if(av!==APP_VERSION)return`來源檔版本 v${av} 與執行中 v${APP_VERSION} 不一致,請選取相同版本的原始 HTML`;
@@ -75769,7 +75795,16 @@ function validateSourceHtml(text,fileName,fileSize){
   const sd=sentinelBlock(text,"DEFAULT_PHOTOS");
   if(!sd)return"來源檔 DEFAULT_PHOTOS 哨兵不是恰好一對";
   if(sp.end>sd.start)return"來源檔哨兵順序或區間異常:PLACES 必須位於 DEFAULT_PHOTOS 之前,且不可重疊。"; /* v21 同版修正4 */
-  if(!Array.isArray(parseSentinelArray(sp.inner,"PLACES")))return"來源檔 PLACES 區無法回讀";
+  const srcPlaces=parseSentinelArray(sp.inner,"PLACES");
+  if(!Array.isArray(srcPlaces))return"來源檔 PLACES 區無法回讀";
+  /* 🔴 v29b T54:景點數守門。**放寬大小上限之後才更需要這一道。**
+     使用者很容易選到開發檔(只有內建 22 筆),而傳上去之後家人全部只剩 22 筆,
+     **他自己不會馬上發現** —— 屬於「不可見且不可挽回」,依 D25 必須在源頭擋掉。
+     ⛔ 刻意回傳錯誤字串而不是 confirm:給「仍要繼續」的選項等於沒擋。 */
+  if(srcPlaces.length<PLACES.length)
+    return`來源檔景點只有 ${srcPlaces.length} 筆,少於執行中的 ${PLACES.length} 筆。`
+      +`\n你可能選到開發檔了(開發檔只有內建景點)。`
+      +`\n請改選含資料的上線檔,否則傳上去之後大家看到的景點會全部不見。`;
   const dpTxt=sd.inner.match(/const\s+DEFAULT_PHOTOS\s*=([\s\S]*?);/);
   try{if(!dpTxt||typeof new Function("return ("+dpTxt[1].trim()+")")()!=="object")return"來源檔 DEFAULT_PHOTOS 區無法回讀"}
   catch(_){return"來源檔 DEFAULT_PHOTOS 區無法回讀"}
@@ -75777,6 +75812,62 @@ function validateSourceHtml(text,fileName,fileSize){
   if(!js)return"來源檔找不到 script 區";
   try{new Function(js)}catch(err){return"來源檔 JavaScript 無法編譯:"+err.message}
   return null;
+}
+/* ═══ v29b T54:把行程一併烙進產出檔（共享行程）═══
+   使用者原話:「我沒有要給 CC 做這個,要能匯出,取代的方法」——
+   T53 做出來的流程要「匯出備份 → 交給施工端 → PY 烙 → 產出」,他每改一次行程就要找人。
+   本批讓「🏗 建立可部署版本」自己就做得到。
+
+   🔴 判準**逐條對齊** `共享行程_20260804.py`,⛔ 不是另寫一套:
+     只挑 travels／trip／tripManual／**行程實際用到的**自訂景點;
+     ⛔ 一律不烙 photos／visitedHistory／completedToday／tripSettings／
+        placeOverrides／coordFix／excludedPlaces／permRemoved／行程沒用到的自訂景點。
+   ⚠️ 兩邊是兩種語言,不可能共用同一份程式碼 —— **靠交叉驗證擋漂移**:
+      `tests/sharedbaketest.js` 自檢 d 拿同一份資料兩邊各產一次,
+      **SHARED_TRIP 區塊必須逐位元組相同**,不同就是漂移了。
+   ⚠️ builtAt 由呼叫端傳入(⛔ 不在函式裡取現在時間)——這樣交叉驗證才餵得進同一個值,
+      否則兩邊只差一個時間戳就永遠比不成逐位元組相同。 */
+/* ⚠️ 這裡**刻意沒有**「挑出行程用到的自訂景點再併進去」那一步 ——
+   `buildPublishPlaces()` **本來就把所有有效的自訂景點全部併入**(實檔複驗過,
+   那是 v21 起的既有判準,本批⛔不准動)。再寫一支只挑行程用到的,那支永遠回空陣列,
+   就是 T46 教過的死碼。
+   ⚠️ 但這造成 APP 端與 PY 端(共享行程_20260804.py)**烙進去的景點範圍不同**:
+      PY 端只併行程用到的那幾筆,APP 端連沒排進行程的自訂景點也會併。
+      **SHARED_TRIP 區塊本身兩邊仍然逐位元組相同**(自檢 d 驗的就是那一塊),
+      差別在 PLACES 那一區。已在回報中報備,由使用者裁定要不要收斂。 */
+function buildSharedTrip(builtAt){
+  const S=(v,n)=>(typeof v==="string"?v:"").trim().slice(0,n);
+  const travels=(travelsData&&Array.isArray(travelsData.travels)?travelsData.travels:[])
+    .map(t=>{
+      const name=S(t&&t.name,80);
+      if(!name)return null;                       /* 與 PY 端同判準:沒名稱就跳過 */
+      return{id:S(t.id,120),name,hotel:S(t.hotel,80),
+        startDate:S(t.startDate,10),endDate:S(t.endDate,10),
+        days:(Array.isArray(t.days)?t.days:[]).map(d=>
+          ({uids:((d&&Array.isArray(d.uids))?d.uids:[]).filter(u=>typeof u==="string"&&u)}))};
+    }).filter(Boolean);
+  const tripArr=(Array.isArray(trip)?trip:[]).filter(u=>typeof u==="string"&&u);
+  const manualArr=(Array.isArray(tripManual)?tripManual:[]).filter(u=>typeof u==="string"&&u);
+  if(!travels.length&&!tripArr.length)return null;   /* 沒有行程可分享 → null,⛔ 不畫空殼 */
+  return{travels,trip:tripArr,tripManual:manualArr,builtAt:S(builtAt,40)};
+}
+/* 確認框那一行用的摘要:哪一趟、幾天、幾站。 */
+function sharedTripSummary(shared){
+  if(!shared||!shared.travels.length){
+    return shared&&shared.trip.length?`只有想去清單 ${shared.trip.length} 站`:"沒有行程可烙";
+  }
+  return shared.travels.map(t=>
+    `${t.name}(${t.days.length} 天,${t.days.reduce((n,d)=>n+d.uids.length,0)} 站)`).join("、")
+    +(shared.trip.length?`;想去清單 ${shared.trip.length} 站`:"");
+}
+function serializeSharedTrip(shared){
+  /* ⛔ 與 PY 端 建SHARED_TRIP_JS() 同一套:緊湊 JSON ＋ 小於號轉義。
+     為什麼要轉:店名裡若出現結束 script 的那個標籤,會把 script 區提前收掉。
+     ⚠️ 施工時在這行註解裡寫了那個標籤的字面值,當場把 script 區切成兩塊 ——
+        抽取器立刻報「inline script blocks = 2」。⛔ 這裡一律用文字描述,不寫字面值。 */
+  if(!shared)return"const SHARED_TRIP=null;";
+  return"const SHARED_TRIP="+JSON.stringify(shared)
+    .replace(/</g,"\\u003C").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029")+";";
 }
 async function sha256Hex(text){
   const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
@@ -75917,6 +76008,27 @@ async function generatePublishHtml(){
   const pub=buildPublishPlaces();
   const uidSet=new Set(pub.list.map(p=>p.uid));
   const dp=buildPublishDefaultPhotos(uidSet);
+  /* v29b T54:行程一併烙入。builtAt 在這裡取一次,傳進去 —— ⛔ 不在函式內部取,
+     交叉驗證(自檢 d)才餵得進同一個時間戳,否則兩邊永遠比不成逐位元組相同。 */
+  const shared=buildSharedTrip(new Date().toISOString());
+  /* 🔴 v29b T54:**產出景點數守門(反向)** —— 這一道才擋得到真正的災難路徑。
+     ⚠️ 產出檔的景點來自 `buildPublishPlaces()`(＝**記憶體中的 PLACES**),
+        來源檔只提供外殼。所以「輸出有幾筆」完全由**使用者現在開的是哪一顆檔**決定。
+     災難路徑:在本機打開開發檔(記憶體 22 筆)→ 選線上那顆 17MB 當來源 → 產出
+        → 產出檔只有 23 筆 → 傳上去,家人全部只剩 23 筆。
+     ⛔ `validateSourceHtml()` 裡那道「來源 < 執行中」**方向相反,擋不到這條**;
+        兩道都要有。同樣⛔不給「仍要繼續」的選項。 */
+  {
+    const sp0=sentinelBlock(src.text,"PLACES");
+    const srcArr=sp0?parseSentinelArray(sp0.inner,"PLACES"):null;
+    if(Array.isArray(srcArr)&&pub.list.length<srcArr.length){
+      alert(`已中止:產出會讓景點變少。\n\n`
+        +`來源檔有 ${srcArr.length} 筆,但這顆檔目前只載入 ${pub.list.length} 筆。\n`
+        +`你可能是在本機開著開發檔按的 —— 產出檔的景點來自「你現在開的這顆檔」,不是來源檔。\n\n`
+        +`請改成:直接開線上網址那一頁,在那裡按這顆按鈕。`);
+      return;
+    }
+  }
   const okGo=confirm(
     `將建立可部署版本(來源:${src.mode})\n\n`
     +`正式景點:${pub.list.length} 筆 = 原內建 ${pub.stats.builtin} − 移除 ${pub.stats.removed} + 自訂併入 ${pub.stats.merged}\n`
@@ -75925,20 +76037,40 @@ async function generatePublishHtml(){
     +`├ 自正式版移除:${pub.stats.removed} 筆${pub.removedNames.length?"\n│   → "+pub.removedNames.slice(0,5).join("、")+(pub.removedNames.length>5?` …等共 ${pub.removedNames.length} 筆`:""):""}\n`   /* v25 E48:單行截斷,不用 nameDigest()——這行在 ├└ 樹狀排版內 */
     +`└ 正式預設照片:${Object.keys(dp).length} 張(僅 https)\n\n`
     +publishMergedBlock(pub)                      /* v22H:併入名單醒目區塊(含 0 筆警告與原因) */
-    +`\n不包含:今日完成/曾去過/想去清單/手動排序/本機拍攝照片/旅遊日期住宿/暫時隱藏\n\n確定產生?`);
+    /* v29b T54:原本那句寫「不包含:…想去清單/手動排序/旅遊日期住宿…」——本批之後**不成立**,
+       行程會一併烙進去。一句換一句:把那三項從「不包含」移出,另起一行講明烙的是哪一趟。 */
+    +`\n行程一併烙入:${sharedTripSummary(shared)}\n`
+    +`不包含:今日完成/曾去過/本機拍攝照片/暫時隱藏\n\n確定產生?`);
   if(!okGo)return;
   const sp=sentinelBlock(src.text,"PLACES"),sd0=sentinelBlock(src.text,"DEFAULT_PHOTOS");
   if(!sp||!sd0||sp.end>sd0.start){alert("原始檔哨兵異常、順序錯誤或區間重疊,已中止。");return} /* v21 同版修正4 */
+  /* v29b T54:共享行程哨兵段(T53 建的)。找不到就中止 —— ⛔ 不要默默略過,
+     那會產出一顆「看起來成功但沒有行程」的檔,而使用者不會發現。 */
+  const st0=sentinelBlock(src.text,"SHARED_TRIP");
+  if(!st0){alert("原始檔找不到共享行程哨兵段(SHARED_TRIP),已中止。\n請確認來源檔是 V29a 以後的版本。");return}
+  if(st0.start<sd0.end){alert("原始檔哨兵順序異常:SHARED_TRIP 必須在 DEFAULT_PHOTOS 之後,已中止。");return}
   const stamp=new Date();
   const pad2=n=>String(n).padStart(2,"0");
   const ymd=`${stamp.getFullYear()}${pad2(stamp.getMonth()+1)}${pad2(stamp.getDate())}`;
   const hms=`${pad2(stamp.getHours())}${pad2(stamp.getMinutes())}${pad2(stamp.getSeconds())}`;
-  let out=src.text.slice(0,sp.innerStart)
-    +`\n/* 資料發布:${ymd} ${pad2(stamp.getHours())}:${pad2(stamp.getMinutes())}｜正式 ${pub.list.length} 筆 */\n`
-    +serializePlaces(pub.list)+"\n"
-    +src.text.slice(sp.innerEnd,sd0.innerStart)
-    +"\n"+serializeDefaultPhotos(dp)+"\n"
-    +src.text.slice(sd0.innerEnd);
+  /* v29b T54:17MB 來源在瀏覽器裡做字串處理,尖峰記憶體遠大於檔案本身。
+     ⚠️ 撐不住時要**明確中止**,⛔ 不准整頁當掉、⛔ 不准產出半截檔案。 */
+  let out;
+  try{
+    out=src.text.slice(0,sp.innerStart)
+      +`\n/* 資料發布:${ymd} ${pad2(stamp.getHours())}:${pad2(stamp.getMinutes())}｜正式 ${pub.list.length} 筆 */\n`
+      +serializePlaces(pub.list)+"\n"
+      +src.text.slice(sp.innerEnd,sd0.innerStart)
+      +"\n"+serializeDefaultPhotos(dp)+"\n"
+      +src.text.slice(sd0.innerEnd,st0.innerStart)
+      +"\n"+serializeSharedTrip(shared)+"\n"
+      +src.text.slice(st0.innerEnd);
+  }catch(err){
+    alert("產生失敗:記憶體不足或資料過大,已安全中止,沒有產出任何檔案。\n\n"
+      +"這一步請改用電腦做(手機瀏覽器多半撐不住 17MB 的來源檔)。\n\n"
+      +"技術訊息:"+((err&&err.message)||err));
+    return;
+  }
   /* v22H:標記為發布版(來源已是發布版則維持 true);標記必須恰好一處 */
   const bF="const PUBLISH_BUILD="+"false;",bT="const PUBLISH_BUILD="+"true;";
   const cF=out.split(bF).length-1,cT=out.split(bT).length-1;
