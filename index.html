@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════
- 旅遊吃玩導航｜第二十八版(V28 開發中:現場臨時找去處、定位顯示修正、現在適合去加車程上限與算不出就不出現)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 28d(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
+ 旅遊吃玩導航｜第二十八版(V28 開發中:現場臨時找去處、定位顯示修正、現在適合去加車程上限與算不出就不出現、選完之後捲到結果)｜2026-08-04
+ 本檔最新版本:APP_RELEASE = 28e(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V27 定版(2026-08-03);全台二十二縣市已備妥,上線檔由抓取腳本直接產出,版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -723,6 +723,19 @@
    ⛔ 原本那句「目前沒有…」順手刪掉,不是留著不用——
      兩塊都空已經在更前面就返回了,那句話唯一到得了的情境正是本輪改掉的這個,
      留著就是永遠走不到的死碼。
+ ═══ V28 批次5(2026-08-04,APP_RELEASE=28e):選完之後捲到結果(T47)═══
+   使用者原話:按下那顆鍵選了住宿,「下面提醒血條跑完就沒後續了 沒選項」。
+   動作其實是成功的——地區清掉了、分類換了、排序也換了——但畫面被送到整頁最上面,
+     而卡片在最下面那一塊,中間隔著定位卡片、推薦區、首頁分頁、地區列、搜尋列、
+     使用步驟、主分類、排序、篩選,大約五到六個螢幕。
+   提示訊息是唯一的回饋,它一消失,畫面上就沒有任何東西指出剛才發生了什麼,
+     看起來跟壞掉一樣。
+   改成捲到主分類那一列,讓「現在看的是哪一類」跟著結果一起停在固定頁首下方,
+     使用者一眼看得到自己選的是哪一類、下面列出來的就是那一類。
+   捲動沿用既有那套絕對定位(錨點的文件座標減頁首當下實際高度再減十二點),
+     ⛔ 不用瀏覽器內建那個「捲到元素」的方法——沿革 v22L7.2、v22L7.3 已經記過,
+     它會撞固定頁首、造成二次位移;24k 那次設定面板走的也是同一套,不另寫一套。
+   ⛔ 頂部收合那一行(五百公尺篩選的開關)本輪逐字未動,那是 D34 立過的。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -72138,7 +72151,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="28d";          /* V28 批次4 開發期(字尾 d),封版才拿掉 */
+const APP_RELEASE="28e";          /* V28 批次5 開發期(字尾 e),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -76213,8 +76226,29 @@ function nowGoApply(cat){
   }
   document.getElementById("nowGoCat").hidden=true;
   renderAll();renderSearchStat();
-  try{window.scrollTo({top:0,behavior:"smooth"})}catch(_){try{window.scrollTo(0,0)}catch(__){}}
+  scrollToTabsTop();                                 /* v28 T47:捲到結果那一段,不再回整頁最上面(見下) */
   showToast(`${cat}:全部地區、離我最近、含去過的`);
+}
+/* v28 T47:按完「現在去哪」要看得到結果。使用者原話——選完住宿之後
+   「下面提醒血條跑完就沒後續了 沒選項」。動作其實成功了,但畫面被送到整頁最上面,
+   而卡片在 main 裡,中間隔著定位卡片、推薦區、首頁分頁、地區列、搜尋列、使用步驟、
+   主分類、排序、篩選,約五到六屏;toast 消失之後,畫面上沒有任何東西指出剛才發生了什麼。
+   改成捲到主分類那一列,讓「現在看的是哪一類」與下面的卡片一起落在固定頁首下方。
+   沿用 v22L7.3 那組絕對定位捲動(headerHeightNow / getScrollParent / offsetTopIn / applyScroll),
+   **刻意不用瀏覽器內建那個「捲到元素」的 API**——沿革 v22L7.2/v22L7.3 已記載它會撞 sticky 頁首、
+   造成二次位移,專案早已明文改用絕對定位;24k T25 的設定面板走的也是這一套,⛔ 不另寫一套。
+   頁首高度每次當下量測(header 有展開/收合兩種高度),不寫死。
+   旅行分頁時主分類是 display:none,量到的文件座標為 0 → 等同回到頂部,與改版前相同。 */
+function scrollToTabsTop(){
+  const el=document.getElementById("tabs");if(!el)return;
+  const go=()=>{
+    const container=getScrollParent(el);
+    const target=Math.max(0,Math.round(offsetTopIn(el,container)-headerHeightNow()-12));
+    applyScroll(container,target,"smooth");
+  };
+  /* 兩次 rAF:等 renderAll() 造成的版面重排完成才量座標(同 scrollToSettingsPanel 的做法) */
+  if(typeof requestAnimationFrame==="function")requestAnimationFrame(()=>requestAnimationFrame(go));
+  else go();
 }
 document.getElementById("btnNowGo").addEventListener("click",nowGoStart);
 document.getElementById("nowGoCat").addEventListener("change",e=>{
