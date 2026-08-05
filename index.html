@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29d(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29e(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -864,6 +864,26 @@
    ⛔ 檔頭沿革段那二十處一字未動,那是歷史;程式註解裡**引述當年做法**的兩處也沒改——
      改了會讓那兩句敘述變成假的(判準是「改完之後那句話還是不是真的」)。
    ⚠️ 這一批是使用者十項使用回報的第一項,**其餘九項逐項討論,⛔ 本批不預留、不合併。**
+ ═══ V29 批次5(2026-08-05,APP_RELEASE=29e):住宿候選改成按鈕列,拿掉原生下拉(T59)═══
+   使用者原話(真機試用上一批之後):「1-關閉注音 2-縮小下面的候選清單
+     3-要去點旅社的時候,有時候有個箭頭可以點就會出現旅館的名字,沒有出現去按就會跑出注音來,
+     有箭頭的時候要點很準,如果往旁邊空格點下去也會跑出注音來,結果變成測試手眼協調的遊戲」
+   ➡️ **上一批選的原生下拉,在手機上要三個動作才選得到一家飯店。**
+   ⚠️ 那三件全是原生下拉在安卓上的固有行為,⛔ 我們改不動:
+     ・點輸入框就等於聚焦,輸入法**必然**跳出來——那是輸入框的定義
+     ・鍵盤佔掉半螢幕,底部工具列再吃一塊,候選清單自然被擠
+     ・那個箭頭**由瀏覽器繪製**,大小、位置、出現與否都不歸我們管
+   🔴 「有時候有」比「沒有」更糟——行為不一致的東西使用者學不起來。
+   做法:候選改成**按鈕列**,點一下就把飯店名稱填進下方輸入框,**一個動作**。
+     按鈕不是輸入框,⛔ 不會叫出鍵盤;整顆都是點擊區,不必對準。
+   🔴 按鈕列**必須放在輸入框上方**:放下方的話使用者按習慣先點輸入框,
+     鍵盤一跳出來就把整排蓋住,等於白做。
+   ⛔ 想自己打字的人照樣點輸入框打——原本的行為一個字都沒拿掉。
+   ⛔ 點了不加「選中」狀態:輸入框會顯示填進去的名字,那就是回饋;
+     多一個狀態就多一件要維護、也多一件要使用者理解的事。
+   ⛔ 一家都沒候選 → 整排不出現且不佔高度,⛔ 不跳提示、⛔ 不多一句說明。
+   ⛔ 住宿仍然存字串、旅行結構與十二個鍵一個位元未動;沿用既有按鈕樣式,⛔ 沒有新增樣式區塊。
+   ⚠️ 這是十項使用回報的第二項,**其餘八項逐項討論,⛔ 本批不預留、不合併。**
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2007,11 +2027,13 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <label for="tvNewEnd">結束</label><input type="date" id="tvNewEnd">
       <span class="meta">日期可以留空;填了就自動算天數</span></div>
     <div class="frow"><label for="tvNewHotel">住宿</label>
-      <input type="text" id="tvNewHotel" list="tvHotelList" maxlength="80" placeholder="例:天成文旅－繪日之丘" style="flex:1;min-width:10rem"></div>
-    <!-- v29c T52:建立(tvNewHotel)與編輯(tvEditHotel)兩個輸入點共用這一份候選。
-         內容由 renderHotelDatalist() 依候選清單重建,⛔ 不在這裡寫死任何一筆。
-         沒有旅行時編輯表單不存在,但建立表單還在,所以這一份放在靜態區,⛔ 不能塞進 travelBody。 -->
-    <datalist id="tvHotelList"></datalist>
+      <!-- v29e T59:候選飯店按鈕列。⛔ 必須在 input **上方** ——
+           放下方的話使用者先點輸入框、鍵盤跳出來就把整排蓋住,等於白做。
+           flex-basis:100% 讓它在 .frow(flex-wrap:wrap)裡自己佔一整行;
+           ⛔ 刻意不設 display —— 自訂 display 會蓋過 UA 的 [hidden]{display:none}
+           (那是 v22C／v24 24k 兩次踩過的坑,見上方 CSS 註解)。 -->
+      <div id="tvNewHotelPick" style="flex-basis:100%" hidden></div>
+      <input type="text" id="tvNewHotel" maxlength="80" placeholder="例:天成文旅－繪日之丘" style="flex:1;min-width:10rem"></div>
     <div class="frow"><button class="btn btn-loc" id="tvCreate">＋ 建立旅行</button></div>
   </div>
   <!-- v29a T53:共享行程(唯讀)。內容由開機時的 renderSharedTrip() 畫一次;
@@ -72315,7 +72337,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29d";          /* V29 批次4 開發期(字尾 d),封版才拿掉 */
+const APP_RELEASE="29e";          /* V29 批次5 開發期(字尾 e),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -74538,19 +74560,36 @@ function renderSharedTrip(){
   h+=`</div>`;
   box.innerHTML=h;
 }
-/* v29c T52:住宿候選。來源是候選清單(trip,uid 陣列)裡 mainCat==="住宿" 的那幾筆,
-   ⛔ 不是 ALLP 裡全部的住宿——放全部那個下拉比打字還累。
-   同名多筆才附縣市:不同名時附了只是把字變長,分辨不需要它。
-   一家都沒勾 → 清空,瀏覽器對空的 datalist 等同純文字框,⛔ 不必也不准另外提示。 */
-function renderHotelDatalist(){
-  const dl=document.getElementById("tvHotelList");if(!dl)return;
+/* v29e T59:住宿候選改成**按鈕列**(原本是 v29c T52 的原生 datalist,已整個換掉)。
+   來源與判準沿用 T52 那一版,⛔ 不重新設計:
+     ・來源是候選清單(trip,uid 陣列)裡 mainCat==="住宿" 的那幾筆,⛔ 不是 ALLP 裡全部的住宿
+     ・同名多筆才附縣市;不同名時附了只是把字變長,分辨不需要它
+     ・名稱一律走 esc(),⛔ 不直接串進 HTML
+     ・全部列出、自動換行,⛔ 不設上限(候選的飯店不會多)
+   🔴 為什麼不再用 datalist:使用者真機回報,在手機上要選一家飯店得做三個動作——
+     關掉注音、縮小候選清單、再對準那個「有時候才出現」的箭頭。
+     三件都是原生 datalist 在 Android 上的固有行為,⛔ 我們改不動:
+     點 input 就等於聚焦,輸入法必然跳出來;那個箭頭由瀏覽器繪製,大小位置都不歸我們管。
+     **按鈕不是輸入框,點下去不會叫鍵盤,整顆都是點擊區。**
+   ⛔ 點了之後不加「選中」狀態——輸入框會顯示填進去的名字,那就是回饋。
+   一家都沒候選 → 整排 hidden,⛔ 不佔高度、⛔ 不跳提示、⛔ 不多一句說明。 */
+function renderHotelPickers(){
   const hotels=trip.map(u=>byUid[u]).filter(p=>p&&p.mainCat==="住宿");
   const 同名=Object.create(null);
   hotels.forEach(p=>{同名[p.name]=(同名[p.name]||0)+1});
-  dl.innerHTML=hotels.map(p=>{
+  const html=hotels.map(p=>{
     const 標=(同名[p.name]>1&&p.city)?`${p.name}(${p.city})`:p.name;
-    return `<option value="${esc(標)}"></option>`;   /* ⛔ 名稱一律走 esc(),不直接串進 HTML */
+    /* ⛔ 沿用既有 .btn(#travelPanel .btn 已有 min-height:2.75rem ＝ 44px),不新增 CSS 區塊 */
+    return `<button type="button" class="btn btn-ghost" data-hotelpick="${esc(標)}"`
+      +` style="margin:.15rem .3rem .15rem 0">${esc(標)}</button>`;
   }).join("");
+  /* 建立表單(靜態)與編輯表單(renderTravelPanel 產生)兩處都要填,⛔ 只填一處等於沒做完 */
+  for(const id of ["tvNewHotelPick","tvEditHotelPick"]){
+    const box=document.getElementById(id);
+    if(!box)continue;                       /* 編輯區沒展開時該容器不存在,正常 */
+    box.innerHTML=html;
+    box.hidden=!hotels.length;
+  }
 }
 function renderTravelPanel(){
   const box=document.getElementById("travelBody");if(!box)return;
@@ -74583,7 +74622,8 @@ function renderTravelPanel(){
         <label for="tvEditEnd">結束</label>
         <input type="date" id="tvEditEnd" value="${esc(t.endDate)}"></div>
       <div class="frow"><label for="tvEditHotel">住宿</label>
-        <input type="text" id="tvEditHotel" list="tvHotelList" maxlength="80" value="${esc(t.hotel||"")}" style="flex:1;min-width:10rem"></div>
+        <div id="tvEditHotelPick" style="flex-basis:100%" hidden></div>
+        <input type="text" id="tvEditHotel" maxlength="80" value="${esc(t.hotel||"")}" style="flex:1;min-width:10rem"></div>
       <div class="meta">改日期只會補天數;要減天數請用「－ 減一天」,才會先確認那天的景點。</div>
       <div class="tvOps"><button class="btn btn-loc" id="tvEditSave">儲存修改</button>
         <button class="btn btn-ghost" id="tvEditCancel">取消</button></div></div>`;
@@ -74655,6 +74695,11 @@ function renderTravelPanel(){
   h+=`<div class="tvDanger"><button class="btn btn-danger" id="tvDelete">🗑 刪除這趟旅行</button>`
     +`<div class="meta">只會刪掉這趟的天數與站點安排;景點本身、候選清單、造訪紀錄都不受影響。</div></div>`;
   box.innerHTML=h;
+  /* v29e T59:編輯區的候選按鈕列是**這一段剛生成的**,內容要在這裡補填。
+     ⛔ 不是新增事件監聽——本函式本來就是編輯區的唯一重繪出口。
+     為什麼 renderAll() 尾端那一次不夠:打開「✏️ 修改這趟資料」只呼叫 renderTravelPanel(),
+     不走 renderAll(),所以那個容器會生成之後一直是空的。 */
+  renderHotelPickers();
   /* v24 修正1:整段重畫會讓天數列捲回最左,把選中那天捲回畫面中央 */
   const dayBar=document.querySelector("#travelBody .tvDayBar");
   const dayOn=dayBar&&dayBar.querySelector('button[aria-pressed="true"]');
@@ -74679,6 +74724,10 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.id==="tvDelDay"){travelRemoveDay();return}
   if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();armBack();return}
   if(b.id==="tvPickClose"){travelPicking=false;renderTravelPanel();return}
+  if(b.dataset.hotelpick!==undefined){        /* v29e T59:候選飯店按鈕 → 把名稱填進同一列的輸入框 */
+    const inp=b.closest(".frow")&&b.closest(".frow").querySelector('input[type="text"]');
+    if(inp){inp.value=b.dataset.hotelpick}    /* ⛔ 只填 value,不存檔——存檔仍走既有的建立/儲存那兩顆 */
+    return}
   if(b.dataset.pickone!==undefined){          /* v24 1-C:點整列即加入,面板不關,可連續點 */
     const uid=b.dataset.pickone;              /* v24 3B T17:已加入的再點一次 → 走既有移除路徑,與 ✕ 同一個函式 */
     const ct=currentTravel(),cd=ct&&ct.days[curDayIdx];
@@ -75733,7 +75782,7 @@ function renderAll(){
   renderSelect();renderLocExtras();renderMultiNavBar();   /* v23 E4-3 */
   renderReviewNotice();                                  /* v24 3C T4:與 renderBackupUI() 同層級,不綁載入 */
   renderDataOpsUsage();                                  /* v24 24k T29:匯入完會走到這裡,佔用數字立刻重算 */
-  renderHotelDatalist();                                 /* v29c T52:勾選/取消住宿都走 renderAll(),候選跟著重算 */
+  renderHotelPickers();                                  /* v29e T59:沿用 T52 的呼叫點,⛔ 不新增事件監聽 */
   if(ref){
     $st.innerHTML=`目前位置:<b>${esc(ref.label)}</b>`
       +(ref.acc!=null?`(±${ref.acc}m)`:"")
