@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29e(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29f(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -884,6 +884,22 @@
    ⛔ 一家都沒候選 → 整排不出現且不佔高度,⛔ 不跳提示、⛔ 不多一句說明。
    ⛔ 住宿仍然存字串、旅行結構與十二個鍵一個位元未動;沿用既有按鈕樣式,⛔ 沒有新增樣式區塊。
    ⚠️ 這是十項使用回報的第二項,**其餘八項逐項討論,⛔ 本批不預留、不合併。**
+ ═══ V29 批次6(2026-08-05,APP_RELEASE=29f):候選住宿與打字欄位分開放(T60)═══
+   使用者原話(上一批真機試用之後):「**不行啊**,你乾脆打字跟選項分開,
+     建立旅行 右邊建一個 候選住宿,上面是打字 就不會衝突了」
+   ➡️ **上一批的按鈕列有效,但位置錯了。** 它跟輸入框在同一列、上下緊貼——
+     手指要點按鈕、稍微偏下就點到輸入框,注音又跳出來。
+   ⚠️ **上一批把它放「上方」的理由(避開鍵盤遮擋)沒有錯,錯在只想到遮擋、沒想到誤觸。**
+     同一個地方連續兩批沒解掉,兩次都是使用者真機試出來的。
+   做法:住宿那一列回歸**純打字,旁邊什麼都沒有**;候選整區搬到下面「建立旅行」那一列,
+     前面加四個字的標籤「候選住宿」——搬離原位之後,一排飯店名沒有標籤就看不出是做什麼的,
+     **那是位置變動的必要配套,不是額外功能**。
+   ⛔ 沒有候選時標籤跟按鈕列**一起藏**,⛔ 不留一個空標籤在畫面上。
+   ⛔ 只搬容器位置:點按鈕仍然填進住宿那個輸入框,按鈕的內容判準一字未動,
+     事件仍走既有委派,⛔ 沒有新增監聽、⛔ 沒有新增樣式區塊。
+   ⚠️ 編輯表單那一列實際是操作列不是表單列,兩者樣式幾乎相同,放得下——
+     ⛔ 規劃端沒逐字看過那段結構,以實檔為準。
+   ⚠️ 這仍是十項使用回報的第二項(第二輪),**其餘八項逐項討論,⛔ 本批不預留、不合併。**
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2026,15 +2042,19 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
     <div class="frow"><label for="tvNewStart">開始</label><input type="date" id="tvNewStart">
       <label for="tvNewEnd">結束</label><input type="date" id="tvNewEnd">
       <span class="meta">日期可以留空;填了就自動算天數</span></div>
+    <!-- v29f T60:住宿那一列回歸「純打字」,旁邊什麼都沒有。
+         v29e T59 把候選按鈕列放在這裡的 input 上方(為了避開鍵盤遮擋),
+         但兩者上下緊貼,手指偏一點就點到輸入框、注音又跳出來——
+         **只想到遮擋、沒想到誤觸**。本批把候選整區搬到下面「建立旅行」那一列。 -->
     <div class="frow"><label for="tvNewHotel">住宿</label>
-      <!-- v29e T59:候選飯店按鈕列。⛔ 必須在 input **上方** ——
-           放下方的話使用者先點輸入框、鍵盤跳出來就把整排蓋住,等於白做。
-           flex-basis:100% 讓它在 .frow(flex-wrap:wrap)裡自己佔一整行;
-           ⛔ 刻意不設 display —— 自訂 display 會蓋過 UA 的 [hidden]{display:none}
-           (那是 v22C／v24 24k 兩次踩過的坑,見上方 CSS 註解)。 -->
-      <div id="tvNewHotelPick" style="flex-basis:100%" hidden></div>
       <input type="text" id="tvNewHotel" maxlength="80" placeholder="例:天成文旅－繪日之丘" style="flex:1;min-width:10rem"></div>
-    <div class="frow"><button class="btn btn-loc" id="tvCreate">＋ 建立旅行</button></div>
+    <!-- v29f T60:候選住宿搬到這一列(使用者原話:「建立旅行 右邊建一個 候選住宿」)。
+         標籤與按鈕列是**同一組**,沒有候選時兩個一起藏,⛔ 不留空標籤在畫面上。
+         ⛔ 兩者都刻意不設 display —— 自訂 display 會蓋過 UA 的 [hidden]{display:none}
+         (v22C #tripCtl／v24 24k .bkOps 踩過兩次)。 -->
+    <div class="frow"><button class="btn btn-loc" id="tvCreate">＋ 建立旅行</button>
+      <b id="tvNewHotelPickLabel" style="margin-left:.3rem" hidden>候選住宿</b>
+      <span id="tvNewHotelPick" hidden></span></div>
   </div>
   <!-- v29a T53:共享行程(唯讀)。內容由開機時的 renderSharedTrip() 畫一次;
        SHARED_TRIP 是烙進檔案的常數,不會變,⛔ 不必跟著 renderTravelPanel() 重畫。 -->
@@ -72337,7 +72357,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29e";          /* V29 批次5 開發期(字尾 e),封版才拿掉 */
+const APP_RELEASE="29f";          /* V29 批次6 開發期(字尾 f),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -74589,6 +74609,10 @@ function renderHotelPickers(){
     if(!box)continue;                       /* 編輯區沒展開時該容器不存在,正常 */
     box.innerHTML=html;
     box.hidden=!hotels.length;
+    /* v29f T60:標籤跟按鈕列是同一組,沒有候選時一起藏——⛔ 不留一個空的「候選住宿」在畫面上。
+       ⛔ 這裡只多決定「藏誰」,按鈕產生什麼(來源、同名附縣市、esc、不設上限)一字未動。 */
+    const lab=document.getElementById(id+"Label");
+    if(lab)lab.hidden=!hotels.length;
   }
 }
 function renderTravelPanel(){
@@ -74622,11 +74646,15 @@ function renderTravelPanel(){
         <label for="tvEditEnd">結束</label>
         <input type="date" id="tvEditEnd" value="${esc(t.endDate)}"></div>
       <div class="frow"><label for="tvEditHotel">住宿</label>
-        <div id="tvEditHotelPick" style="flex-basis:100%" hidden></div>
         <input type="text" id="tvEditHotel" maxlength="80" value="${esc(t.hotel||"")}" style="flex:1;min-width:10rem"></div>
       <div class="meta">改日期只會補天數;要減天數請用「－ 減一天」,才會先確認那天的景點。</div>
+      <!-- v29f T60:候選住宿搬到存檔那一列(與建立表單同一個做法)。
+           ⚠️ 這一列是 .tvOps 不是 .frow —— 工單寫「按鈕那一列」,實檔是 .tvOps,
+           兩者的 CSS 幾乎相同(都是 flex＋flex-wrap:wrap＋gap),放得下。 -->
       <div class="tvOps"><button class="btn btn-loc" id="tvEditSave">儲存修改</button>
-        <button class="btn btn-ghost" id="tvEditCancel">取消</button></div></div>`;
+        <button class="btn btn-ghost" id="tvEditCancel">取消</button>
+        <b id="tvEditHotelPickLabel" style="margin-left:.3rem" hidden>候選住宿</b>
+        <span id="tvEditHotelPick" hidden></span></div></div>`;
   }
   h+=`<div class="tvDayBar" role="tablist" aria-label="第幾天">`
     +t.days.map((d,i)=>`<button type="button" data-day="${i}" aria-pressed="${i===curDayIdx}">`
@@ -74724,8 +74752,13 @@ document.getElementById("travelPanel").addEventListener("click",e=>{
   if(b.id==="tvDelDay"){travelRemoveDay();return}
   if(b.id==="tvPickOpen"){travelPicking=true;renderTravelPanel();armBack();return}
   if(b.id==="tvPickClose"){travelPicking=false;renderTravelPanel();return}
-  if(b.dataset.hotelpick!==undefined){        /* v29e T59:候選飯店按鈕 → 把名稱填進同一列的輸入框 */
-    const inp=b.closest(".frow")&&b.closest(".frow").querySelector('input[type="text"]');
+  if(b.dataset.hotelpick!==undefined){        /* v29e T59:候選飯店按鈕 → 把名稱填進住宿輸入框 */
+    /* 🔴 v29f T60:改用「按鈕在哪個容器」決定填哪一格。
+       T59 時按鈕與輸入框同一列,所以用 closest(".frow") 找得到;
+       本批把候選整區搬到「建立旅行／儲存修改」那一列之後,**那一列根本沒有輸入框** ——
+       再用 closest 找就是 null,點了不會有反應。 */
+    const box=b.closest("#tvNewHotelPick,#tvEditHotelPick");
+    const inp=box&&document.getElementById(box.id==="tvNewHotelPick"?"tvNewHotel":"tvEditHotel");
     if(inp){inp.value=b.dataset.hotelpick}    /* ⛔ 只填 value,不存檔——存檔仍走既有的建立/儲存那兩顆 */
     return}
   if(b.dataset.pickone!==undefined){          /* v24 1-C:點整列即加入,面板不關,可連續點 */
