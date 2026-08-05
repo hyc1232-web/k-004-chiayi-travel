@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29f(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29h(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -900,6 +900,43 @@
    ⚠️ 編輯表單那一列實際是操作列不是表單列,兩者樣式幾乎相同,放得下——
      ⛔ 規劃端沒逐字看過那段結構,以實檔為準。
    ⚠️ 這仍是十項使用回報的第二項(第二輪),**其餘八項逐項討論,⛔ 本批不預留、不合併。**
+ ═══ V29 批次7(2026-08-05,APP_RELEASE=29g):沒有座標的景點也能加進候選清單(T61)═══
+   使用者原話:「我新增時卻要我輸入座標,根本無法輸入建立檔案」。
+   ➡️ 手動新增店家後按「＋ 候選」被擋下:「此景點尚未設定座標,先用座標校正補座標才能加入」。
+   🔴 **但同一張卡片上自己寫著「⚠️ 尚未設定座標——可導航,但不參與距離/推薦」** ——
+     卡片說可以、守門說不行,**同一個情境兩種說法**。
+     而座標校正只給兩條路:用目前 GPS(人不在現場做不到)、貼 Google 座標(要跳出去查再貼回來),
+     **等於在家新增的店家一家都進不了候選清單。**
+   🔴 阻擋其實有**三層**(工單寫兩層,第三層是全掃時找到的):
+     ①點擊時的提示框　②每次開機的清理會把它**安靜刪掉**(使用者只會覺得「我明明加過」)
+     ③多選模式那一列不給點擊區,點了完全沒反應。**三層都拿掉。**
+   ⛔ 開機清理只拿掉「有沒有座標」這個條件,「景點還在不在」與「有沒有被暫時隱藏」兩個保留。
+   下游沿用卡片既有的定調,⛔ 不另立一套:
+     ・由近到遠／先遠後近:無座標的⛔ 不參與距離計算,一律排最後,彼此維持原順序
+     ・候選清單的站數:**全部算**,含無座標的
+     ・抵達時間推算:早就有保護,⛔ 不動
+   ⚠️ **開地圖不必跳過無座標的** —— 實測證明導航送去的是**店名加地址那串關鍵字,不是經緯度**,
+     沒有座標照樣導得到。那正是卡片說的「可導航」。
+     工單原本要求跳過並提示跳了幾站,**照做會把本來導得到的變成導不到**,已停下報備、⛔ 未改。
+   ⚠️ 這是十項使用回報的第三項,**其餘各項逐項討論,⛔ 本批不預留、不合併。**
+ ═══ V29 批次8(2026-08-05,APP_RELEASE=29h):使用者自訂店家做成第 23 支常設來源(T62)═══
+   使用者原話:「這些蛋捲店都沒有匯入成功」「我還沒新增店家資料時,用住址找店家資料,無法使用」
+     「PY沒有匯入 我用住址找也找不到」。
+   ➡️ 實檔查證:那 10 家(七家蛋捲／伴手禮 ＋ 三家香腸)在上線檔裡**一筆都沒有**;
+     六份文件全文搜「蛋捲」「香腸」「福義軒」**0 次,查無任何工單**——它們從來沒進過來源清單。
+   ⚠️ **搜尋功能本身沒問題** —— 實檔確認搜尋欄早就同時比對名稱、住址、電話、備註、
+     大小分類與縣市鄉鎮。**搜不到是因為資料不在,⛔ 不是因為搜尋欄位不夠。**
+   🔴 **真正的根因**:產出是**整份重換景點區塊**。手工塞進網頁的資料只要不在來源清單裡,
+     **下次重產就消失,而且不會報錯**。
+     ➡️ 所以不是「再寫一次」,是**給它們一個常設的家** —— 新增第 23 支來源檔,
+     每次產出都從那支讀,並且**驗過重產一次還在**才算完成。
+   🔴 這 10 家**刻意不給座標**:用住址反查在台灣常只解析到路段中心,
+     差一兩百公尺使用者不會發現,導航就帶到隔壁——**錯的座標比沒有座標更糟**。
+     最準的補法是到現場按「📌 座標校正 → 使用目前GPS」,那本來就是那顆按鈕的用途。
+     ⚠️ 代價:這 10 家**暫時不會出現在「現在適合去」**,也不參與「離我最近」排序,直到有人補座標。
+     (T61 之後無座標景點可正常加入候選清單、可導航、可排行程,所以不影響主要用法。)
+   ⛔ 本批**程式一行未改**,只動版號與這段沿革;景點區塊由產出腳本換,既有那批一筆未動。
+   ⚠️ 這是十項使用回報的第二項與第四項(同一件事),**其餘各項逐項討論,⛔ 本批不預留。**
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -72336,6 +72373,17 @@ const PLACES=[
  {uid:"custom-osm-way-1501009982",city:"連江縣",area:"",name:"小三通售票櫃台",mainCat:"購物",cat:"票券",origin:"osm",schedType:"unknown",lat:26.1607364,lng:119.9439695,addr:"",nav:"小三通售票櫃台 連江縣",phone:"",hours:""},
  {uid:"custom-osm-relation-19803658",city:"連江縣",area:"",name:"中興公園",mainCat:"親子",cat:"公園",origin:"osm",schedType:"unknown",lat:26.2205049,lng:119.9931774,addr:"",nav:"中興公園 連江縣",phone:"",hours:""},
  {uid:"custom-osm-relation-19803931",city:"連江縣",area:"",name:"中正公園",mainCat:"親子",cat:"公園",origin:"osm",schedType:"unknown",lat:26.2272133,lng:119.9974312,addr:"",nav:"中正公園 連江縣",phone:"",hours:""}
+,
+ {uid:"manual-shangyu-eggroll",city:"嘉義市",area:"東區",name:"上裕食品手工蛋捲",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市東區博愛路一段17號",nav:"上裕食品手工蛋捲 嘉義市東區博愛路一段17號",phone:"",hours:"08:30–19:00",open:{ranges:[["08:30","19:00"]],closed:[]}},
+ {uid:"manual-pinxiang-eggroll",city:"嘉義市",area:"西區",name:"品香蛋捲",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市西區龍江街37號",nav:"品香蛋捲 嘉義市西區龍江街37號",phone:"",hours:"09:00–20:00",open:{ranges:[["09:00","20:00"]],closed:[]}},
+ {uid:"manual-ririhaonong-wenhua",city:"嘉義市",area:"東區",name:"日日好農 文化店",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市東區中正路392號",nav:"日日好農 文化店 嘉義市東區中正路392號",phone:"",hours:"12:30–21:30",open:{ranges:[["12:30","21:30"]],closed:[]}},
+ {uid:"manual-fuyixuan",city:"嘉義市",area:"西區",name:"福義軒",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市西區成功街98號",nav:"福義軒 嘉義市西區成功街98號",phone:"",hours:"08:30–18:00",open:{ranges:[["08:30","18:00"]],closed:[]}},
+ {uid:"manual-yixiang-eggroll",city:"嘉義市",area:"西區",name:"溢香手作蛋捲",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市西區仁愛路130號",nav:"溢香手作蛋捲 嘉義市西區仁愛路130號",phone:"",hours:"約 09:30–18:00（週日、週一常休）",open:{ranges:[["09:30","18:00"]],closed:[0,1]}},
+ {uid:"manual-qinyi-eggfactory",city:"嘉義市",area:"西區",name:"勤億蛋品夢工場",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市西區新民路35號",nav:"勤億蛋品夢工場 嘉義市西區新民路35號",phone:"",hours:"每天 08:30–17:00",open:{ranges:[["08:30","17:00"]],closed:[]}},
+ {uid:"manual-jichang-eggroll",city:"嘉義縣",area:"水上鄉",name:"機場蛋捲",mainCat:"點心",cat:"伴手禮",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義縣水上鄉榮典路23-3附7號",nav:"機場蛋捲 嘉義縣水上鄉榮典路23-3附7號",phone:"",hours:"09:00–18:00（週一公休）",open:{ranges:[["09:00","18:00"]],closed:[1]}},
+ {uid:"manual-along-sausage",city:"嘉義市",area:"東區",name:"蘭潭阿龍烤香腸",mainCat:"點心",cat:"小吃",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市東區學府路300號",nav:"蘭潭阿龍烤香腸 嘉義市東區學府路300號",phone:"",hours:"15:00–18:00",open:{ranges:[["15:00","18:00"]],closed:[]}},
+ {uid:"manual-xinweixiang-sausage",city:"嘉義市",area:"東區",name:"信味香 嘉義炭火香腸",mainCat:"點心",cat:"小吃",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市東區共和路84號",nav:"信味香 嘉義炭火香腸 嘉義市東區共和路84號",phone:"",hours:"15:00–18:00",open:{ranges:[["15:00","18:00"]],closed:[]}},
+ {uid:"manual-linsendonghe-sausage",city:"嘉義市",area:"東區",name:"林森東和香腸",mainCat:"點心",cat:"小吃",origin:"manual",schedType:"hours",lat:null,lng:null,addr:"嘉義市東區林森東路598號",nav:"林森東和香腸 嘉義市東區林森東路598號",phone:"",hours:"14:00–19:00（週一公休）",open:{ranges:[["14:00","19:00"]],closed:[1]}}
 ];
 /*__PLACES_END__*/
 /*__DEFAULT_PHOTOS_START__*/
@@ -72357,7 +72405,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29f";          /* V29 批次6 開發期(字尾 f),封版才拿掉 */
+const APP_RELEASE="29h";          /* V29 批次8 開發期(字尾 h),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -72548,7 +72596,11 @@ function buildAll(){
   }
   ALLP.forEach(p=>{p.hasCoord=Number.isFinite(p.lat)&&Number.isFinite(p.lng)});
   const oldTrip=JSON.stringify(trip);
-  trip=trip.filter(u=>byUid[u]&&!excluded.has(u)&&byUid[u].hasCoord);
+  /* v29g T61:拿掉 byUid[u].hasCoord 這個條件——無座標的景點也能留在候選清單。
+     🔴 這是第二層阻擋:就算點擊那層放行,這裡每次開機都會把它**安靜刪掉**,
+     使用者只會覺得「我明明加過」。⛔ byUid[u](景點還在不在)與 !excluded.has(u)
+     (有沒有被排除)兩個條件必須保留,那是防資料殘留與尊重「暫時隱藏」。 */
+  trip=trip.filter(u=>byUid[u]&&!excluded.has(u));
   if(JSON.stringify(trip)!==oldTrip){if(!saveTrip())cleanupSaveOK=false}   /* 清理有變動就立即保存 */
   if(!trip.length&&tripManual){tripManual=false;if(!saveTripManual())cleanupSaveOK=false} /* 行程空了,手調旗標無意義(工單I) */
   /* 孤兒 uid 清理(群組v8#5):景點已不存在的殘留紀錄,清掉並回存;存檔結果收進 cleanupSaveOK(工單16#5) */
@@ -73128,7 +73180,12 @@ function renderMultiSelectList(now){
     +shown.map(p=>{
       const st=stateOf(p,now),inTrip=trip.includes(p.uid),exc=excluded.has(p.uid);
       const km=meta[p.uid]?`約 ${meta[p.uid].km.toFixed(1)} km`:(p.hasCoord?"":"⚠ 無座標");
-      const canPick=!exc&&p.hasCoord;
+      /* v29g T61:🔴 **第三層阻擋**(工單只寫了兩層,這一層是施工端全掃 hasCoord 時找到的)。
+         多選模式下 canPick 為 false 的那一列**不給 pick class、也不給 data-k** → 點了完全沒反應。
+         拿掉 p.hasCoord,只留 !exc(已暫時隱藏的仍不可點,那是既有行為)。
+         ⚠️ 順帶:false 時掛的 msNoCoord 這個 class 名稱現在語意變成「已隱藏」而非「無座標」,
+         改名要動 CSS,⛔ 本批未動,已寫進回報。 */
+      const canPick=!exc;
       return `<div class="msRow${inTrip?" msOn":""}${canPick?" pick":" msNoCoord"}" ${canPick?`data-k="${p.uid}"`:""} role="button" aria-pressed="${inTrip}">
         <span class="msBox">${inTrip?"☑":"□"}</span>
         <span class="msIdx">${inTrip?trip.indexOf(p.uid)+1:""}</span>
@@ -73201,8 +73258,13 @@ function renderCards(now){
 /* ═══ 11. 今日行程(持久化+真先遠後近+分段鎖) ═══ */
 const SEG_MAX=9;
 function greedyOrder(){
-  const pts=trip.map(k=>byUid[k]).filter(Boolean);
-  if(pts.length<2)return false;
+  const all=trip.map(k=>byUid[k]).filter(Boolean);
+  if(all.length<2)return false;
+  /* v29g T61:無座標的⛔ 不參與距離計算,一律排到最後,彼此維持原本相對順序。
+     沿用卡片既有的定調「可導航,但不參與距離/推薦」,⛔ 不另立一套規則。
+     ⚠️ 必須先分離:distKm() 拿到 null 座標會得出 NaN,混進來會把整個排序弄亂。 */
+  const pts=all.filter(p=>p.hasCoord),尾=all.filter(p=>!p.hasCoord);
+  if(!pts.length)return commitSortedTrip(all.map(p=>p.uid));   /* 全部沒座標:維持原序 */
   let cur=ref?{lat:ref.lat,lng:ref.lng}:pts[0];
   const rest=[...pts],out=[];
   if(!ref)out.push(rest.shift().uid);
@@ -73211,12 +73273,14 @@ function greedyOrder(){
     rest.forEach((p,i)=>{const d=distKm(cur,p);if(d<bd){bd=d;bi=i}});
     const nx=rest.splice(bi,1)[0];out.push(nx.uid);cur=nx;
   }
-  return commitSortedTrip(out);
+  return commitSortedTrip(out.concat(尾.map(p=>p.uid)));   /* v29g T61:無座標的接在最後 */
 }
 /* 真先遠後近(群組修正):最遠當第一站,之後最近鄰接續 */
 function farFirstOrder(){
-  const pts=trip.map(k=>byUid[k]).filter(Boolean);
-  if(pts.length<2)return false;
+  const all=trip.map(k=>byUid[k]).filter(Boolean);
+  if(all.length<2)return false;
+  const pts=all.filter(p=>p.hasCoord),尾=all.filter(p=>!p.hasCoord);   /* v29g T61:同 greedyOrder */
+  if(!pts.length)return commitSortedTrip(all.map(p=>p.uid));
   const start=ref?{lat:ref.lat,lng:ref.lng}:pts[0];
   let fi=0,fd=-1;
   pts.forEach((p,i)=>{const d=distKm(start,p);if(d>fd){fd=d;fi=i}});
@@ -73227,7 +73291,7 @@ function farFirstOrder(){
     rest.forEach((p,i)=>{const d=distKm(cur,p);if(d<bd){bd=d;bi=i}});
     cur=rest.splice(bi,1)[0];out.push(cur.uid);
   }
-  return commitSortedTrip(out);
+  return commitSortedTrip(out.concat(尾.map(p=>p.uid)));   /* v29g T61:無座標的接在最後 */
 }
 /* 工單17#5:行程回滾共用——回存也驗,分級提示;回傳回存是否成功 */
 function rollbackTripState(oldTrip,oldManual,normalMessage){
@@ -75168,7 +75232,10 @@ document.getElementById("main").addEventListener("click",e=>{
   const pk=e.target.closest(".pick");
   if(pk&&!pk.disabled){
     const k=pk.dataset.k,p=byUid[k];
-    if(!trip.includes(k)&&p&&!p.hasCoord){alert("此景點尚未設定座標,先用「📌 座標校正」補座標才能加入候選清單。");return}
+    /* v29g T61:原本這裡擋「沒有座標就不准加入候選清單」,已整段移除。
+       🔴 那道守門與卡片上自己寫的「⚠️ 尚未設定座標——**可導航**,但不參與距離/推薦」互相矛盾:
+       卡片說可以、守門說不行。而且座標校正只給「用目前 GPS」與「貼 Google 座標」兩條路,
+       人在家新增的店家一條都走不通 → 等於一家都進不了候選清單。 */
     const oldT=[...trip];                              /* 工單14#1:存成功才生效,補上 v5 遺留缺口 */
     trip.includes(k)?trip.splice(trip.indexOf(k),1):trip.push(k);
     if(!saveTrip()){
