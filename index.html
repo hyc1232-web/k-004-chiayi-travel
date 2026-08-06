@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29n(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29p(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -1079,6 +1079,29 @@
      例外是「本機自訂景點」,0 筆時沿用既有那句「尚無自訂景點。」⛔ 一字未改。
    ⛔ manageSection() 本身未動(它本來就逐組套 RENDER_MAX),⛔ 沒新增分頁、
      沒新增 <style> 區塊、沒新增畫面說明句。
+ ═══ V29 批次14(2026-08-06,APP_RELEASE=29p):管理景點加來源篩選鈕(T68)═══
+   🔴 **版號跳過 o** —— 小寫 o 與數字 0 在畫面版號上分不出來(V29o-P 會被讀成 V290-P);
+     連同永久跳過的 l,本批是 29n 的下一版 → **29p**。見 DECISIONS D37。
+   使用者原話:「4 各選項 按哪一個 就跳去哪裡。電腦使用時我是按 CTRL+F 搜尋 自建店家
+     **根本不知道有這個 太不明顯了** 1-因為一直往下滑 會閃過去 2-**手機沒有 CTRL+F**」
+   ➡️ 批次13(T67)把清單分成四組,**但四個 <h3> 是連續排下去的** ——
+     OSM 那組即使只列 100 筆也很長,**後面兩組的標題會被滑過去**。
+     🔴 **手機上沒有 Ctrl+F,完全沒有辦法直接到某一組。**
+   做法:mList 上方加一排來源篩選鈕(#mSrcTabs),**只在 manageTab==="list" 時出現**:
+     [全部(N)] [內建景點(N)] [自建店家(N)] [OSM 景點(N)] [本機自訂(N)]
+   ⛔ **做篩選⛔ 不做捲動跳轉** —— 跳過去其他組還在下面,手指一滑又混在一起;
+     且 T47 已經證實落點難抓(sticky header 會遮住 scrollIntoView 的目標)。
+   🔴 **鈕上的筆數是「套完搜尋與區域之後」的**,⛔ 不是未篩選的總數 ——
+     鈕與清單上下並排,數字對不上會讓人以為清單壞了。**錯的數字比沒有數字更糟。**
+   ⚠️ **筆數 0 的鈕照樣出現並標 (0),⛔ 不隱藏** —— 鈕是入口不是內容,位置要固定。
+     (與 T67「空組不出現標題」⛔ 不衝突:那管清單裡的內容,這管入口。)
+   ⛔ 來源判定**仍然只有 srcKind() 一份**;data-msrc 的值域**刻意就是它的回傳值**,⛔ 沒有對照表。
+   ⚠️ 狀態只存記憶體(let manageSrc),⛔ 不寫 settings、⛔ 不新增 localStorage 鍵;
+     關閉面板或重整回到「全部」——歸位有三道(closeManagePanel／btnManage 開啟／renderManage 早退)。
+   ⛔ 沿用既有 .mtabs 與 aria-pressed,⛔ 沒新增樣式規則、⛔ 沒新增分頁、⛔ 沒新增監聽器
+     (點擊借 managePanel 既有委派)。
+   🔴 .mtabs 的分頁委派選擇器收窄成 button[data-mt] —— **必要的去衝突,⛔ 不是順手改**:
+     不收窄的話按分頁鈕會把來源篩選那五顆的 aria-pressed 一併抹掉。今天逐字元等價。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2077,6 +2100,12 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
     </div>
   </div>
 
+  <!-- v29p T68:管理景點的來源篩選鈕列。內容由 renderManage() 產生(筆數會隨搜尋與區域變)。
+       ⛔ 沿用既有 .mtabs class 與 aria-pressed 寫法,⛔ 未新增任何 <style> 規則。
+       ⚠️ 這一排的鈕帶 data-msrc,上面那排分頁鈕帶 data-mt —— **兩者刻意不同名**,
+          因為 L3972 那個 .mtabs 委派是 querySelector(".mtabs")(只綁第一個,即分頁那排),
+          按到這一排不會誤觸分頁切換。本排的點擊走 managePanel 既有委派。 -->
+  <div class="mtabs" id="mSrcTabs" hidden></div>
   <div id="mList" hidden></div>
   <div id="mExcluded" hidden></div>
   <div id="mNoCoord" hidden></div>
@@ -72561,7 +72590,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29n";          /* V29 批次13 開發期(字尾 n;🔴 l 已永久跳過 —— 小寫 L 與數字 1 在畫面版號上分不出來,見 DECISIONS D37),封版才拿掉 */
+const APP_RELEASE="29p";          /* V29 批次14 開發期(字尾 p;🔴 l 與 o 皆永久跳過 —— l 與數字 1、o 與數字 0 在畫面版號上分不出來,見 DECISIONS D37),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -72925,6 +72954,11 @@ let curTab="all",sortMode="order",ref=null,pendingUid=null;
 let tripListOpen=true,segClicked=-1,segWarn=-1,lastGos=[];   /* v22D:展開面板即顯示全部站點 */
 let filters={customOnly:false,hideDone:false,showExcluded:false};
 let manageTab="add",editingUid=null;
+/* v29p T68:管理景點清單「只看哪一種來源」。值域**刻意就是 srcKind() 的回傳值** ＋ "all",
+   ⛔ 不另做一張對照表 —— 有對照表就等於有第二份來源定義,改了 srcKind() 會忘了改它。
+   ⚠️ 只是記憶體變數:⛔ 不寫進 settings、⛔ 不新增 localStorage 鍵、⛔ 不進備份。
+      這是**臨時查找動作不是偏好**,與既有 manageTab／curTab／sortMode 同一個做法。 */
+let manageSrc="all";
 let editReturn=null,editBaseline=null;   /* v22L7:返回位置與表單初始值(僅記憶體) */
 let renderedPts=[];
 
@@ -73821,18 +73855,24 @@ function deletePlace(uid){
 /* v25 T36:✕ 與返回鍵共用同一條關閉路徑。 */
 function closeManagePanel(){
   const p=document.getElementById("managePanel");
-  if(p&&!p.hidden){p.hidden=true}
+  if(p&&!p.hidden){p.hidden=true;manageSrc="all";}   /* v29p T68:第一道 —— ✕ 鈕與返回鍵都走這裡 */
 }
 document.getElementById("btnManage").addEventListener("click",()=>{
   const p=document.getElementById("managePanel");
   p.hidden=!p.hidden;
-  if(!p.hidden){renderManage();autofillAddCity();armBack();}
+  /* v29p T68:第二道 —— 這個切換鍵的**關閉**分支不經過 closeManagePanel(),
+     所以在開啟時歸位。⛔ 不改既有的開關做法,只多一個賦值。 */
+  if(!p.hidden){manageSrc="all";renderManage();autofillAddCity();armBack();}
 });
 document.getElementById("mpClose").addEventListener("click",()=>{closeManagePanel()});
 document.querySelector(".mtabs").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   manageTab=b.dataset.mt;
-  document.querySelectorAll(".mtabs button").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  /* v29p T68:選擇器收窄成 button[data-mt] —— 🔴 這是**必要的去衝突,⛔ 不是順手改**:
+     本批在 #mSrcTabs 加了第二個 .mtabs,不收窄的話按分頁鈕會把來源篩選那五顆的
+     aria-pressed 一併抹成 false(選中狀態消失)。
+     ⚠️ **今天逐字元等價**:分頁那排五顆全部都有 data-mt,收窄前後選到的是同一批。 */
+  document.querySelectorAll(".mtabs button[data-mt]").forEach(x=>x.setAttribute("aria-pressed",x===b));
   document.getElementById("mAdd").hidden=manageTab!=="add";
   document.getElementById("mList").hidden=manageTab!=="list";
   document.getElementById("mExcluded").hidden=manageTab!=="excluded";
@@ -73895,8 +73935,15 @@ function manageSection(標題,list,空訊息){
     +(over?`<div class="meta">（僅列前 ${RENDER_MAX} 筆,共 ${list.length} 筆）</div>`:"");
 }
 function renderManage(){
-  if(document.getElementById("managePanel").hidden)return;
+  /* v29p T68:面板收起來時把來源篩選歸位(工單 §2-4「關閉面板回到全部」的第三道守門;
+     另兩道在 closeManagePanel() 與 btnManage 的開啟分支 —— 七個 show/hide 落點逐處判定見回報)。 */
+  if(document.getElementById("managePanel").hidden){manageSrc="all";return}
   renderNoCoordTab();                                /* v22B:無座標分頁標籤 N 與清單 */
+  /* v29p T68:來源篩選鈕列**只在「管理景點」分頁出現**。
+     🔴 掛在 renderManage() 而⛔ 不掛在 .mtabs 的 click handler —— 那個 handler 只有
+        「使用者按分頁鈕」才會跑,但 manageTab 也會被別的路徑帶著走(開面板、startEdit、
+        快速新增)。掛在這裡才保證畫面上看到的與 manageTab 永遠一致。 */
+  document.getElementById("mSrcTabs").hidden=manageTab!=="list";
   const $l=document.getElementById("mList");
   if(manageTab==="list"){
     /* v29k T65:先套上方既有的搜尋 → 再套上方既有的區域 → 最後套 RENDER_MAX。
@@ -73918,10 +73965,30 @@ function renderManage(){
        ⛔ manageSection() 本身未動 —— 它本來就逐組套 RENDER_MAX,分四組只是多呼叫兩次。 */
     const 組={builtin:[],manual:[],osm:[],custom:[]};
     base.forEach(p=>{const k=srcKind(p);if(組[k])組[k].push(p)});
-    $l.innerHTML=(組.builtin.length?manageSection("內建景點",組.builtin):"")
-      +(組.manual.length?manageSection("自建店家",組.manual):"")
-      +(組.osm.length?manageSection("OSM 景點",組.osm):"")
-      +manageSection("本機自訂景點",組.custom,`<div class="meta">尚無自訂景點。</div>`);
+    /* v29p T68:來源篩選鈕列。
+       🔴 **筆數是「套完搜尋與區域之後」的** —— 組 就是套完的結果,⛔ 不是 ALLP 的總數。
+          鈕與清單上下並排,若鈕永遠寫 OSM 景點(69848) 而清單只列 1 筆,
+          使用者會以為清單壞了或自己按錯:**錯的數字比沒有數字更糟**。
+       ⚠️ 筆數 0 的鈕**照樣出現並標 (0)**,⛔ 不隱藏 —— 鈕是**入口**不是內容,位置要固定;
+          每打一個字就少一顆鈕,手指按下去時鈕已經換人了。而且「自建店家(0)」本身是資訊:
+          它明講「這一組搜不到,不用再找」,整顆消失反而像功能不見了。
+          (⚠️ 與 T67「空組不出現標題」⛔ 不衝突 —— 那管的是清單裡的**內容**,這管的是**入口**。)
+       ⛔ 分類判定沿用上面 srcKind() 那一輪的結果,⛔ 這裡沒有再判一次。
+       ⚠️ data-msrc 的值域**刻意就是 srcKind() 的回傳值** ＋ "all",⛔ 沒有對照表。 */
+    const 全部數=組.builtin.length+組.manual.length+組.osm.length+組.custom.length;
+    document.getElementById("mSrcTabs").innerHTML=
+      [["all","全部",全部數],["builtin","內建景點",組.builtin.length],
+       ["manual","自建店家",組.manual.length],["osm","OSM 景點",組.osm.length],
+       ["custom","本機自訂",組.custom.length]]
+      .map(([k,l,n])=>`<button data-msrc="${k}" aria-pressed="${manageSrc===k}">${l}(${n})</button>`).join("");
+    /* v29p T68:選了某一組就**只渲染那一組**,其餘三組整個不出現(含標題)。
+       ⚠️ manageSrc==="all" 時 出() 恆真,整條式子與 T67 **逐字元等價** —— 預設畫面⛔ 零變動。
+       ⛔ 做的是篩選不是捲動跳轉:跳過去其他組還在下面,滑一下又混在一起(且 T47 已證實落點難抓)。 */
+    const 出=k=>manageSrc==="all"||manageSrc===k;
+    $l.innerHTML=((出("builtin")&&組.builtin.length)?manageSection("內建景點",組.builtin):"")
+      +((出("manual")&&組.manual.length)?manageSection("自建店家",組.manual):"")
+      +((出("osm")&&組.osm.length)?manageSection("OSM 景點",組.osm):"")
+      +(出("custom")?manageSection("本機自訂景點",組.custom,`<div class="meta">尚無自訂景點。</div>`):"");
   }
   if(manageTab==="excluded"){
     const ex=ALLP.filter(p=>excluded.has(p.uid));
@@ -73949,6 +74016,10 @@ function renderManage(){
 }
 document.getElementById("managePanel").addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
+  /* v29p T68:來源篩選鈕。⛔ **沒有新增監聽器** —— #mSrcTabs 在 managePanel 裡面,
+     借的就是這個既有委派(與「📌 補座標」「🗑 移除」同一個入口)。
+     ⚠️ 擺在最前面並立即 return:它與下面每一條的 data-* 都不同名,⛔ 不會互相攔截。 */
+  if(t.dataset.msrc){manageSrc=t.dataset.msrc;renderManage();return}
   if(t.id==="btnClearPublishedPerm"){clearPublishedPermRemoved();return}
   if(t.id==="btnCleanupPublished"){cleanupPublishedLocals();return}
   if(t.dataset.permremove){permRemove(t.dataset.permremove);return}
