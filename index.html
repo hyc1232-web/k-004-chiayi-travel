@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29h(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29i(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -937,6 +937,29 @@
      (T61 之後無座標景點可正常加入候選清單、可導航、可排行程,所以不影響主要用法。)
    ⛔ 本批**程式一行未改**,只動版號與這段沿革;景點區塊由產出腳本換,既有那批一筆未動。
    ⚠️ 這是十項使用回報的第二項與第四項(同一件事),**其餘各項逐項討論,⛔ 本批不預留。**
+ ═══ V29 批次9(2026-08-05,APP_RELEASE=29i):區域下拉一次涵蓋本次旅行的所有縣市(T63)═══
+   使用者原話:「當我要去嘉義縣嘉義市時,例如我要找一個景點 **不確定是嘉義縣還是嘉義市**,
+     我只能 2 次搜索 **不能一次選擇兩個縣市搜索**」
+   ➡️ 「本次旅行地區」那一組原本只是**分組標題,選不了** ——
+     使用者只能一個縣市一個縣市選;而「全部地區」是二十二縣市六萬多筆,太寬。
+     **中間那一格是空的。**
+   做法:那一組最前面加一個**可選**的「全部（嘉義市、嘉義縣）」,一次涵蓋本次旅行的所有縣市。
+     label 列出實際涵蓋哪幾個縣市(使用者要看得出範圍);超過三個改成「全部（N 個縣市）」。
+   🔴 只在**兩個以上**縣市時才出現 —— 只有一個時它跟那個縣市完全一樣,多一個選項只是噪音。
+   🔴 **這個新選項不是合法縣市,所以每一處會把它當縣市洗掉的地方都必須顯式放行。**
+     ⚠️ 放行點有**兩個**,漏一個就是「當下有效、重整一次就變回全部地區,而且沒有任何提示」:
+       ①讀設定時的正規化　②開機對帳(不在合法清單裡就回落全部)
+     ⛔ 工單只列了第一個,第二個是全掃五十二處時找到的。
+     ⚠️ 這與批次7 那個「開機清理安靜刪掉候選清單」是**同一種坑** ——
+     清洗不在使用者操作的路徑上,而在開機路徑上,所以他永遠查不出原因。
+   ⛔ 沒有改把字串轉成合法縣市那一支 —— 改它會讓這個新值變成假縣市,
+     污染新增景點與批次修改的縣市預帶欄位。改的是**呼叫端的放行條件**。
+   ⛔ 旅行地區清空時**視同全部**,⛔ 不可以變成一筆都不顯示 ——
+     那會讓使用者以為資料不見了。
+   ⚠️ 從別處回到某個景點時原本會清掉地區篩選(避免回去看不到它);
+     現在若那個景點就在本次旅行的縣市裡,**保留篩選不清空** ——
+     本來就看得到,清掉只是無聲重設使用者的選擇。
+   ⚠️ 這是十項使用回報的第五項;第一到第五項至此全部完成,**第六到第十項尚未提出。**
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -2200,6 +2223,14 @@ const inChiayi=(la,ln)=>la>=23.1&&la<=23.8&&ln>=120.0&&ln<=120.8;
 const inTaiwan=(la,ln)=>la>=21.5&&la<=26.5&&ln>=118.0&&ln<=122.5;  /* v22:台灣範圍(含離島),只作軟警告界,不硬拒 */
 const TAIWAN_CITIES_CANON=["台北市","新北市","桃園市","台中市","台南市","高雄市","基隆市","新竹市","嘉義市","新竹縣","苗栗縣","彰化縣","南投縣","雲林縣","嘉義縣","屏東縣","宜蘭縣","花蓮縣","台東縣","澎湖縣","金門縣","連江縣"]; /* v22:22 縣市,臺→台統一 */
 const canonCity=x=>{const t=(typeof x==="string"?x:"").trim().replace(/^臺/,"台");return TAIWAN_CITIES_CANON.includes(t)?t:""};
+/* v29i T63:currentRegion 的第三個特殊值(前兩個是 ""=全部地區、"未分類")。
+   ⚠️ 它**不是合法縣市**,所以每一處會拿 canonCity() 洗它的地方都必須顯式放行 ——
+   ⛔ 不是改 canonCity()(那會讓「本次旅行」變成假縣市,污染 fCity/bulkCity 等預帶欄位)。
+   🔴 放行點有**兩個**,漏一個就是「當下有效、重整消失」而且沒有任何提示:
+     ① normalizeSettings()  讀 localStorage 時的正規化
+     ② reconcileCurrentRegion()  開機對帳(cr 不在合法清單裡就回落 "")
+   (T61 第二層那個坑就是這樣:清洗不在使用者操作的路徑上,而在開機路徑上。) */
+const 本次旅行值="本次旅行";
 const deriveCityFromAddr=addr=>{const a=(typeof addr==="string"?addr:"").trim().replace(/^臺/,"台");for(const c of TAIWAN_CITIES_CANON){if(a.startsWith(c))return c}return""};
 const deriveAreaFromAddr=(addr,city)=>{let a=(typeof addr==="string"?addr:"").trim().replace(/^臺/,"台");const c=city||deriveCityFromAddr(a);if(c&&a.startsWith(c))a=a.slice(c.length);const m=a.match(/^([\u4e00-\u9fa5]{1,4}?(?:區|鄉|鎮|市))/);return m?m[1]:""};
 const parseD=s=>{if(!s||typeof s!=="string")return null;const[y,m,d]=s.split("-").map(Number);
@@ -2279,7 +2310,9 @@ function normalizeSettings(raw){          /* 依群組 建議.txt */
   /* v22:目前查看地區——""=全部;"未分類"=只顯示 city==="";其餘須為合法縣市 */
   {let cr=typeof raw.currentRegion==="string"?raw.currentRegion.trim():"";
    if(cr==="全部")cr="";
-   if(cr!==""&&cr!=="未分類"){cr=canonCity(cr);}
+   /* v29i T63:放行點① —— 「本次旅行」不是合法縣市,不放行會被 canonCity() 洗成 "",
+      使用者選了看起來有效、**重整一次就變回全部地區且沒有任何提示**。 */
+   if(cr!==""&&cr!=="未分類"&&cr!=="本次旅行"){cr=canonCity(cr);}
    result.currentRegion=cr;}
   /* v22J:顯示偏好——非白名單值一律回落預設,舊 settings 缺欄位自動補 */
   result.defaultRegionMode=["all","last","firstTrip"].includes(raw.defaultRegionMode)?raw.defaultRegionMode:"all";
@@ -72405,7 +72438,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29h";          /* V29 批次8 開發期(字尾 h),封版才拿掉 */
+const APP_RELEASE="29i";          /* V29 批次9 開發期(字尾 i),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -72630,6 +72663,12 @@ const visList=()=>ALLP.filter(p=>{
   const cr=settings.currentRegion;                 /* v22:區域過濾掛顯示管線最前端 */
   if(!cr||cr==="全部")return true;                 /* 全部 */
   if(cr==="未分類")return (p.city||"")==="";        /* 未分類=city 空 */
+  if(cr===本次旅行值){                              /* v29i T63:一次涵蓋本次旅行的所有縣市 */
+    const rs=settings.regions||[];
+    /* ⚠️ regions 為空時**視同全部**,⛔ 不可以變成一筆都不顯示 ——
+       使用者可能先選了「本次旅行」再把旅行地區清空,那時整頁變 0 筆會讓他以為資料不見了。 */
+    return !rs.length||rs.includes(p.city||"");
+  }
   return (p.city||"")===cr;                         /* 指定縣市 */
 });
 const catCls=p=>
@@ -74347,7 +74386,14 @@ function afterEditReturn(uid){
       curTab="all";vhFilter="";
       filters.customOnly=false;filters.hideDone=false;filters.showExcluded=true;
       const p=byUid[uid];
-      if(p&&settings.currentRegion&&settings.currentRegion!==(p.city||""))settings.currentRegion="";
+      /* v29i T63:這一行的**目的**是「確保回去看得到那個景點」——
+     目前地區篩選會把它濾掉時才清掉篩選。
+     cr 是「本次旅行」而那個景點的 city 在 regions 裡 → **本來就看得到**,清空是多餘的,
+     而且會**無聲重設使用者選的篩選** —— 那正是本批要解的那一類問題。所以放行。
+     ⚠️ 若 city 不在 regions 裡(看不到)→ 照舊清空,行為不變。 */
+  if(p&&settings.currentRegion&&settings.currentRegion!==(p.city||"")
+     &&!(settings.currentRegion===本次旅行值
+         &&(settings.regions||[]).includes(p.city||"")))settings.currentRegion="";
       renderAll();renderSearchStat();
       setTimeout(()=>returnToPlace(uid),0);
     }},8000);
@@ -76351,7 +76397,16 @@ function renderRegionBar(){                           /* 四來源聯集:全部�
   const opt=(v,l,sel)=>`<option value="${esc(v)}"${sel?" selected":""}>${esc(l)}</option>`;
   let h=`<label for="curRegion">目前區域</label><select id="curRegion" aria-label="目前查看地區">`;
   h+=opt("","全部地區",cr===""||cr==="全部");
-  if(trip.length)h+=`<optgroup label="本次旅行地區">`+trip.map(c=>opt(c,c,cr===c)).join("")+`</optgroup>`;
+  if(trip.length){
+    /* v29i T63:optgroup 最前面加一個**可選**的「全部」。
+       🔴 只在 2 個以上縣市時才出現 —— 只有一個縣市時它跟那個縣市完全一樣,多一個選項只是噪音。
+       label 要列出實際涵蓋哪幾個縣市(使用者要看得出範圍);超過 3 個改成「全部（N 個縣市）」,
+       否則縣市多時那一行會長到看不懂。 */
+    const 全label=trip.length>3?`全部（${trip.length} 個縣市）`:`全部（${trip.join("、")}）`;
+    h+=`<optgroup label="本次旅行地區">`
+      +(trip.length>=2?opt(本次旅行值,全label,cr===本次旅行值):"")
+      +trip.map(c=>opt(c,c,cr===c)).join("")+`</optgroup>`;
+  }
   if(others.length)h+=`<optgroup label="景點庫其他城市">`+others.map(c=>opt(c,c,cr===c)).join("")+`</optgroup>`;
   const unclsN=ALLP.filter(p=>(p.city||"")==="").length;   /* v22B:未分類筆數=ALLP city 空(含暫時隱藏、不含永久移除) */
   if(unclsN>0)h+=opt("未分類",`未分類（${unclsN}）`,cr==="未分類");
@@ -76378,6 +76433,15 @@ function maybeAddRegionForCity(city){                 /* city 不在本次旅行
 function reconcileCurrentRegion(){                    /* 開機對帳:currentRegion 指向已消失城市→回落全部 */
   const cr=settings.currentRegion;
   if(!cr||cr==="未分類")return;
+  /* v29i T63:放行點② —— 🔴 **工單只提了正規化那一處,這裡是第二個清洗點**。
+     「本次旅行」既不在 regions 也不在 actualCities(),不放行就會被回落成 "" 並存檔。
+     ⚠️ 放行條件是 **regions 至少 2 個縣市** —— 與下拉的顯示條件一致:
+     降到 1 個或 0 個時那個選項不再出現,若還留著 cr 會變成
+     「畫面顯示全部地區、實際卻在篩選」的不一致狀態,所以照既有語意回落。 */
+  if(cr===本次旅行值){
+    if((settings.regions||[]).length>=2)return;
+    settings.currentRegion="";saveSettings();return;
+  }
   const ok=(settings.regions||[]).includes(cr)||actualCities().includes(cr);
   if(!ok){settings.currentRegion="";saveSettings();}
 }
