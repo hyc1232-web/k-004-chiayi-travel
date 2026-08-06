@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29j(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29k(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -986,6 +986,47 @@
    🔴 標記移除之後**本機立刻隱藏,但線上還在** ——
      要重新產出並上傳上線檔,線上那一筆才會真的消失。
    ⚠️ 這是十項使用回報的第六項。
+ ═══ V29 批次11(2026-08-06,APP_RELEASE=29k):分得出來源 ＋ 管理景點不再卡五秒(T65)═══
+   使用者原話:「搜尋南門包 出現兩個 要如何知道 哪一個是 PY 抓的 哪一個是自建的 哪一個是內建的」
+     「現在反而是 按景點管理=>管理景點=>電腦延遲五秒」
+   ➡️ 🔴 **這兩件是同一個動作的前後半**:搜到重複 → 分辨來源 → 去管理景點刪掉。
+     A 段解「分不出來」,B 段解「進得去也找不到、還卡五秒」。⛔ 缺一半都用不起來。
+   【A 段｜卡片來源標記】新增按鈕以外的第二支產生器 srcChip(p),掛在 card() 卡片頭
+     既有「自訂」chip 之後,四選一:
+       source=custom          → 「自訂」(⛔ 既有那顆,一字未改)
+       builtin ＋ origin=manual → 「自建」(T62 那 10 家)
+       builtin ＋ 無 origin     → 「內建」(原始 22 筆)
+       builtin ＋ origin=osm    → ⛔ **不標**
+   🔴 **OSM 那 69,848 筆為什麼不標**:它佔 **99.96%**,每張卡都掛等於全部都掛,
+     那不是資訊是噪音。反過來標稀有的那 **32** 筆,畫面幾乎沒變,要分辨時一眼看得出來。
+     使用者那個實例實測得證:搜「南門包」兩筆分別是**內建**(snack-baoshi)與 **OSM**
+     (custom-osm-node-12662954854)——一張掛「內建」、一張什麼都沒有,分得出來。
+   ⚠️ 樣式沿用既有 stChip:「自建」用 stChip-c(與「自訂」同色系,都是**使用者自己建的**),
+     「內建」用 stChip 預設色。⛔ 沒有新增任何樣式規則(樣式區逐位元組未動)。
+   ⚠️ 本段刻意**不寫樣式標籤的字面值** —— 產出檢查⑤ 的剝離順序是「先腳本、再樣式、最後註解」,
+     沿革裡寫了那個字面值會讓樣式剝離從這裡就開始吃,把整段沿革連同真正的樣式區一起吞掉。
+     這與 v24 `24m` 修掉的「沿革誤寫腳本標籤字面值害閘門自我阻擋」是同一種坑。
+   ⛔ 沒做重複偵測、沒做自動合併、沒加「這筆和那筆重複」提示 ——
+     本批只給標記,**判斷與刪除由使用者自己做**。
+   【B 段｜管理景點吃搜尋、吃區域、加上限】
+   🔴 根因:renderManage() 的「管理景點」分支一次組出 **69,880 筆**的 HTML 字串再塞進 DOM。
+     v26 立的 RENDER_MAX=100 套在主卡片、多選列表、所在景點下拉三處,**就是漏了這裡** ——
+     資料量從 19k 長到 69.8k 之後才顯現。
+   做法:該分支的來源改成「先套上方既有的搜尋 → 再套上方既有的區域 → 最後套 RENDER_MAX」。
+   ⛔ **搜尋比對沒有另寫一份** —— 直接呼叫既有的 applySearch();
+     區域判定從 visList() **抽出** 區域內(p) 讓兩邊共用同一份,⛔ 不是複製一份出來。
+   🔴 **抽出來而不是直接呼叫 visList() 是刻意的**:visList() 連 excluded 一起濾掉,
+     直接用會讓「已暫時隱藏」的景點**從管理清單消失**,連帶失去該列的「♻️ 恢復」入口 ——
+     那是本批沒要求、也不該發生的行為改變。
+   ⚠️ 上限提示改掛在段落標題那一行的 meta 上,**只陳述數量不教操作** ——
+     寫成「請先用地區或分類縮小」會多一句 ≥28 字說明句,違反 P1(說明句只減不增),
+     而且「分類」根本不影響這個清單,寫了是誤導。
+   ⚠️ renderManage() 接到 renderAll() 尾端(與 renderReviewNotice()／renderHotelPickers() 同位置同做法)——
+     搜尋框與區域下拉本來就只呼叫 renderAll(),不接上去的話清單不會跟著動。
+     renderManage() 開頭就有「面板收起來就直接 return」,所以面板沒開時成本是零。
+   ⛔ 沒動 manageRow()、removeOpBtn()、「已暫時隱藏」分頁、「📍 尚未設定座標」分頁、
+     RENDER_MAX 的值、搜尋框與區域下拉的任何 UI(⛔ 本批沒有新增任何輸入元件)。
+   ⚠️ 這是十項使用回報的第七項,外加同時回報的效能問題。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -72464,7 +72505,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29j";          /* V29 批次10 開發期(字尾 j),封版才拿掉 */
+const APP_RELEASE="29k";          /* V29 批次11 開發期(字尾 k),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -72684,8 +72725,11 @@ function rebuildAndRender(){
   if(!ok){try{console.warn("資料重建完成,但部分清理結果未成功保存")}catch(_){}}
   return ok;
 }
-const visList=()=>ALLP.filter(p=>{
-  if(excluded.has(p.uid))return false;
+/* v29k T65:區域判定從 visList() **抽出來**,讓「管理景點」清單與顯示管線共用同一份。
+   ⛔ 這不是複製一份 —— visList() 底下就是呼叫它,兩邊永遠不會分岔。
+   🔴 為什麼管理清單不能直接呼叫 visList():visList() 連 excluded 一起濾掉,
+      直接用會讓「已暫時隱藏」的景點從管理清單消失,連帶失去該列的「♻️ 恢復」入口。 */
+const 區域內=p=>{
   const cr=settings.currentRegion;                 /* v22:區域過濾掛顯示管線最前端 */
   if(!cr||cr==="全部")return true;                 /* 全部 */
   if(cr==="未分類")return (p.city||"")==="";        /* 未分類=city 空 */
@@ -72696,9 +72740,24 @@ const visList=()=>ALLP.filter(p=>{
     return !rs.length||rs.includes(p.city||"");
   }
   return (p.city||"")===cr;                         /* 指定縣市 */
-});
+};
+const visList=()=>ALLP.filter(p=>!excluded.has(p.uid)&&區域內(p));
 const catCls=p=>
   ({正餐:"c-meal",點心:"c-snack",親子:"c-kids",景點:"c-spot",住宿:"c-stay",購物:"c-shop"}[p.mainCat]||"c-other");
+/* v29k T65:卡片頭的來源標記。⛔ 只標稀有的那 32 筆,OSM 那 69,848 筆(99.96%)不標 ——
+   每張卡都掛等於全部都掛,那不是資訊是噪音。
+   ⛔ 自訂那顆是既有的 stChip-c,一字未改,所以這裡只處理 builtin 三種。
+   ⚠️ 沿用既有 stChip,⛔ 未新增任何樣式規則(樣式區逐位元組未動):
+      「自建」用 stChip-c(與「自訂」同色系 —— 兩者都是使用者自己建的),
+      「內建」用 stChip 預設色,兩者視覺上分得開。
+   ⚠️ origin 有值但不在 ORIGINS 值域時一律歸「內建」,⛔ 不另開第四種 —— 那是資料異常,
+      不是新來源;要加新來源必須先同步登記 ORIGINS(D22 第四道)。 */
+function srcChip(p){
+  if(!p||p.source!=="builtin")return "";
+  if(p.origin==="osm")return "";
+  if(p.origin==="manual")return `<span class="stChip stChip-c">自建</span>`;
+  return `<span class="stChip">內建</span>`;
+}
 
 /* ═══ 4. 營業/抵達狀態(v4 邏輯+scheduleType) ═══ */
 function stateOf(p,now){
@@ -73286,7 +73345,7 @@ function renderCards(now){
       <div class="cardTop">
         ${ph?`<img class="cardPhoto" src="${esc(ph)}" alt="${esc(p.name)}照片" loading="lazy" onerror="this.style.display='none'">`:""}
         <div class="cardHead">
-          <div><span class="chip">${esc(p.cat||p.mainCat)}</span>${isC?`<span class="stChip stChip-c">自訂</span>`:""}${exc?`<span class="stChip">已隱藏</span>`:""}</div>
+          <div><span class="chip">${esc(p.cat||p.mainCat)}</span>${isC?`<span class="stChip stChip-c">自訂</span>`:""}${srcChip(p)}${exc?`<span class="stChip">已隱藏</span>`:""}</div>
           <div class="addr">📍 ${esc(p.addr||("關鍵字定位:"+p.nav))}</div>
           <div class="hours"><span class="badge ${st.cls}" data-badge>${st.badge}</span><span data-extra>${st.extra?esc(st.extra)+"｜":""}</span>🕐 ${esc(p.hours||"—")}</div>
           ${(p.tags&&p.tags.length)?`<div class="tags">${p.tags.map(t=>`<span class="tag ${esc(t[0])}">${esc(t[1])}</span>`).join("")}</div>`:""}
@@ -73732,14 +73791,32 @@ function manageRow(p){
     </div>
   </div>`;
 }
+/* v29k T65:管理清單的一段(標題 ＋ 最多 RENDER_MAX 列 ＋ 超出時一行提示)。
+   ⚠️ 超出時那一行**只陳述數量、不教操作**:沿用「僅列前 N 筆,共 M 筆」的既有格式,
+      但⛔ 不接「請先用地區或分類縮小」——
+      ①那會多一句 ≥28 字說明句,違反 P1(說明句只減不增)
+      ②「分類」根本不影響這個清單(它只吃搜尋與區域),寫了是誤導。
+   ⚠️ 提示擺在清單**後面**,與 renderCards()／renderMultiSelectList() 既有的 over 寫法同位置。 */
+function manageSection(標題,list,空訊息){
+  const over=list.length>RENDER_MAX;
+  return `<h3>${標題}(${list.length})</h3>`
+    +(list.length?(over?list.slice(0,RENDER_MAX):list).map(manageRow).join(""):(空訊息||""))
+    +(over?`<div class="meta">（僅列前 ${RENDER_MAX} 筆,共 ${list.length} 筆）</div>`:"");
+}
 function renderManage(){
   if(document.getElementById("managePanel").hidden)return;
   renderNoCoordTab();                                /* v22B:無座標分頁標籤 N 與清單 */
   const $l=document.getElementById("mList");
   if(manageTab==="list"){
-    const bs=ALLP.filter(p=>p.source==="builtin"),cs=ALLP.filter(p=>p.source==="custom");
-    $l.innerHTML=`<h3>系統內建景點(${bs.length})</h3>`+bs.map(manageRow).join("")
-      +`<h3>自訂景點(${cs.length})</h3>`+(cs.length?cs.map(manageRow).join(""):`<div class="meta">尚無自訂景點。</div>`);
+    /* v29k T65:先套上方既有的搜尋 → 再套上方既有的區域 → 最後套 RENDER_MAX。
+       🔴 改版前這裡是 ALLP.filter(...) 直接整包 map 成字串再塞 DOM ——
+          69,880 筆的時候電腦要等五秒,而且清單⛔ 不跟著上面的搜尋與區域走,
+          使用者搜到重複之後得在六萬多筆裡自己捲著找。
+       ⛔ 搜尋比對沒有另寫一份,直接呼叫既有的 applySearch();區域用從 visList() 抽出來的 區域內()。 */
+    const base=applySearch(ALLP.filter(區域內));
+    const bs=base.filter(p=>p.source==="builtin"),cs=base.filter(p=>p.source==="custom");
+    $l.innerHTML=manageSection("系統內建景點",bs)
+      +manageSection("自訂景點",cs,`<div class="meta">尚無自訂景點。</div>`);
   }
   if(manageTab==="excluded"){
     const ex=ALLP.filter(p=>excluded.has(p.uid));
@@ -75969,6 +76046,10 @@ function renderAll(){
   renderReviewNotice();                                  /* v24 3C T4:與 renderBackupUI() 同層級,不綁載入 */
   renderDataOpsUsage();                                  /* v24 24k T29:匯入完會走到這裡,佔用數字立刻重算 */
   renderHotelPickers();                                  /* v29e T59:沿用 T52 的呼叫點,⛔ 不新增事件監聽 */
+  renderManage();                                        /* v29k T65:管理清單要跟著上面的搜尋與區域走。
+                                                            ⛔ 不新增事件監聽 —— renderAll() 本來就是所有資料變動的共同出口
+                                                            (與 renderReviewNotice()／renderHotelPickers() 同位置同做法);
+                                                            renderManage() 開頭就有「面板收起來就 return」,面板沒開時成本是零。 */
   if(ref){
     $st.innerHTML=`目前位置:<b>${esc(ref.label)}</b>`
       +(ref.acc!=null?`(±${ref.acc}m)`:"")
@@ -76592,6 +76673,7 @@ function copyTodayTrip(){                               /* 複製今日行程文
 document.getElementById("qInput").addEventListener("input",e=>{
   searchStr=e.target.value;                             /* 記憶體;不寫 localStorage */
   renderCards(new Date());renderSearchStat();
+  renderManage();   /* v29k T65:管理面板是 .panel(內嵌不是遮罩),開著時搜尋框仍按得到 —— 不接這一行清單不會跟著動。⛔ 不新增事件監聽,借既有這個。面板沒開時 renderManage() 開頭就 return。 */
 });
 document.getElementById("qStat").addEventListener("click",e=>{   /* v22J:按鈕每次重繪,用委派 */
   if(e.target.closest("#btnAddFromSearch"))addPlaceFromSearch();
@@ -76599,6 +76681,7 @@ document.getElementById("qStat").addEventListener("click",e=>{   /* v22J:按鈕�
 document.getElementById("qClear").addEventListener("click",()=>{
   searchStr="";document.getElementById("qInput").value="";   /* 只清搜尋,不動區域/分類/排序/localStorage */
   renderCards(new Date());renderSearchStat();
+  renderManage();                                            /* v29k T65:與上面那個輸入事件同一條理由 */
   document.getElementById("qInput").focus();
 });
 document.getElementById("btnCopyTrip").addEventListener("click",copyTodayTrip);
