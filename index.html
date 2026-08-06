@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29i(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29j(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -960,6 +960,32 @@
      現在若那個景點就在本次旅行的縣市裡,**保留篩選不清空** ——
      本來就看得到,清掉只是無聲重設使用者的選擇。
    ⚠️ 這是十項使用回報的第五項;第一到第五項至此全部完成,**第六到第十項尚未提出。**
+ ═══ V29 批次10(2026-08-05,APP_RELEASE=29j):景點管理補上移除入口(T64)═══
+   使用者原話:「新增景點後 **無法在景點管理 刪除景點**」
+   ➡️ 🔴 **功能其實都在,問題是入口不在使用者會找的地方。**
+     自訂景點:「🗑 刪除本機自訂景點」在管理清單與底部抽屜都有 —— 找得到。
+     內建景點:「🗑 下次發布時移除正式景點」**只在「已暫時隱藏」那一頁** ——
+       得先按「🚫 暫時隱藏」再切分頁才看得到,兩步、跨分頁,
+       而且第一步的名字(暫時隱藏)跟目的(永久移除)看起來是**相反的**。
+     而使用者站的位置是「📍 尚未設定座標」那一頁,那頁**一個移除入口都沒有**。
+   ⚠️ 那筆「123無痕長輩電腦輸出」是批次2 測試留下的,已經烙進 PLACES 變成**內建**景點,
+     所以走的是內建那條路 —— 刪除鈕自己的提示早就寫著正確答案,
+     但那句話只有在使用者已經找到刪除鈕時才看得到,而內建景點根本沒有那顆鈕。
+   做法:🔴 **一行移除邏輯都沒有新寫。** 兩個清單各補一顆按鈕,
+     按下去一律走既有的 deletePlace()／permRemove(),事件走既有的委派
+     (mNoCoord 在 managePanel 內,既有的「📌 補座標」就是靠同一個委派接到的)。
+     新增的只有一支**按鈕產生器** removeOpBtn(p) —— 只決定「出不出現哪一顆」,
+     兩個清單共用同一條規則,⛔ 不會像批次6 那樣一處改了另一處忘了改。
+   ⚠️ 已標記下次發布移除的內建景點⛔ 不出現移除鈕 ——
+     它已經在「已標記下次發布移除」區可以復原,同一件事給兩個入口只會讓人以為是兩個功能。
+     (buildAll() 的 permSet 已把這些 uid 濾出 ALLP,所以這個條件在現行兩個呼叫端是**第二層防護**。)
+   ⛔ 沒動 permRemove()／deletePlace() 的內部邏輯與確認框文字、
+     「已暫時隱藏」那頁既有的移除鈕、底部抽屜「危險操作」的顯示條件、
+     「🚫 暫時隱藏」「✅ 恢復顯示」的任何行為。
+   ⛔ 按鈕文字一律沿用既有字串,沒有自創新說法。
+   🔴 標記移除之後**本機立刻隱藏,但線上還在** ——
+     要重新產出並上傳上線檔,線上那一筆才會真的消失。
+   ⚠️ 這是十項使用回報的第六項。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -72438,7 +72464,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29i";          /* V29 批次9 開發期(字尾 i),封版才拿掉 */
+const APP_RELEASE="29j";          /* V29 批次10 開發期(字尾 j),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -73677,6 +73703,20 @@ document.querySelector(".mtabs").addEventListener("click",e=>{
   if(manageTab==="add")autofillAddCity();
   renderManage();
 });
+/* v29j T64:移除入口的按鈕產生器 —— 「管理景點」清單與「📍 尚未設定座標」清單共用同一條規則。
+   ⛔ 這裡不含任何移除邏輯,只決定「出不出現哪一顆」;按下去一律走既有的
+      deletePlace()(data-del)／permRemove()(data-permremove),事件走 managePanel 既有委派。
+   ⚠️ 已標記下次發布移除的內建景點⛔ 不出現 —— 它已經在「已標記下次發布移除」區可以復原,
+      同一件事給兩個入口只會讓人以為是兩個功能。
+      (buildAll() 的 permSet 已把這些 uid 濾出 ALLP,所以這個條件在現行兩個呼叫端是第二層防護。) */
+function removeOpBtn(p){
+  if(!p)return "";
+  if(p.source==="custom")
+    return `<button class="btn btn-danger" data-del="${p.uid}">🗑 刪除本機自訂景點</button>`;
+  if(p.source==="builtin"&&!permanentRemovedUids.includes(p.uid))
+    return `<button class="btn btn-danger" data-permremove="${p.uid}">🗑 下次發布時移除正式景點</button>`;
+  return "";
+}
 function manageRow(p){
   const exc=excluded.has(p.uid),ov=!!overrides[p.uid],isC=p.source==="custom";
   return `<div class="mItem">
@@ -73688,7 +73728,7 @@ function manageRow(p){
            :`<button class="btn btn-ghost" data-exclude="${p.uid}">🚫 暫時隱藏</button>`}
       <button class="btn btn-ghost" data-copy="${p.uid}">📄 複製</button>
       ${(!isC&&ov)?`<button class="btn btn-ghost" data-resetov="${p.uid}">↩︎ 恢復預設資料</button>`:""}
-      ${isC?`<button class="btn btn-danger" data-del="${p.uid}">🗑 刪除本機自訂景點</button>`:""}
+      ${removeOpBtn(p)}
     </div>
   </div>`;
 }
@@ -77484,7 +77524,8 @@ function renderNoCoordTab(){
         ${excluded.has(p.uid)?`<span class="stChip">已隱藏</span>`:""}
         ${p.addr?`<div class="meta">${esc(p.addr)}</div>`:""}
         <div class="mOps"><button class="btn btn-ghost" data-fixcoord="${p.uid}">📌 補座標</button>
-          <button class="btn btn-ghost" data-edit="${p.uid}">✏️ 編輯</button></div>
+          <button class="btn btn-ghost" data-edit="${p.uid}">✏️ 編輯</button>
+          ${removeOpBtn(p)}</div>
       </div>`).join("")
      :`<div class="meta">目前所有景點都有座標,無待補項目。</div>`);
 }
