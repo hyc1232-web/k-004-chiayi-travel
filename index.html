@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29k(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29m(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -1027,6 +1027,37 @@
    ⛔ 沒動 manageRow()、removeOpBtn()、「已暫時隱藏」分頁、「📍 尚未設定座標」分頁、
      RENDER_MAX 的值、搜尋框與區域下拉的任何 UI(⛔ 本批沒有新增任何輸入元件)。
    ⚠️ 這是十項使用回報的第七項,外加同時回報的效能問題。
+ ═══ V29 批次12(2026-08-06,APP_RELEASE=29m):抽屜補移除入口 ＋ 營業時間不用記格式(T66)═══
+   🔴 **版號刻意跳過 l** —— 小寫 L 與數字 1 在畫面版號上分不出來(V29l-P 會被讀成 V291-P)。
+     29l **永久保留不使用**,見 DECISIONS D37。
+   【A 段｜移除入口漏了第三處】使用者原話:「第8項 為何沒有刪除指令」
+   ➡️ 批次10(T64)補了兩個清單的移除入口,**⛔ 漏了卡片上「管理」鍵開的底部抽屜**。
+     那個抽屜的「危險操作」區綁在 isC(source==="custom")上,**內建景點看到的七項裡沒有一項能刪**。
+   🔴 **根因是「工單用列舉的,沒有要求全掃該條件的所有出現處」** —— 同一個功能的入口漏了三分之一。
+     本批因此**全掃 isC 的每一處逐處判定**,⛔ 不是只改抽屜那一處。
+     判定結果:該補的 1 處(抽屜)、本來就不該補的 10 處(分頁篩選、卡片 chip、
+     deletePlace 守門、恢復預設資料是給**內建**的、座標文案…)、判不出來的 0 處。
+   做法:新增 removeOpKind(p) —— 把批次10 removeOpBtn() 裡那條規則**抽出來**,
+     兩種外觀(管理清單的 btn／抽屜的 sheetAction)共用同一份判定,⛔ 不留兩份真相。
+     抽屜走**新增的 data-sheet-action="permremove" 分支**(抽屜的委派掛在 $sheet 上,
+     ⛔ 接不到 managePanel 的 data-permremove),按下去一律呼叫**既有的 permRemove()**。
+   ⛔ 一行移除邏輯都沒有新寫;自訂那顆「🗑 永久刪除景點」逐字元未動。
+   【B 段｜營業時間不用記格式】使用者原話:「時間格式隔開 讓使用者輸入方便,不用去記憶格式是什麼」
+   ➡️ 原本時段1／時段2 各是**一個文字框**,要打成 09:00-12:00 ——
+     使用者得同時記住:要冒號、要橫線、要補零。他打 0830-1900 就被擋。
+   做法:一格拆兩格(fH1a/fH1b/fH2a/fH2b),每一格**獨立寬鬆解析**:
+     0830／830／8:30／08:30／8．30／8-30 全收,一律正規化成 HH:MM 存進 open.ranges。
+   ⛔ **資料格式一個位元組都沒動** —— open/ranges/closed 與 normalizeOpen()、
+     validTimeRange、validHHMM 全部未碰;T62 那 10 家的 open 結構改前改後逐位元組相同。
+   ⚠️ 兩格都空=該時段沒填(⛔ 不報錯);只填一格→擋下並講明「開始與結束要一起填」;
+     結束不晚於開始→擋下並把兩個時間印出來。**alert 呼叫點數量未變(一句換一句)。**
+   🔴 **⛔ 沒有改用 <input type=time>** —— 那會在手機跳系統時間選擇器,
+     與本案「打什麼都收、⛔ 不跳任何選擇器」正好相反;而且 T59 才因為
+     「原生元件在桌機好用、在手機難用」被推翻過一次(見 DECISIONS D35)。
+   ⚠️ **編輯既有景點時四個框要正確回填** —— 漏掉這一步會把時段清空**而且不報錯**。
+   ⚠️ 舊的 parseRange() 已無呼叫點(橫線格式不再存在),**一併砍掉,⛔ 不留死碼** ——
+     留著會變成第二份時間解析真相,下一個接手的人會不知道該改哪一支。
+   ⚠️ 這是十項使用回報的第八項與第十項;**第九項經查已由批次11 自然解決,⛔ 不在本批。**
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -1995,8 +2026,12 @@ body.homeTravel #filters,body.homeTravel #main,body.homeTravel #reco{display:non
       <span class="meta">兩格一起填,或一起留空</span></div>
     <div class="frow"><label for="fSched">時間類型</label>
       <select id="fSched"><option value="hours">固定營業時間</option><option value="public-space">公共開放空間</option><option value="recommended-evening">建議晚間前往</option><option value="unknown">時間待確認</option></select></div>
-    <div class="frow" id="fHoursRow"><label for="fH1">時段1</label><input type="text" id="fH1" placeholder="09:00-12:00" style="width:10rem">
-      <label for="fH2">時段2</label><input type="text" id="fH2" placeholder="14:00-18:00(選填)" style="width:12rem"></div>
+    <div class="frow" id="fHoursRow"><label for="fH1a">時段1</label>
+      <input type="text" id="fH1a" placeholder="開始 0830" style="width:6.5rem">
+      <input type="text" id="fH1b" placeholder="結束 1900" style="width:6.5rem">
+      <label for="fH2a">時段2</label>
+      <input type="text" id="fH2a" placeholder="開始(選填)" style="width:6.5rem">
+      <input type="text" id="fH2b" placeholder="結束(選填)" style="width:6.5rem"></div>
     <div class="frow" id="fClosedRow"><label>公休日</label>
       <span class="cbRow" id="fClosed">
         <label><input type="checkbox" value="1">一</label><label><input type="checkbox" value="2">二</label>
@@ -72505,7 +72540,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29k";          /* V29 批次11 開發期(字尾 k),封版才拿掉 */
+const APP_RELEASE="29m";          /* V29 批次12 開發期(字尾 m;🔴 刻意跳過 l —— 小寫 L 與數字 1 在畫面版號上分不出來,見 DECISIONS D37),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -73768,11 +73803,22 @@ document.querySelector(".mtabs").addEventListener("click",e=>{
    ⚠️ 已標記下次發布移除的內建景點⛔ 不出現 —— 它已經在「已標記下次發布移除」區可以復原,
       同一件事給兩個入口只會讓人以為是兩個功能。
       (buildAll() 的 permSet 已把這些 uid 濾出 ALLP,所以這個條件在現行兩個呼叫端是第二層防護。) */
-function removeOpBtn(p){
+/* v29m T66:「這一筆該給哪一種移除」的**唯一判定**。
+   🔴 抽出來的理由:批次12 發現同一條規則要用在**三個外觀不同的地方**
+      (管理清單的 btn／尚未設定座標頁的 btn／底部抽屜的 sheetAction)。
+      規則留在 removeOpBtn() 裡的話,第三處只能複製一份 —— 那就是兩份真相。
+   回傳 "del"=自訂可本機刪／"perm"=內建未標記可標記移除／""=不給任何移除入口。 */
+function removeOpKind(p){
   if(!p)return "";
-  if(p.source==="custom")
+  if(p.source==="custom")return "del";
+  if(p.source==="builtin"&&!permanentRemovedUids.includes(p.uid))return "perm";
+  return "";
+}
+function removeOpBtn(p){
+  const k=removeOpKind(p);
+  if(k==="del")
     return `<button class="btn btn-danger" data-del="${p.uid}">🗑 刪除本機自訂景點</button>`;
-  if(p.source==="builtin"&&!permanentRemovedUids.includes(p.uid))
+  if(k==="perm")
     return `<button class="btn btn-danger" data-permremove="${p.uid}">🗑 下次發布時移除正式景點</button>`;
   return "";
 }
@@ -74067,14 +74113,46 @@ F("fGPS").addEventListener("click",()=>{
   },()=>alert("GPS 取得失敗(http 環境會被擋),可改手動輸入。"),
   {enableHighAccuracy:true,timeout:10000});
 });
-function parseRange(s){
-  s=String(s||"").trim();if(!s)return null;
-  const m=s.match(/^(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})$/);
-  if(!m)return undefined; /* 有填但格式錯 */
-  const h1=+m[1],mi1=+m[2],h2=+m[3],mi2=+m[4];
-  if(h1>23||h2>23||mi1>59||mi2>59)return undefined;
-  if(h1*60+mi1>=h2*60+mi2)return undefined;
-  return[`${pad(h1)}:${m[2]}`,`${pad(h2)}:${m[4]}`];
+/* v29m T66:**一格**時間的寬鬆解析。使用者原話「不用去記憶格式是什麼」——
+   所以下列寫法一律都收,存進去一律正規化成 HH:MM:
+     0830 / 830 / 8:30 / 08:30 / 8．30 / 8-30 / ８３０(全形數字) → "08:30"
+     8 / 08 → "08:00"(只打小時視為整點;⛔ 這一項工單沒列,是施工端加的,已在回報登記)
+   ⛔ 不收:非數字、時 > 23、分 > 59。
+   回傳三態,⛔ 不可合併:
+     null      = 這一格是空的(沒填)
+     undefined = 有填但看不懂/超範圍(要擋下)
+     "HH:MM"   = 合法
+   ⚠️ 舊的 parseRange()(一格吃 "09:00-12:00")已無呼叫點,本批一併砍掉 ——
+      留著會變成第二份時間解析真相。 */
+function parseHM(s){
+  s=String(s==null?"":s).trim();
+  if(!s)return null;
+  /* 全形數字轉半形;全形/半形的句點、冒號、連字號、波浪、空白 一律當分隔 */
+  s=s.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+     .replace(/[．。：:\-–—~～－.\s]+/g,":");
+  let h,mi,m;
+  if((m=s.match(/^(\d{1,2}):(\d{1,2})$/))){h=+m[1];mi=+m[2]}
+  else if(/^\d{3,4}$/.test(s)){h=+s.slice(0,s.length-2);mi=+s.slice(-2)}
+  else if(/^\d{1,2}$/.test(s)){h=+s;mi=0}
+  else return undefined;
+  if(h>23||mi>59)return undefined;
+  return pad(h)+":"+pad(mi);
+}
+/* v29m T66:一個時段的兩格 → 一個 range。
+   回傳:null=兩格都空(這個時段沒填,⛔ 不報錯)／{err}=擋下並附訊息／["HH:MM","HH:MM"]=合法。
+   ⚠️ 訊息要講清楚**是哪一格**壞掉 —— 舊訊息「營業時間格式錯誤,範例:09:00-12:00」
+      在兩格制底下已經不成立(不再有橫線格式),而且它不告訴使用者是時段1 還是時段2。 */
+function parseRangePair(a,b,標籤){
+  const A=parseHM(a),B=parseHM(b);
+  if(A===null&&B===null)return null;                 /* 兩格都空 = 沒填這個時段 */
+  if(A===undefined||B===undefined)
+    return {err:`${標籤}的${A===undefined?"開始":"結束"}時間看不懂:「${String(A===undefined?a:b).trim()}」\n`
+      +`打 0830、830、8:30、08:30 都可以,時要在 0~23、分要在 0~59。`};
+  if(A===null||B===null)
+    return {err:`${標籤}的開始與結束要一起填,或一起留空。\n目前只填了${A===null?"結束":"開始"}。`};
+  if(toMin(A)>=toMin(B))
+    return {err:`${標籤}的結束時間要晚於開始時間。\n目前是 ${A} 到 ${B}。`};
+  return [A,B];
 }
 function fillForm(p){
   const isHotel=!!(p&&p.type==="hotel");
@@ -74104,9 +74182,14 @@ function fillForm(p){
     ?(SCHED_TYPES.includes(p.schedType)?p.schedType:(p.open?"hours":"unknown"))
     :"hours";
   F("fSched").closest(".frow").hidden=isHotel;
+  /* v29m T66:🔴 既有 open.ranges 要**拆回四個框**。
+     漏掉這一步的話,編輯既有景點按下儲存會把時段清空**而且不報錯** ——
+     因為四個框都是空的,parseRangePair() 會判成「這個時段沒填」。 */
   const rs=p&&p.open?p.open.ranges:[];
-  F("fH1").value=rs[0]?rs[0][0]+"-"+rs[0][1]:"";
-  F("fH2").value=rs[1]?rs[1][0]+"-"+rs[1][1]:"";
+  F("fH1a").value=rs[0]?rs[0][0]:"";
+  F("fH1b").value=rs[0]?rs[0][1]:"";
+  F("fH2a").value=rs[1]?rs[1][0]:"";
+  F("fH2b").value=rs[1]?rs[1][1]:"";
   const cl=new Set(p&&p.open?p.open.closed:[]);
   document.querySelectorAll("#fClosed input").forEach(cb=>cb.checked=cl.has(+cb.value));
   syncSchedRows();
@@ -74388,8 +74471,12 @@ document.getElementById("fSave").addEventListener("click",()=>{
   const sched=F("fSched").value;
   let ranges=[],closed=[],open=null,hours="—",schedType=sched;
   if(!isHotel&&sched==="hours"){
-    const r1=parseRange(F("fH1").value),r2=parseRange(F("fH2").value);
-    if(r1===undefined||r2===undefined){alert("營業時間格式錯誤,範例:09:00-12:00");return}
+    /* v29m T66:一格拆兩格 ＋ 寬鬆解析。⛔ alert 呼叫點數量未變(一句換一句),
+       只是內容從「營業時間格式錯誤,範例:09:00-12:00」換成講清楚是哪一格壞掉。 */
+    const r1=parseRangePair(F("fH1a").value,F("fH1b").value,"時段1");
+    const r2=parseRangePair(F("fH2a").value,F("fH2b").value,"時段2");
+    const 壞=(r1&&r1.err)||(r2&&r2.err);
+    if(壞){alert(壞);return}
     ranges=[r1,r2].filter(Boolean);
     if(!ranges.length){alert("「固定營業時間」需至少填時段1;或改選其他時間類型。");return}
     closed=[...document.querySelectorAll("#fClosed input:checked")].map(cb=>+cb.value);
@@ -75488,8 +75575,25 @@ function renderPlaceSheet(){
     <div class="sheetGroup"><div class="sheetGroupTitle">顯示狀態</div>
       ${exc?`<button class="sheetAction" data-sheet-action="restore">✅ 恢復顯示</button>`
            :`<button class="sheetAction" data-sheet-action="exclude">🚫 暫時隱藏</button>`}</div>
-    ${isC?`<div class="sheetGroup"><div class="sheetGroupTitle">危險操作</div>
-      <button class="sheetAction sheetAction-danger" data-sheet-action="delete">🗑 永久刪除景點</button></div>`:""}`;
+    ${sheetRemoveGroup(p)}`;
+}
+/* v29m T66:底部抽屜的「危險操作」區 —— 🔴 批次10 漏掉的**第三個移除入口**。
+   ⛔ 判定一律走 removeOpKind()(與管理清單、尚未設定座標頁同一份規則),
+      這裡只決定「長什麼樣子」與「掛哪一種委派」。
+   ⚠️ 抽屜的委派掛在 $sheet 上,**接不到 managePanel 的 data-permremove**,
+      所以內建那條走新增的 data-sheet-action="permremove" 分支 ——
+      ⛔ 分支裡呼叫的仍是**既有的 permRemove()**,一行移除邏輯都沒有新寫。
+   ⚠️ 自訂那顆「🗑 永久刪除景點」逐字元未動(含 class 與 data-sheet-action="delete")。
+   ⚠️ 已標記下次發布移除的內建景點⛔ 不出現 —— 與另外兩個入口同語意。 */
+function sheetRemoveGroup(p){
+  const k=removeOpKind(p);
+  const btn=k==="del"
+    ?`<button class="sheetAction sheetAction-danger" data-sheet-action="delete">🗑 永久刪除景點</button>`
+    :k==="perm"
+    ?`<button class="sheetAction sheetAction-danger" data-sheet-action="permremove">🗑 下次發布時移除正式景點</button>`
+    :"";
+  return btn?`<div class="sheetGroup"><div class="sheetGroupTitle">危險操作</div>
+      ${btn}</div>`:"";
 }
 function openCoordSheet(){
   sheetView="coord";renderPlaceSheet();
@@ -75680,6 +75784,11 @@ $sheet.addEventListener("click",e=>{
   if(act==="exclude"){if(excludePlace(uid))closePlaceSheet();return}
   if(act==="restore"){if(restorePlace(uid))closePlaceSheet();return}
   if(act==="delete"){deletePlace(uid);if(!byUid[uid])closePlaceSheet();return}
+  /* v29m T66:內建景點的移除入口(批次10 漏掉的第三處)。
+     ⛔ 呼叫的是**既有的 permRemove()** —— 確認框、交易式存檔、還原全部沿用,這裡一行都沒新寫。
+     標記成功後該 uid 會被 buildAll() 的 permSet 濾出 ALLP,byUid 找不到它 → 關掉抽屜
+     (與上面 delete 那條同樣的收尾寫法)。 */
+  if(act==="permremove"){permRemove(uid);if(!byUid[uid])closePlaceSheet();return}
   if(act==="coord-gps"){sheetCoordGPS(uid);return}
   if(act==="coord-save"){sheetCoordSave(uid);return}
   if(act==="coord-clear"){
