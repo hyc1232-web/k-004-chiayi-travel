@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════
  旅遊吃玩導航｜第二十九版(V29 開發中:共享行程 —— 家人打開網址就有,不用匯入;產出檔自己烙行程)｜2026-08-04
- 本檔最新版本:APP_RELEASE = 29m(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
+ 本檔最新版本:APP_RELEASE = 29n(以程式內 const APP_RELEASE 為準;l 與 o 已跳過,避免與 1、0 混淆;f 於 V28f 上線檔用掉,見 V28 批次7 沿革)
  上一版:嘉義吃玩導航 第二十一版(2026-07-19,a915363a…)
  版本狀態:V28 定版(2026-08-04)已封版;V29 開發中,全台二十二縣市六萬九千八百七十筆,外部景點含營業時間,上線檔由腳本直接產出、版號帶 -P;回退鏈見 CC 資料夾各版回滾點
  v22B(2026-07-22,同 APP_VERSION 22):景點搜尋、新增自動帶目前縣市、
@@ -1058,6 +1058,27 @@
    ⚠️ 舊的 parseRange() 已無呼叫點(橫線格式不再存在),**一併砍掉,⛔ 不留死碼** ——
      留著會變成第二份時間解析真相,下一個接手的人會不知道該改哪一支。
    ⚠️ 這是十項使用回報的第八項與第十項;**第九項經查已由批次11 自然解決,⛔ 不在本批。**
+ ═══ V29 批次13(2026-08-06,APP_RELEASE=29n):管理清單依來源分四組(T67)═══
+   使用者原話:「找一筆內建景點,再圖2 應該多一欄位 內建景點,
+     因為這個步驟 我還要去翻找EXCEL的資料 才能驗證」
+   🔴 **改版前那個標題「系統內建景點(69880)」是錯的** —— 那 69,880 筆混了三種來源:
+     原始內建 22 筆／自建店家 10 筆(T62)／OSM 抓的 69,848 筆。
+     標題把三種講成一種,使用者要驗那 22 筆只好去翻 Excel 對名字。
+   ➡️ 批次11(T65)已經在**卡片**上把三種分開了,**⛔ 管理清單的分組沒跟上** ——
+     同一個資訊在兩個地方,只改了一邊。發現者:客戶。
+   做法:renderManage() 的 manageTab==="list" 分支,兩組改四組 ——
+     內建景點(22)／自建店家(10)／OSM 景點(69,848)／本機自訂景點(依使用者)。
+   ⚠️ **順序刻意把稀有的排前面**:使用者要找的就是前兩組那 32 筆(0.046%),
+     排在六萬多筆後面等於要捲 699 頁。⛔ 做成分組不是分頁 —— 不多一次點擊。
+   🔴 新增 srcKind(p):**來源判定全檔唯一那一份**,srcChip() 與 renderManage() 共用。
+     ⛔ 沒有寫第三份;srcChip() 吐出來的字串逐字元未變(只抽共用,不改行為)。
+   ⛔ **removeOpKind() ⛔ 未併入** —— 它判的是「能不能移除」不是「來源」:
+     還要看 permanentRemovedUids(使用者狀態),且把 builtin 三種全歸成同一個 "perm",
+     併了四組會塌回兩組。
+   ⚠️ 0 筆的組**連標題都不出現**(搜尋／區域篩完某組變 0 是常態);
+     例外是「本機自訂景點」,0 筆時沿用既有那句「尚無自訂景點。」⛔ 一字未改。
+   ⛔ manageSection() 本身未動(它本來就逐組套 RENDER_MAX),⛔ 沒新增分頁、
+     沒新增 <style> 區塊、沒新增畫面說明句。
  本版摘要(v22A,依第二階段實作工單;GS-P08 待使用者裁決):
   1. 系統名稱固定「旅遊吃玩導航」,與旅行標題(settings.title)分離
   2. 景點加 city(未知存"")/area 欄;內建22筆寫死;自訂經 addr 解析回退
@@ -72540,7 +72561,7 @@ const BUILTIN_UIDS=new Set(PLACES.map(p=>p.uid));
 
 /* ═══ 2. 持久化狀態(開機載入即過正規化,群組修正:壞資料不進系統) ═══ */
 const APP_VERSION=23;             /* 程式版本(與資料格式版本分離);v23:22→23 */
-const APP_RELEASE="29m";          /* V29 批次12 開發期(字尾 m;🔴 刻意跳過 l —— 小寫 L 與數字 1 在畫面版號上分不出來,見 DECISIONS D37),封版才拿掉 */
+const APP_RELEASE="29n";          /* V29 批次13 開發期(字尾 n;🔴 l 已永久跳過 —— 小寫 L 與數字 1 在畫面版號上分不出來,見 DECISIONS D37),封版才拿掉 */
 const FIELD_RADIUS_KM=0.5;        /* v25 T41:現場模式半徑(km)。依據:嘉義市最遠僅 5.5km,2km 還剩 68% 篩不掉東西;500m 約 70~80 筆,也正好是帶小孩走得到的範圍 */
 /* v28c T45:「現在適合去」的車程上限(分鐘)。
    ⚠️ 與上面 T41 的 FIELD_RADIUS_KM 是兩個不同用途的「附近」定義,不要互相套用:
@@ -72779,19 +72800,43 @@ const 區域內=p=>{
 const visList=()=>ALLP.filter(p=>!excluded.has(p.uid)&&區域內(p));
 const catCls=p=>
   ({正餐:"c-meal",點心:"c-snack",親子:"c-kids",景點:"c-spot",住宿:"c-stay",購物:"c-shop"}[p.mainCat]||"c-other");
+/* v29n T67:**這一筆是哪一種來源** —— 全檔唯一的那一份判定。
+   🔴 抽出來的理由:批次11 的 srcChip()(卡片上標「內建」「自建」)與本批的
+      renderManage()(管理清單分四組)問的是**同一個問題**。各寫一份的話,
+      哪天多一種來源(ORIGINS 已預留 "unknown")只會改到一邊 ——
+      卡片說 A、清單說 B,而且**兩邊都不會報錯**。
+   回傳 "custom"=本機自訂／"manual"=自建店家(T62 那 10 家)／"osm"=OSM 抓的／
+        "builtin"=原始內建那 22 筆／""=判不出來(⛔ 現行資料走不到,buildAll() 只給這兩種 source)。
+   ⚠️ **custom 要先判,⛔ 不可與 origin 對調** —— 使用者在 APP 裡新增的景點是
+      source:"custom" ＋ origin:"manual"(見新增景點那段與 normalizePlace() 的預設值),
+      先看 origin 會把本機自訂誤判成「自建店家」。
+   ⚠️ origin 有值但不在 ORIGINS 值域時一律歸 "builtin",⛔ 不另開第五種 —— 那是資料異常,
+      不是新來源;要加新來源必須先同步登記 ORIGINS(D22 第四道)。
+   ⛔ 這裡只判來源,**不判「能不能移除」** —— 那是 removeOpKind() 的事,兩者⛔ 不併:
+      它還要看 permanentRemovedUids(使用者狀態,與來源無關),
+      而且它把 builtin 三種**全歸成同一個 "perm"** —— 併了分組會塌回兩組。 */
+function srcKind(p){
+  if(!p)return "";
+  if(p.source==="custom")return "custom";
+  if(p.source!=="builtin")return "";
+  if(p.origin==="osm")return "osm";
+  if(p.origin==="manual")return "manual";
+  return "builtin";
+}
 /* v29k T65:卡片頭的來源標記。⛔ 只標稀有的那 32 筆,OSM 那 69,848 筆(99.96%)不標 ——
    每張卡都掛等於全部都掛,那不是資訊是噪音。
    ⛔ 自訂那顆是既有的 stChip-c,一字未改,所以這裡只處理 builtin 三種。
    ⚠️ 沿用既有 stChip,⛔ 未新增任何樣式規則(樣式區逐位元組未動):
       「自建」用 stChip-c(與「自訂」同色系 —— 兩者都是使用者自己建的),
       「內建」用 stChip 預設色,兩者視覺上分得開。
-   ⚠️ origin 有值但不在 ORIGINS 值域時一律歸「內建」,⛔ 不另開第四種 —— 那是資料異常,
-      不是新來源;要加新來源必須先同步登記 ORIGINS(D22 第四道)。 */
+   ⚠️ v29n T67:判定改吃 srcKind(),**吐出來的字串逐字元未變**(⛔ 只抽共用,不改行為);
+      原本第一行的 source!=="builtin" 現在由 srcKind() 回 "custom"／"" 承接,
+      兩者都落到最後那個 return ""。 */
 function srcChip(p){
-  if(!p||p.source!=="builtin")return "";
-  if(p.origin==="osm")return "";
-  if(p.origin==="manual")return `<span class="stChip stChip-c">自建</span>`;
-  return `<span class="stChip">內建</span>`;
+  const k=srcKind(p);
+  if(k==="manual")return `<span class="stChip stChip-c">自建</span>`;
+  if(k==="builtin")return `<span class="stChip">內建</span>`;
+  return "";
 }
 
 /* ═══ 4. 營業/抵達狀態(v4 邏輯+scheduleType) ═══ */
@@ -73860,9 +73905,23 @@ function renderManage(){
           使用者搜到重複之後得在六萬多筆裡自己捲著找。
        ⛔ 搜尋比對沒有另寫一份,直接呼叫既有的 applySearch();區域用從 visList() 抽出來的 區域內()。 */
     const base=applySearch(ALLP.filter(區域內));
-    const bs=base.filter(p=>p.source==="builtin"),cs=base.filter(p=>p.source==="custom");
-    $l.innerHTML=manageSection("系統內建景點",bs)
-      +manageSection("自訂景點",cs,`<div class="meta">尚無自訂景點。</div>`);
+    /* v29n T67:依來源分**四組**。
+       🔴 改版前這裡只分兩組,而且第一組叫「系統內建景點(69880)」—— **那個標題是錯的**:
+          那 69,880 筆混了三種(原始內建 22／自建店家 10／OSM 69,848),
+          使用者要找那 22 筆得去翻 Excel 對名字。T65 已經在**卡片**上分開了,清單沒跟上。
+       ⛔ 判定沿用 srcKind()(與卡片的 srcChip() 同一份),⛔ 不另寫一份。
+       ⚠️ 順序刻意把**稀有的排前面** —— 使用者要找的就是前兩組那 32 筆(0.046%),
+          排在 OSM 六萬多筆後面等於要捲 699 頁,那不是麻煩,是找不到。
+       ⚠️ 0 筆的組**連標題都不出現** —— 搜尋或區域篩完某組變 0 是常態,
+          留一排「XXX(0)」是噪音不是資訊。
+       ⚠️ 例外:「本機自訂景點」0 筆時仍出現,沿用既有那句「尚無自訂景點。」(⛔ 一字未改)。
+       ⛔ manageSection() 本身未動 —— 它本來就逐組套 RENDER_MAX,分四組只是多呼叫兩次。 */
+    const 組={builtin:[],manual:[],osm:[],custom:[]};
+    base.forEach(p=>{const k=srcKind(p);if(組[k])組[k].push(p)});
+    $l.innerHTML=(組.builtin.length?manageSection("內建景點",組.builtin):"")
+      +(組.manual.length?manageSection("自建店家",組.manual):"")
+      +(組.osm.length?manageSection("OSM 景點",組.osm):"")
+      +manageSection("本機自訂景點",組.custom,`<div class="meta">尚無自訂景點。</div>`);
   }
   if(manageTab==="excluded"){
     const ex=ALLP.filter(p=>excluded.has(p.uid));
