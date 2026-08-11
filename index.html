@@ -143,6 +143,10 @@
     .gps-origin-tile { min-height: 68px; border-color: #87bdaa; background: #f3fbf7; }
     .gps-origin-tile[disabled] { cursor: wait; opacity: .72; }
     .gps-origin-detail { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; font-weight: 750; line-height: 1.4; overflow-wrap: anywhere; }
+    .planner-location-error { display: grid; gap: 8px; padding: 12px; border: 2px solid #e3a45e; border-radius: 14px; background: #fff8ee; color: #6d3b0d; overflow-wrap: anywhere; }
+    .planner-location-error strong { line-height: 1.45; }
+    .planner-location-error p { margin: 0; color: #765334; font-size: .84rem; line-height: 1.55; }
+    .planner-location-retry { min-height: 48px; border: 2px solid #bc6d20; border-radius: 12px; background: #fff; color: #7a3f08; font-weight: 900; cursor: pointer; }
     .mock-note { display: block; color: var(--muted); font-size: .8rem; font-weight: 500; margin-top: 2px; }
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .custom-time { display: flex; gap: 8px; margin-top: 9px; align-items: center; }
@@ -153,7 +157,6 @@
     .timeline-panel { padding: 22px; }
     .timeline-panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 18px; }
     .timeline-panel-head h3 { margin: 0; }
-    .end-time { padding: 7px 10px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-dark); font-size: .82rem; font-weight: 900; white-space: nowrap; }
     .timeline { display: grid; justify-items: stretch; }
     .origin-card, .stop-card { border: 1px solid var(--line); border-radius: 20px; background: #fff; padding: 18px; }
     .origin-card { border-color: #abd2c3; background: linear-gradient(140deg, #fff, var(--brand-soft)); }
@@ -376,7 +379,6 @@
       .next-button { min-width: 0; }
       .itinerary-heading { align-items: flex-start; flex-direction: column; }
       .itinerary-heading-actions { width: 100%; align-items: stretch; flex-direction: column; }
-      .itinerary-heading .end-time { align-self: flex-start; padding: 9px 12px; font-size: .9rem; }
       .itinerary-heading .secondary-button { width: 100%; }
       .timeline-panel-head { align-items: flex-start; flex-direction: column; }
       .time-highlight { grid-template-columns: 1fr 1fr; }
@@ -475,7 +477,6 @@
       <div class="itinerary-heading">
         <div><h2>今日導遊行程單</h2><p>先設定出發，再沿著時間軸確認每一站。</p></div>
         <div class="itinerary-heading-actions">
-          <span class="end-time" id="endTimeBadge"></span>
           <button class="secondary-button" id="backToSelection" type="button">← 返回選景點</button>
         </div>
       </div>
@@ -611,6 +612,7 @@
     let plannerCurrentLocation = null;
     let plannerLocationStatus = 'idle';
     let plannerLocationMessage = '';
+    let plannerLocationDetail = '';
     let itineraryStops = [];
     let openAdjustIndex = -1;
     let customActivityOpenIndex = -1;
@@ -663,6 +665,25 @@
       return '此開啟方式目前無法使用定位，請改用可使用定位的瀏覽環境，或先選固定出發地。';
     }
 
+    function plannerLocationErrorCopy(error) {
+      if (error?.code === 1) return {
+        title: '定位權限未允許',
+        detail: '請允許此網站使用位置後，再重新定位。'
+      };
+      if (error?.code === 2) return {
+        title: '無法取得目前位置',
+        detail: '請確認手機定位功能已開啟，或改用其他出發地。'
+      };
+      if (error?.code === 3) return {
+        title: '定位逾時',
+        detail: '目前 GPS 訊號可能較弱，請稍後再試。'
+      };
+      return {
+        title: '此開啟方式目前無法使用定位',
+        detail: '請改用可使用定位的瀏覽環境，或先選固定出發地。'
+      };
+    }
+
     function testLocationResult() {
       const successPoints = [
         { latitude: 23.4800, longitude: 120.4400, accuracy: 20 },
@@ -670,6 +691,7 @@
       ];
       if (gpsTestMode === 'success') return { coords: successPoints[Math.min(gpsTestRequestCount - 1, successPoints.length - 1)] };
       if (gpsTestMode === 'success-then-denied') return gpsTestRequestCount === 1 ? { coords: successPoints[0] } : { error: { code: 1 } };
+      if (gpsTestMode === 'denied-then-success') return gpsTestRequestCount === 1 ? { error: { code: 1 } } : { coords: successPoints[0] };
       if (gpsTestMode === 'denied') return { error: { code: 1 } };
       if (gpsTestMode === 'unavailable') return { error: { code: 2 } };
       if (gpsTestMode === 'timeout') return { error: { code: 3 } };
@@ -896,29 +918,39 @@
         locationTitle = '✓ 📍 目前位置';
         locationDetail = `精度約 ${plannerCurrentLocation.accuracy} 公尺・${formatCapturedTime(plannerCurrentLocation.capturedAt)} 更新・點此重新定位`;
       } else if (plannerLocationStatus === 'error') {
-        locationTitle = '📍 再試一次';
-        locationDetail = `${plannerLocationMessage}${plannerCurrentLocation ? ` 已保留 ${formatCapturedTime(plannerCurrentLocation.capturedAt)} 的成功位置。` : ''}`;
+        locationTitle = '📍 使用目前位置';
+        locationDetail = plannerCurrentLocation
+          ? `已保留 ${formatCapturedTime(plannerCurrentLocation.capturedAt)} 的成功位置；請查看下方提示。`
+          : '定位未完成；請查看下方提示，或改用固定出發地。';
       }
       const locationButton = `<button class="origin-tile gps-origin-tile" type="button" data-planner-location aria-pressed="${originId === 'current-location'}" ${plannerLocationStatus === 'locating' ? 'disabled' : ''}><strong>${locationTitle}</strong><span class="gps-origin-detail">${locationDetail}</span></button>`;
+      const locationError = plannerLocationStatus === 'error'
+        ? `<div class="planner-location-error" role="alert"><strong>⚠️ ${plannerLocationMessage}</strong><p>${plannerLocationDetail}</p><button class="planner-location-retry" type="button" data-planner-location-retry>📍 再試一次</button></div>`
+        : '';
       const fixedButtons = origins.map((origin) => `<button class="origin-tile" type="button" data-origin="${origin.id}" aria-pressed="${origin.id === originId}">${origin.icon} ${origin.name}<span class="mock-note">示意地點</span></button>`).join('');
-      originGrid.innerHTML = `${locationButton}${fixedButtons}`;
+      originGrid.innerHTML = `${locationButton}${locationError}${fixedButtons}`;
     }
 
     function requestPlannerLocation() {
       plannerLocationStatus = 'locating';
       plannerLocationMessage = '';
+      plannerLocationDetail = '';
       renderOrigins();
       requestSingleLocation((position) => {
         plannerCurrentLocation = plannerLocationFromPosition(position);
         plannerLocationStatus = 'success';
+        plannerLocationMessage = '';
+        plannerLocationDetail = '';
         originId = 'current-location';
         renderPlanner();
         showToast('已使用目前位置重新估算第一段車程。');
       }, (error) => {
+        const errorCopy = plannerLocationErrorCopy(error);
         plannerLocationStatus = 'error';
-        plannerLocationMessage = locationErrorMessage(error);
+        plannerLocationMessage = errorCopy.title;
+        plannerLocationDetail = errorCopy.detail;
         renderOrigins();
-        showToast(plannerLocationMessage);
+        showToast(`${plannerLocationMessage}，請查看定位區塊。`);
       });
     }
 
@@ -950,7 +982,6 @@
     function renderTimeline() {
       const schedule = calculateSchedule();
       const origin = originPointById(originId);
-      byId('endTimeBadge').textContent = `預計 ${formatTime(schedule.endMin)} 結束`;
       byId('timelineTitle').textContent = displayItineraryName();
       byId('timelineDate').textContent = `📅 ${displayDate()}`;
       timeline.innerHTML = `<article class="origin-card"><strong>${origin.icon} ${origin.name}</strong><span>${itineraryStartTime} 出發</span><small class="mock-note">${origin.id === 'current-location' ? '單次定位・只存在本頁' : '原型假資料出發地'}</small></article>${schedule.items.map((item, index) => `
@@ -1060,7 +1091,7 @@
     });
 
     originGrid.addEventListener('click', (event) => {
-      const currentLocationButton = event.target.closest('[data-planner-location]');
+      const currentLocationButton = event.target.closest('[data-planner-location], [data-planner-location-retry]');
       const button = event.target.closest('[data-origin]');
       if (currentLocationButton) {
         requestPlannerLocation();
@@ -1068,6 +1099,9 @@
       }
       if (!button) return;
       originId = button.dataset.origin;
+      plannerLocationStatus = 'idle';
+      plannerLocationMessage = '';
+      plannerLocationDetail = '';
       renderPlanner();
     });
 
